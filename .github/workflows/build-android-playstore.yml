@@ -39,6 +39,7 @@ jobs:
           java-version: '17'
 
       - name: Prepare signing keystore
+        id: signing
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -49,6 +50,7 @@ jobs:
             echo "$KEYSTORE_BASE64" | base64 -d > android/app/upload-keystore.jks
             STORE_PASS="$KEYSTORE_PASSWORD"
             KEY_PASS="$KEY_PASSWORD"
+            echo "generated=false" >> $GITHUB_OUTPUT
           else
             echo "Generation automatique du keystore (premiere fois)"
             STORE_PASS="emmapp_keystore_2026"
@@ -57,6 +59,7 @@ jobs:
               -keyalg RSA -keysize 2048 -validity 10000 \
               -storepass "$STORE_PASS" -keypass "$KEY_PASS" \
               -dname "CN=EMMAPP Mobile, OU=Mobile, O=EMMAPP, L=Kinshasa, C=CD"
+            echo "generated=true" >> $GITHUB_OUTPUT
           fi
           cat > android/key.properties << EOF
           storePassword=$STORE_PASS
@@ -66,7 +69,7 @@ jobs:
           EOF
 
       - name: Upload keystore backup (if auto-generated)
-        if: ${{ !secrets.ANDROID_KEYSTORE_BASE64 }}
+        if: steps.signing.outputs.generated == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: emmapp-keystore-BACKUP
@@ -89,10 +92,12 @@ jobs:
           retention-days: 30
 
       - name: Summary
+        if: steps.signing.outputs.generated == 'true'
+        run: |
+          echo "### Keystore auto-genere" >> $GITHUB_STEP_SUMMARY
+          echo "Telechargez **emmapp-keystore-BACKUP** et conservez-le. Mot de passe : emmapp_keystore_2026" >> $GITHUB_STEP_SUMMARY
+
+      - name: Summary AAB
         run: |
           echo "### AAB genere avec succes" >> $GITHUB_STEP_SUMMARY
           echo "Telechargez **emmapp-release-aab** pour Google Play Console." >> $GITHUB_STEP_SUMMARY
-          if [ -z "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "**IMPORTANT** : Telechargez aussi **emmapp-keystore-BACKUP** et conservez-le precieusement." >> $GITHUB_STEP_SUMMARY
-          fi
