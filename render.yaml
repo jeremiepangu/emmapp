@@ -1,20 +1,45 @@
+# Deploiement 100% cloud — UN SEUL CLIC Render
 # https://render.com/docs/blueprint-spec
+
+databases:
+  - name: emmapp-db
+    databaseName: emmapp
+    user: emmapp
+    plan: free
+
 services:
+  # ── API NestJS ──
   - type: web
     name: emmapp-api
     runtime: node
+    plan: free
     rootDir: backend
-    buildCommand: npm install && npm run build
-    startCommand: npm run start:cloud
+    buildCommand: npm install && npx prisma generate && npm run build && npx prisma db push && npm run prisma:seed
+    startCommand: npm run start:prod
     healthCheckPath: /api/v1/health
     envVars:
       - key: NODE_VERSION
         value: "22"
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: emmapp-db
+          property: connectionString
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_EXPIRES_IN
         value: 8h
-      - key: PORT
-        value: "10000"
+
+  # ── Back-office + Mobile web (statique) ──
+  - type: web
+    name: emmapp-web
+    runtime: static
+    plan: free
+    rootDir: backoffice
+    buildCommand: npm install && VITE_API_URL=https://$API_HOST/api/v1 npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: API_HOST
+        fromService:
+          type: web
+          name: emmapp-api
+          property: host

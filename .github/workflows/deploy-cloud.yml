@@ -1,0 +1,125 @@
+name: Deploiement cloud complet
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  actions: write
+
+concurrency:
+  group: deploy-cloud
+  cancel-in-progress: false
+
+jobs:
+  # ── Build Android AAB (Google Play) ──
+  android:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.27.1'
+          channel: stable
+          cache: true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Prepare keystore
+        id: signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          mkdir -p android/app
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > android/app/upload-keystore.jks
+            SP="$KEYSTORE_PASSWORD"
+            KP="$KEY_PASSWORD"
+            echo "generated=false" >> $GITHUB_OUTPUT
+          else
+            SP="emmapp_keystore_2026"
+            KP="emmapp_keystore_2026"
+            keytool -genkey -v -keystore android/app/upload-keystore.jks -alias upload \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass "$SP" -keypass "$KP" \
+              -dname "CN=EMMAPP, OU=Mobile, O=EMMAPP, L=Kinshasa, C=CD"
+            echo "generated=true" >> $GITHUB_OUTPUT
+          fi
+          printf 'storePassword=%s\nkeyPassword=%s\nkeyAlias=upload\nstoreFile=upload-keystore.jks\n' "$SP" "$KP" > android/key.properties
+      - run: flutter pub get
+      - name: Build AAB
+        run: |
+          API="${{ vars.API_URL || 'https://emmapp-api.onrender.com/api/v1' }}"
+          flutter build appbundle --release --dart-define=API_URL=$API
+      - uses: actions/upload-artifact@v4
+        with:
+          name: emmapp-release-aab
+          path: mobile/build/app/outputs/bundle/release/app-release.aab
+          retention-days: 90
+      - if: steps.signing.outputs.generated == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: emmapp-keystore-BACKUP
+          path: mobile/android/app/upload-keystore.jks
+          retention-days: 90
+
+  # ── Back-office GitHub Pages (backup si Render indisponible) ──
+  pages:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backoffice
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backoffice/package-lock.json
+      - name: Build
+        env:
+          GITHUB_PAGES: 'true'
+          VITE_API_URL: ${{ vars.API_URL || 'https://emmapp-api.onrender.com/api/v1' }}
+        run: |
+          npm install
+          npm run build
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: backoffice/dist
+  deploy-pages:
+    needs: pages
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    environment:
+      name: github-pages
+      url: ${{ steps.pg.outputs.page_url }}
+    steps:
+      - id: pg
+        uses: actions/deploy-pages@v4
+
+  # ── Instructions Render ──
+  render-hint:
+    runs-on: ubuntu-latest
+    needs: [android, deploy-pages]
+    steps:
+      - name: Resume deploiement
+        run: |
+          echo "## Deploiement cloud EMMAPP" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Fait automatiquement" >> $GITHUB_STEP_SUMMARY
+          echo "- AAB Android pret (artifact emmapp-release-aab)" >> $GITHUB_STEP_SUMMARY
+          echo "- Back-office sur GitHub Pages" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 1 clic restant : Render" >> $GITHUB_STEP_SUMMARY
+          echo "Ouvrez https://dashboard.render.com/select-repo?type=blueprint" >> $GITHUB_STEP_SUMMARY
+          echo "Selectionnez jeremiepangu/emmapp - le fichier render.yaml deploie API + PostgreSQL + Web." >> $GITHUB_STEP_SUMMARY
