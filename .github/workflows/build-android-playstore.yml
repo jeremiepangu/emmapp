@@ -5,11 +5,16 @@ on:
     inputs:
       api_url:
         description: 'URL API production'
-        required: true
+        required: false
         default: 'https://emmapp-api.onrender.com/api/v1'
   push:
     tags:
       - 'v*'
+    branches:
+      - main
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/build-android-playstore.yml'
 
 jobs:
   build:
@@ -33,27 +38,40 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Decode keystore
+      - name: Prepare signing keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-        run: |
-          if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "::error::Secret ANDROID_KEYSTORE_BASE64 manquant. Voir GOOGLE_PLAY.md"
-            exit 1
-          fi
-          echo "$KEYSTORE_BASE64" | base64 -d > android/app/upload-keystore.jks
-
-      - name: Create key.properties
-        env:
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
+          mkdir -p android/app
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > android/app/upload-keystore.jks
+            STORE_PASS="$KEYSTORE_PASSWORD"
+            KEY_PASS="$KEY_PASSWORD"
+          else
+            echo "Generation automatique du keystore (premiere fois)"
+            STORE_PASS="emmapp_keystore_2026"
+            KEY_PASS="emmapp_keystore_2026"
+            keytool -genkey -v -keystore android/app/upload-keystore.jks -alias upload \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass "$STORE_PASS" -keypass "$KEY_PASS" \
+              -dname "CN=EMMAPP Mobile, OU=Mobile, O=EMMAPP, L=Kinshasa, C=CD"
+          fi
           cat > android/key.properties << EOF
-          storePassword=$KEYSTORE_PASSWORD
-          keyPassword=$KEY_PASSWORD
+          storePassword=$STORE_PASS
+          keyPassword=$KEY_PASS
           keyAlias=upload
           storeFile=upload-keystore.jks
           EOF
+
+      - name: Upload keystore backup (if auto-generated)
+        if: ${{ !secrets.ANDROID_KEYSTORE_BASE64 }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: emmapp-keystore-BACKUP
+          path: mobile/android/app/upload-keystore.jks
+          retention-days: 90
 
       - name: Install dependencies
         run: flutter pub get
@@ -73,4 +91,8 @@ jobs:
       - name: Summary
         run: |
           echo "### AAB genere avec succes" >> $GITHUB_STEP_SUMMARY
-          echo "Telechargez l'artifact **emmapp-release-aab** et uploadez-le sur Google Play Console." >> $GITHUB_STEP_SUMMARY
+          echo "Telechargez **emmapp-release-aab** pour Google Play Console." >> $GITHUB_STEP_SUMMARY
+          if [ -z "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**IMPORTANT** : Telechargez aussi **emmapp-keystore-BACKUP** et conservez-le precieusement." >> $GITHUB_STEP_SUMMARY
+          fi
