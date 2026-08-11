@@ -110,7 +110,8 @@ jobs:
   # ── Instructions Render ──
   render-hint:
     runs-on: ubuntu-latest
-    needs: [android, deploy-pages]
+    needs: [android]
+    if: always()
     steps:
       - name: Resume deploiement
         run: |
@@ -118,7 +119,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Fait automatiquement" >> $GITHUB_STEP_SUMMARY
           echo "- AAB Android pret (artifact emmapp-release-aab)" >> $GITHUB_STEP_SUMMARY
-          echo "- Back-office sur GitHub Pages" >> $GITHUB_STEP_SUMMARY
+          echo "- Back-office build (GitHub Pages si repo public)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 1 clic restant : Render" >> $GITHUB_STEP_SUMMARY
           echo "Ouvrez https://dashboard.render.com/select-repo?type=blueprint" >> $GITHUB_STEP_SUMMARY
