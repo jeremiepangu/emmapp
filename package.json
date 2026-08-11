@@ -1,0 +1,16 @@
+{
+  "name": "emmapp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "EMMAPP Mobile - ERP/CRM eau potable",
+  "scripts": {
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "backend:install": "cd backend && npm install",
+    "backend:dev": "cd backend && npm run start:dev",
+    "backend:setup": "cd backend && npx prisma migrate dev --name init && npm run prisma:seed",
+    "backoffice:install": "cd backoffice && npm install",
+    "backoffice:dev": "cd backoffice && npm run dev",
+    "mobile:get": "cd mobile && flutter pub get"
+  }
+}

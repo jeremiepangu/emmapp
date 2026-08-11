@@ -1,0 +1,383 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  DG
+  CHEF_PRODUCTION
+  RESP_QUALITE
+  MAGASINIER
+  LIVREUR
+  COMMERCIAL
+  CAISSIER
+  COMPTABLE
+  RH
+  SUPERVISEUR
+}
+
+enum ClientSegment {
+  PARTICULIER
+  DETAILLANT
+  ENTREPRISE
+  SUPERMARCHE
+}
+
+enum ProductFormat {
+  SACHET
+  BOUTEILLE
+  BIDON_5L
+  BONBONNE_19L
+}
+
+enum OrderStatus {
+  BROUILLON
+  VALIDEE
+  EN_PREPARATION
+  CHARGEE
+  EN_LIVRAISON
+  LIVREE
+  ANNULEE
+}
+
+enum TourStatus {
+  PLANIFIEE
+  EN_CHARGEMENT
+  EN_COURS
+  TERMINEE
+  ANNULEE
+}
+
+enum DeliveryStatus {
+  EN_ATTENTE
+  LIVREE
+  REFUSEE
+  PARTIELLE
+}
+
+enum PaymentMethod {
+  ESPECES
+  CHEQUE
+  VIREMENT
+  MOBILE_MONEY
+  CREDIT
+}
+
+enum SyncStatus {
+  PENDING
+  SYNCED
+  CONFLICT
+  FAILED
+}
+
+enum StockLocationType {
+  MATIERES_PREMIERES
+  PRODUCTION
+  BIDONS_A_TRIER
+  BIDONS_LAVAGE
+  BIDONS_LIBERES
+  PRODUITS_FINIS
+  VEHICULE
+  QUARANTAINE
+  RETRAITEMENT
+  REPARATION
+  REBUT
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  firstName    String   @map("first_name")
+  lastName     String   @map("last_name")
+  phone        String?
+  role         UserRole
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  toursAsDriver    Tour[]     @relation("TourDriver")
+  deliveries       Delivery[]
+  payments         Payment[]
+  auditLogs        AuditLog[]
+  syncEvents       SyncEvent[]
+
+  @@map("users")
+}
+
+model Client {
+  id              String        @id @default(uuid())
+  code            String        @unique
+  name            String
+  segment         ClientSegment
+  address         String?
+  city            String?
+  zone            String?
+  latitude        Float?
+  longitude       Float?
+  phone           String?
+  email           String?
+  creditLimit     Decimal       @default(0) @map("credit_limit") @db.Decimal(12, 2)
+  creditBalance   Decimal       @default(0) @map("credit_balance") @db.Decimal(12, 2)
+  consigneLimit   Int           @default(50) @map("consigne_limit")
+  consigneBalance Int           @default(0) @map("consigne_balance")
+  loyaltyPoints   Int           @default(0) @map("loyalty_points")
+  isActive        Boolean       @default(true) @map("is_active")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+
+  orders     Order[]
+  deliveries Delivery[]
+  consignes  ConsigneMovement[]
+
+  @@map("clients")
+}
+
+model Product {
+  id          String        @id @default(uuid())
+  code        String        @unique
+  name        String
+  format      ProductFormat
+  unitPrice   Decimal       @map("unit_price") @db.Decimal(12, 2)
+  consigneAmount Decimal    @default(0) @map("consigne_amount") @db.Decimal(12, 2)
+  isReusable  Boolean       @default(false) @map("is_reusable")
+  isActive    Boolean       @default(true) @map("is_active")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  stockItems  StockItem[]
+  orderLines  OrderLine[]
+  deliveryLines DeliveryLine[]
+
+  @@map("products")
+}
+
+model StockLocation {
+  id        String            @id @default(uuid())
+  code      String            @unique
+  name      String
+  type      StockLocationType
+  vehicleId String?           @map("vehicle_id")
+  createdAt DateTime          @default(now()) @map("created_at")
+
+  vehicle    Vehicle?    @relation(fields: [vehicleId], references: [id])
+  stockItems StockItem[]
+
+  @@map("stock_locations")
+}
+
+model StockItem {
+  id         String   @id @default(uuid())
+  productId  String   @map("product_id")
+  locationId String   @map("location_id")
+  quantity   Int      @default(0)
+  lotNumber  String?  @map("lot_number")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  product  Product       @relation(fields: [productId], references: [id])
+  location StockLocation @relation(fields: [locationId], references: [id])
+
+  @@unique([productId, locationId, lotNumber])
+  @@map("stock_items")
+}
+
+model Vehicle {
+  id        String   @id @default(uuid())
+  plate     String   @unique
+  name      String
+  capacity  Int      @default(100)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tours     Tour[]
+  locations StockLocation[]
+
+  @@map("vehicles")
+}
+
+model Order {
+  id          String      @id @default(uuid())
+  orderNumber String      @unique @map("order_number")
+  clientId    String      @map("client_id")
+  status      OrderStatus @default(BROUILLON)
+  totalAmount Decimal     @default(0) @map("total_amount") @db.Decimal(12, 2)
+  notes       String?
+  tourId      String?     @map("tour_id")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  client     Client      @relation(fields: [clientId], references: [id])
+  tour       Tour?       @relation(fields: [tourId], references: [id])
+  lines      OrderLine[]
+  deliveries Delivery[]
+
+  @@map("orders")
+}
+
+model OrderLine {
+  id        String  @id @default(uuid())
+  orderId   String  @map("order_id")
+  productId String  @map("product_id")
+  quantity  Int
+  unitPrice Decimal @map("unit_price") @db.Decimal(12, 2)
+  discount  Decimal @default(0) @db.Decimal(12, 2)
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("order_lines")
+}
+
+model Tour {
+  id          String     @id @default(uuid())
+  tourNumber  String     @unique @map("tour_number")
+  zone        String
+  date        DateTime   @db.Date
+  driverId    String     @map("driver_id")
+  vehicleId   String     @map("vehicle_id")
+  status      TourStatus @default(PLANIFIEE)
+  startedAt   DateTime?  @map("started_at")
+  completedAt DateTime?  @map("completed_at")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  driver     User       @relation("TourDriver", fields: [driverId], references: [id])
+  vehicle    Vehicle    @relation(fields: [vehicleId], references: [id])
+  orders     Order[]
+  deliveries Delivery[]
+  loadSheets LoadSheet[]
+
+  @@map("tours")
+}
+
+model LoadSheet {
+  id              String   @id @default(uuid())
+  tourId          String   @map("tour_id")
+  validatedByStore Boolean @default(false) @map("validated_by_store")
+  validatedByDriver Boolean @default(false) @map("validated_by_driver")
+  items           Json
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  tour Tour @relation(fields: [tourId], references: [id])
+
+  @@map("load_sheets")
+}
+
+model Delivery {
+  id              String         @id @default(uuid())
+  deliveryNumber  String         @unique @map("delivery_number")
+  orderId         String         @map("order_id")
+  clientId        String         @map("client_id")
+  tourId          String         @map("tour_id")
+  driverId        String         @map("driver_id")
+  status          DeliveryStatus @default(EN_ATTENTE)
+  deliveredAt     DateTime?      @map("delivered_at")
+  latitude        Float?
+  longitude       Float?
+  signatureUrl    String?        @map("signature_url")
+  photoUrl        String?        @map("photo_url")
+  clientCode      String?        @map("client_code")
+  notes           String?
+  localId         String?        @unique @map("local_id")
+  syncStatus      SyncStatus     @default(SYNCED) @map("sync_status")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  order    Order          @relation(fields: [orderId], references: [id])
+  client   Client         @relation(fields: [clientId], references: [id])
+  tour     Tour           @relation(fields: [tourId], references: [id])
+  driver   User           @relation(fields: [driverId], references: [id])
+  lines    DeliveryLine[]
+  payments Payment[]
+
+  @@map("deliveries")
+}
+
+model DeliveryLine {
+  id           String  @id @default(uuid())
+  deliveryId   String  @map("delivery_id")
+  productId    String  @map("product_id")
+  qtyDelivered Int     @map("qty_delivered")
+  qtyReturned  Int     @default(0) @map("qty_returned")
+  qtyDamaged   Int     @default(0) @map("qty_damaged")
+  qtyRefused   Int     @default(0) @map("qty_refused")
+  unitPrice    Decimal @map("unit_price") @db.Decimal(12, 2)
+
+  delivery Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id])
+
+  @@map("delivery_lines")
+}
+
+model ConsigneMovement {
+  id          String   @id @default(uuid())
+  clientId    String   @map("client_id")
+  deliveryId  String?  @map("delivery_id")
+  productFormat ProductFormat @map("product_format")
+  qtyIn       Int      @default(0) @map("qty_in")
+  qtyOut      Int      @default(0) @map("qty_out")
+  balanceAfter Int     @map("balance_after")
+  notes       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  client Client @relation(fields: [clientId], references: [id])
+
+  @@map("consigne_movements")
+}
+
+model Payment {
+  id          String        @id @default(uuid())
+  paymentNumber String      @unique @map("payment_number")
+  deliveryId  String?       @map("delivery_id")
+  clientId    String?       @map("client_id")
+  amount      Decimal       @db.Decimal(12, 2)
+  method      PaymentMethod
+  reference   String?
+  collectedBy String        @map("collected_by")
+  localId     String?       @unique @map("local_id")
+  syncStatus  SyncStatus    @default(SYNCED) @map("sync_status")
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  delivery  Delivery? @relation(fields: [deliveryId], references: [id])
+  collector User      @relation(fields: [collectedBy], references: [id])
+
+  @@map("payments")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?  @map("user_id")
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  oldValue   Json?    @map("old_value")
+  newValue   Json?    @map("new_value")
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
+
+model SyncEvent {
+  id         String     @id @default(uuid())
+  userId     String     @map("user_id")
+  deviceId   String     @map("device_id")
+  entityType String     @map("entity_type")
+  entityId   String     @map("entity_id")
+  localId    String     @map("local_id")
+  payload    Json
+  status     SyncStatus @default(PENDING)
+  syncedAt   DateTime?  @map("synced_at")
+  createdAt  DateTime   @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("sync_events")
+}

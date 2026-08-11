@@ -1,0 +1,23 @@
+EMMAPP Mobile est l'application terrain dédiée à la production et à la distribution d'eau potable.
+
+Conçue pour les livreurs, commerciaux et équipes logistiques, elle digitalise l'ensemble du cycle vente-livraison-retour-encaissement, même en zone à faible connectivité.
+
+FONCTIONNALITÉS PRINCIPALES
+
+• Tournées et livraisons — Consultez vos tournées assignées, enregistrez les livraisons avec quantités livrées et retours de bidons/bonbonnes
+• Consignes intégrées — Suivi automatique des contenants réutilisables (5 L et 19 L) par client
+• Encaissements terrain — Espèces, Mobile Money, chèque ou crédit client
+• Mode hors ligne — Saisie sans Internet avec synchronisation automatique au retour du réseau
+• Géolocalisation — Preuve de livraison avec coordonnées GPS
+• Interface adaptée terrain — Grands boutons, saisie rapide, navigation simple
+
+PRODUITS GÉRÉS
+Sachets, bouteilles, bidons 5 L réutilisables et bonbonnes 19 L (5 gallons).
+
+POUR QUI ?
+Livreurs, commerciaux, magasiniers et superviseurs de la chaîne de distribution d'eau potable en RDC et en Afrique.
+
+SÉCURITÉ
+Authentification sécurisée, accès limité par rôle, chiffrement des communications.
+
+Support : support@emmapp.cd

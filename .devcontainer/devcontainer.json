@@ -1,0 +1,21 @@
+{
+  "name": "EMMAPP Cloud",
+  "dockerComposeFile": "../docker-compose.devcontainer.yml",
+  "service": "dev",
+  "workspaceFolder": "/workspace",
+  "forwardPorts": [3000, 5173, 5432],
+  "portsAttributes": {
+    "3000": { "label": "API", "onAutoForward": "notify" },
+    "5173": { "label": "Back-office", "onAutoForward": "openBrowser" }
+  },
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "Prisma.prisma"
+      ]
+    }
+  }
+}
