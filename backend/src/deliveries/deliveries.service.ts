@@ -70,7 +70,7 @@ export class DeliveriesService {
       const product = order.lines.find((l) => l.productId === line.productId)?.product;
       if (product?.isReusable) {
         const netConsignes =
-          line.qtyDelivered - line.qtyReturned;
+          line.qtyDelivered - (line.qtyReturned ?? 0);
         const newBalance = order.client.consigneBalance + netConsignes;
         if (newBalance > order.client.consigneLimit) {
           throw new BadRequestException(

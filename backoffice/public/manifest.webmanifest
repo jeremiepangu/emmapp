@@ -1,0 +1,19 @@
+{
+  "name": "EMMAPP Web",
+  "short_name": "EMMAPP",
+  "description": "ERP/CRM distribution eau potable — administration et livraison terrain",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0066a1",
+  "theme_color": "#0066a1",
+  "lang": "fr",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

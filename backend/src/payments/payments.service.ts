@@ -16,7 +16,10 @@ export class PaymentsService {
   findAll(params?: { deliveryId?: string }) {
     return this.prisma.payment.findMany({
       where: { deliveryId: params?.deliveryId },
-      include: { collector: { select: { firstName: true, lastName: true } } },
+      include: {
+        client: { select: { name: true } },
+        collector: { select: { firstName: true, lastName: true } },
+      },
       orderBy: { createdAt: 'desc' },
     });
   }

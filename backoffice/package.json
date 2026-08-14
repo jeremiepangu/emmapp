@@ -1,6 +1,7 @@
 {
-  "name": "emmapp-backoffice",
-  "version": "1.0.0",
+  "name": "emmapp-web",
+  "version": "1.1.0",
+  "description": "EMMAPP Web — application ERP/CRM navigateur (admin + livreur PWA)",
   "private": true,
   "type": "module",
   "scripts": {

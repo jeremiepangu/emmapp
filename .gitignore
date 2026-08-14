@@ -22,3 +22,5 @@ android/app/upload-keystore.jks
 *.keystore
 ios/Pods/
 backend/prisma/migrations/
+backend/.pgdata/
+backend/prisma/demo.db

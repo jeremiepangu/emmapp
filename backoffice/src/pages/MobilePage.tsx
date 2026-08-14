@@ -1,6 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
-import { api, Tour, Order } from '../api';
+import { api, Tour, Order, PaymentMethod } from '../api';
+
+const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
+  { value: 'ESPECES', label: 'Espèces' },
+  { value: 'MOBILE_MONEY', label: 'Mobile Money' },
+  { value: 'CHEQUE', label: 'Chèque' },
+  { value: 'VIREMENT', label: 'Virement' },
+  { value: 'CREDIT', label: 'Crédit' },
+];
 
 export default function MobilePage() {
   const { user, login, logout } = useAuth();
@@ -12,16 +21,40 @@ export default function MobilePage() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [qtyDelivered, setQtyDelivered] = useState<Record<string, number>>({});
   const [qtyReturned, setQtyReturned] = useState<Record<string, number>>({});
+  const [qtyDamaged, setQtyDamaged] = useState<Record<string, number>>({});
+  const [qtyRefused, setQtyRefused] = useState<Record<string, number>>({});
   const [payment, setPayment] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('ESPECES');
+  const [gps, setGps] = useState<{ lat: number; lng: number } | null>(null);
   const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const loadTours = async () => {
+    if (!user) return;
+    try {
+      const params = user.role === 'LIVREUR' ? { driverId: user.id } : undefined;
+      setTours(await api.getTours(params));
+    } catch {
+      setError('Impossible de charger les tournées');
+    }
+  };
 
   useEffect(() => {
     if (user?.role === 'LIVREUR' || user?.role === 'ADMIN') {
-      api.getTours().then(setTours).catch(() => setError('Impossible de charger les tournées'));
+      loadTours();
     }
   }, [user]);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setGps({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => setGps(null),
+      { enableHighAccuracy: true, timeout: 10000 },
+    );
+  }, [selectedOrder]);
+
+  const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
     try {
@@ -35,112 +68,143 @@ export default function MobilePage() {
     setSelectedTour(tour);
     setSelectedOrder(order);
     setMessage('');
-    const lines = (order as Order & { lines?: Array<{ productId: string; quantity: number; unitPrice: number }> }).lines;
-    if (lines) {
-      const delivered: Record<string, number> = {};
-      lines.forEach((l) => { delivered[l.productId] = l.quantity; });
-      setQtyDelivered(delivered);
-      setQtyReturned({});
-      setPayment(String(lines.reduce((s, l) => s + l.quantity * Number(l.unitPrice), 0)));
-    }
+    const lines = order.lines || [];
+    const delivered: Record<string, number> = {};
+    lines.forEach((l) => { delivered[l.productId] = l.quantity; });
+    setQtyDelivered(delivered);
+    setQtyReturned({});
+    setQtyDamaged({});
+    setQtyRefused({});
+    const total = lines.reduce((s, l) => s + l.quantity * Number(l.unitPrice), 0);
+    setPayment(String(total));
+    setPaymentMethod('ESPECES');
   };
 
   const submitDelivery = async () => {
     if (!selectedTour || !selectedOrder) return;
+    setLoading(true);
     setMessage('Envoi...');
     try {
-      const lines = ((selectedOrder as Order & { lines?: Array<{ productId: string; quantity: number; unitPrice: number }> }).lines || []).map((l) => ({
+      const lines = (selectedOrder.lines || []).map((l) => ({
         productId: l.productId,
         qtyDelivered: qtyDelivered[l.productId] ?? l.quantity,
         qtyReturned: qtyReturned[l.productId] ?? 0,
-        qtyDamaged: 0,
-        qtyRefused: 0,
+        qtyDamaged: qtyDamaged[l.productId] ?? 0,
+        qtyRefused: qtyRefused[l.productId] ?? 0,
         unitPrice: Number(l.unitPrice),
       }));
 
-      const token = localStorage.getItem('token');
-      const base = import.meta.env.VITE_API_URL || '/api/v1';
-
-      await fetch(`${base}/deliveries`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          orderId: selectedOrder.id,
-          tourId: selectedTour.id,
-          lines,
-        }),
+      const delivery = await api.createDelivery({
+        orderId: selectedOrder.id,
+        tourId: selectedTour.id,
+        latitude: gps?.lat,
+        longitude: gps?.lng,
+        lines,
       });
 
       if (Number(payment) > 0) {
-        await fetch(`${base}/payments`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            clientId: (selectedOrder as Order & { clientId?: string }).clientId,
-            amount: Number(payment),
-            method: 'ESPECES',
-          }),
+        await api.createPayment({
+          clientId: selectedOrder.clientId,
+          deliveryId: delivery.id,
+          amount: Number(payment),
+          method: paymentMethod,
         });
       }
 
       setMessage('Livraison enregistrée !');
       setSelectedOrder(null);
+      await loadTours();
     } catch {
       setMessage('Erreur lors de l\'enregistrement');
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const handleStartTour = async (tourId: string) => {
+    await api.startTour(tourId);
+    await loadTours();
+  };
+
+  const handleCompleteTour = async (tourId: string) => {
+    await api.completeTour(tourId);
+    await loadTours();
   };
 
   if (!user) {
     return (
       <div className="mobile-app">
         <div className="mobile-header">
-          <h1>EMMAPP Mobile</h1>
-          <p>Livraison terrain (web)</p>
+          <h1>EMMAPP Web</h1>
+          <p>Application livreur — navigateur</p>
         </div>
         <form className="mobile-login" onSubmit={handleLogin}>
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" />
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mot de passe" />
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" autoComplete="username" />
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mot de passe" autoComplete="current-password" />
           {error && <p className="error-msg">{error}</p>}
           <button type="submit" className="btn btn-primary">Se connecter</button>
+          <Link to="/login" className="mobile-link">Accès administration →</Link>
         </form>
       </div>
     );
   }
 
-  if (selectedOrder && selectedTour) {
-    const lines = (selectedOrder as Order & { lines?: Array<{ productId: string; product?: { name: string; isReusable: boolean }; quantity: number }> }).lines || [];
+  if (user.role !== 'LIVREUR' && user.role !== 'ADMIN') {
     return (
       <div className="mobile-app">
         <div className="mobile-header">
-          <button onClick={() => setSelectedOrder(null)}>← Retour</button>
+          <h1>Accès réservé</h1>
+          <p>Cette interface est réservée aux livreurs</p>
+        </div>
+        <div className="mobile-card">
+          <Link to="/">Retour au back-office</Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (selectedOrder && selectedTour) {
+    const lines = selectedOrder.lines || [];
+    return (
+      <div className="mobile-app">
+        <div className="mobile-header">
+          <button type="button" onClick={() => setSelectedOrder(null)}>← Retour</button>
           <h2>{selectedOrder.client?.name}</h2>
+          <p className="mobile-gps">{gps ? `GPS : ${gps.lat.toFixed(5)}, ${gps.lng.toFixed(5)}` : 'GPS indisponible'}</p>
         </div>
         {lines.map((line) => (
           <div key={line.productId} className="mobile-card">
             <strong>{line.product?.name}</strong>
+            <label>Commandé : {line.quantity}</label>
             <label>Livrés</label>
-            <input type="number" value={qtyDelivered[line.productId] ?? line.quantity}
+            <input type="number" min={0} value={qtyDelivered[line.productId] ?? line.quantity}
               onChange={(e) => setQtyDelivered({ ...qtyDelivered, [line.productId]: Number(e.target.value) })} />
             {line.product?.isReusable && (
               <>
                 <label>Retours vides</label>
-                <input type="number" value={qtyReturned[line.productId] ?? 0}
+                <input type="number" min={0} value={qtyReturned[line.productId] ?? 0}
                   onChange={(e) => setQtyReturned({ ...qtyReturned, [line.productId]: Number(e.target.value) })} />
               </>
             )}
+            <label>Endommagés</label>
+            <input type="number" min={0} value={qtyDamaged[line.productId] ?? 0}
+              onChange={(e) => setQtyDamaged({ ...qtyDamaged, [line.productId]: Number(e.target.value) })} />
+            <label>Refusés</label>
+            <input type="number" min={0} value={qtyRefused[line.productId] ?? 0}
+              onChange={(e) => setQtyRefused({ ...qtyRefused, [line.productId]: Number(e.target.value) })} />
           </div>
         ))}
         <div className="mobile-card">
           <label>Encaissement (CDF)</label>
-          <input type="number" value={payment} onChange={(e) => setPayment(e.target.value)} />
+          <input type="number" min={0} value={payment} onChange={(e) => setPayment(e.target.value)} />
+          <label>Mode de paiement</label>
+          <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}>
+            {PAYMENT_METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+          </select>
         </div>
-        <button className="btn btn-primary mobile-submit" onClick={submitDelivery}>Confirmer livraison</button>
+        <button type="button" className="btn btn-primary mobile-submit" onClick={submitDelivery} disabled={loading}>
+          {loading ? 'Envoi...' : 'Confirmer livraison'}
+        </button>
         {message && <p className="mobile-msg">{message}</p>}
       </div>
     );
@@ -151,20 +215,42 @@ export default function MobilePage() {
       <div className="mobile-header">
         <h1>Mes tournées</h1>
         <p>{user.firstName} {user.lastName}</p>
-        <button className="btn" onClick={logout}>Déconnexion</button>
+        <div className="mobile-header-actions">
+          {user.role === 'ADMIN' && <Link to="/" className="mobile-header-link">Admin</Link>}
+          <button type="button" className="btn btn-ghost" onClick={logout}>Déconnexion</button>
+        </div>
       </div>
+      {tours.length === 0 && (
+        <div className="mobile-card"><p>Aucune tournée assignée.</p></div>
+      )}
       {tours.map((tour) => (
         <div key={tour.id} className="mobile-card">
-          <strong>{tour.tourNumber}</strong>
-          <span className="badge badge-info">{tour.status}</span>
-          <p>{tour.zone}</p>
+          <div className="mobile-card-head">
+            <strong>{tour.tourNumber}</strong>
+            <span className="badge badge-info">{tour.status}</span>
+          </div>
+          <p>{tour.zone} — {new Date(tour.date).toLocaleDateString('fr-FR')}</p>
+          {tour.status === 'PLANIFIEE' && (
+            <button type="button" className="btn btn-sm btn-primary" onClick={() => handleStartTour(tour.id)}>
+              Démarrer la tournée
+            </button>
+          )}
+          {tour.status === 'EN_COURS' && (
+            <button type="button" className="btn btn-sm" onClick={() => handleCompleteTour(tour.id)}>
+              Terminer la tournée
+            </button>
+          )}
           {(tour.orders || []).map((order) => (
-            <button key={order.id} className="mobile-order-btn" onClick={() => openOrder(tour, order)}>
+            <button key={order.id} type="button" className="mobile-order-btn" onClick={() => openOrder(tour, order)}>
               {order.client?.name} — {order.orderNumber}
             </button>
           ))}
         </div>
       ))}
+      <nav className="mobile-bottom-nav">
+        <span className="active">Tournées</span>
+        <button type="button" onClick={loadTours}>Actualiser</button>
+      </nav>
     </div>
   );
 }

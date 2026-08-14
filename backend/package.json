@@ -13,7 +13,9 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:seed": "ts-node prisma/seed.ts",
-    "db:setup": "prisma migrate dev && ts-node prisma/seed.ts"
+    "db:setup": "prisma migrate dev && ts-node prisma/seed.ts",
+    "db:local": "node scripts/start-local-db.mjs",
+    "start:local": "node scripts/start-local.mjs"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.0",
@@ -40,6 +42,7 @@
     "@types/node": "^20.14.0",
     "@types/passport-jwt": "^4.0.1",
     "@types/uuid": "^10.0.0",
+    "embedded-postgres": "^18.4.0-beta.17",
     "prisma": "^5.19.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.5.0"
@@ -48,6 +51,7 @@
     "@prisma/client@5.22.0": true,
     "prisma@5.22.0": true,
     "@prisma/engines@5.22.0": true,
-    "@nestjs/core@10.4.22": true
+    "@nestjs/core@10.4.22": true,
+    "@embedded-postgres/windows-x64@18.4.0-beta.17": true
   }
 }

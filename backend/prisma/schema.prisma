@@ -134,6 +134,7 @@ model Client {
   orders     Order[]
   deliveries Delivery[]
   consignes  ConsigneMovement[]
+  payments   Payment[]
 
   @@map("clients")
 }
@@ -344,6 +345,7 @@ model Payment {
   createdAt   DateTime      @default(now()) @map("created_at")
 
   delivery  Delivery? @relation(fields: [deliveryId], references: [id])
+  client    Client?   @relation(fields: [clientId], references: [id])
   collector User      @relation(fields: [collectedBy], references: [id])
 
   @@map("payments")

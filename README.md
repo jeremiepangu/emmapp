@@ -7,8 +7,8 @@ ERP/CRM pour la production et la distribution d'eau potable — Phase 1 MVP (Dis
 ```
 EMMAPP/
 ├── backend/          # API REST NestJS + PostgreSQL + Prisma
-├── mobile/           # Application Flutter (Android/iOS, mode offline)
-├── backoffice/       # Interface web React (administration)
+├── backoffice/       # Application Web React (admin + livreur PWA)
+├── mobile/           # Application Flutter native Android (optionnel)
 └── docker-compose.yml
 ```
 

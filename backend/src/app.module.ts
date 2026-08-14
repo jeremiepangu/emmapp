@@ -12,6 +12,7 @@ import { PaymentsModule } from './payments/payments.module';
 import { ConsignesModule } from './consignes/consignes.module';
 import { SyncModule } from './sync/sync.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { VehiclesModule } from './vehicles/vehicles.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -21,6 +22,7 @@ import { HealthController } from './health.controller';
     UsersModule,
     ClientsModule,
     ProductsModule,
+    VehiclesModule,
     StockModule,
     OrdersModule,
     ToursModule,

@@ -55,7 +55,12 @@ export class OrdersService {
     if (!client) throw new NotFoundException('Client introuvable');
 
     let totalAmount = new Prisma.Decimal(0);
-    const linesData = [];
+    const linesData: Array<{
+      productId: string;
+      quantity: number;
+      unitPrice: Prisma.Decimal;
+      discount: number;
+    }> = [];
 
     for (const line of dto.lines) {
       const product = await this.prisma.product.findUnique({
