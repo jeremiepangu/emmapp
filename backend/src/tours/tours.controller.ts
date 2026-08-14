@@ -36,7 +36,7 @@ export class ToursController {
     return this.toursService.findOne(id);
   }
 
-  @Roles(UserRole.ADMIN, UserRole.MAGASINIER, UserRole.SUPERVISEUR)
+  @Roles(UserRole.ADMIN, UserRole.MAGASINIER, UserRole.SUPERVISEUR, UserRole.CHEF_EXPLOITATION)
   @Post()
   create(@Body() dto: CreateTourDto) {
     return this.toursService.create(dto);
@@ -60,13 +60,13 @@ export class ToursController {
     return this.toursService.validateLoadSheet(id, sheetId, body.role);
   }
 
-  @Roles(UserRole.LIVREUR, UserRole.ADMIN)
+  @Roles(UserRole.LIVREUR, UserRole.CHARGE_LIVRAISON, UserRole.ADMIN)
   @Patch(':id/start')
   start(@Param('id') id: string) {
     return this.toursService.startTour(id);
   }
 
-  @Roles(UserRole.LIVREUR, UserRole.ADMIN)
+  @Roles(UserRole.LIVREUR, UserRole.CHARGE_LIVRAISON, UserRole.ADMIN)
   @Patch(':id/complete')
   complete(@Param('id') id: string) {
     return this.toursService.completeTour(id);

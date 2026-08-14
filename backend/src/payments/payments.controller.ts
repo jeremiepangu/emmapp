@@ -26,7 +26,7 @@ export class PaymentsController {
     return this.paymentsService.findAll({ deliveryId });
   }
 
-  @Roles(UserRole.LIVREUR, UserRole.CAISSIER, UserRole.COMMERCIAL, UserRole.ADMIN)
+  @Roles(UserRole.LIVREUR, UserRole.CHARGE_LIVRAISON, UserRole.CAISSIER, UserRole.COMMERCIAL, UserRole.ADMIN)
   @Post()
   create(
     @Body() dto: CreatePaymentDto,

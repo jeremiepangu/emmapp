@@ -11,28 +11,75 @@ enum UserRole {
   ADMIN
   DG
   CHEF_PRODUCTION
+  CHEF_EXPLOITATION
+  CHARGE_EXPLOITATION
   RESP_QUALITE
   MAGASINIER
+  AGENT_CHARGEUR
   LIVREUR
+  CHARGE_LIVRAISON
   COMMERCIAL
+  DELEGUE_COMMERCIAL
   CAISSIER
   COMPTABLE
   RH
   SUPERVISEUR
+  IT_GED
 }
 
 enum ClientSegment {
   PARTICULIER
+  BOUTIQUE
   DETAILLANT
-  ENTREPRISE
   SUPERMARCHE
+  ENTREPRISE
+  HOTEL_RESTAURANT
 }
 
 enum ProductFormat {
-  SACHET
-  BOUTEILLE
   BIDON_5L
+  BIDON_10L
+  BIDON_25L
   BONBONNE_19L
+}
+
+enum LoyaltyTier {
+  BRONZE
+  ARGENT
+  OR
+  PLATINE
+}
+
+enum ProductionOrderStatus {
+  PLANIFIE
+  EN_COURS
+  TERMINE
+  BLOQUE
+}
+
+enum LotStatus {
+  EN_PRODUCTION
+  QUARANTAINE
+  LIBERE
+  BLOQUE
+}
+
+enum QualityCheckStatus {
+  EN_ATTENTE
+  CONFORME
+  NON_CONFORME
+}
+
+enum PaymentMethod {
+  ESPECES
+  CHEQUE
+  VIREMENT
+  MOBILE_MONEY
+  MPESA
+  ORANGE_MONEY
+  AIRTEL_MONEY
+  WAVE
+  CREDIT
 }
 
 enum OrderStatus {
@@ -58,14 +105,6 @@ enum DeliveryStatus {
   LIVREE
   REFUSEE
   PARTIELLE
-}
-
-enum PaymentMethod {
-  ESPECES
-  CHEQUE
-  VIREMENT
-  MOBILE_MONEY
-  CREDIT
 }
 
 enum SyncStatus {
@@ -106,6 +145,9 @@ model User {
   payments         Payment[]
   auditLogs        AuditLog[]
   syncEvents       SyncEvent[]
+  shiftAssignments ShiftAssignment[]
+  dailyReports     DailyActivityReport[]
+  notifications    Notification[]
 
   @@map("users")
 }
@@ -127,6 +169,8 @@ model Client {
   consigneLimit   Int           @default(50) @map("consigne_limit")
   consigneBalance Int           @default(0) @map("consigne_balance")
   loyaltyPoints   Int           @default(0) @map("loyalty_points")
+  loyaltyTier     LoyaltyTier   @default(BRONZE) @map("loyalty_tier")
+  walletBalance   Decimal       @default(0) @map("wallet_balance") @db.Decimal(12, 2)
   isActive        Boolean       @default(true) @map("is_active")
   createdAt       DateTime      @default(now()) @map("created_at")
   updatedAt       DateTime      @updatedAt @map("updated_at")
@@ -147,6 +191,8 @@ model Product {
   unitPrice   Decimal       @map("unit_price") @db.Decimal(12, 2)
   consigneAmount Decimal    @default(0) @map("consigne_amount") @db.Decimal(12, 2)
   isReusable  Boolean       @default(false) @map("is_reusable")
+  maxRotations Int          @default(0) @map("max_rotations")
+  loyaltyPointsPerUnit Int  @default(0) @map("loyalty_points_per_unit")
   isActive    Boolean       @default(true) @map("is_active")
   createdAt   DateTime      @default(now()) @map("created_at")
   updatedAt   DateTime      @updatedAt @map("updated_at")
@@ -382,4 +428,140 @@ model SyncEvent {
   user User @relation(fields: [userId], references: [id])
 
   @@map("sync_events")
+}
+
+model ProductionOrder {
+  id            String                @id @default(uuid())
+  orderNumber   String                @unique @map("order_number")
+  lotNumber     String                @unique @map("lot_number")
+  productFormat ProductFormat         @map("product_format")
+  lineCode      String                @map("line_code")
+  plannedQty    Int                   @map("planned_qty")
+  producedQty   Int                   @default(0) @map("produced_qty")
+  status        ProductionOrderStatus @default(PLANIFIE)
+  lotStatus     LotStatus             @default(EN_PRODUCTION) @map("lot_status")
+  startedAt     DateTime?             @map("started_at")
+  completedAt   DateTime?             @map("completed_at")
+  createdAt     DateTime              @default(now()) @map("created_at")
+
+  qualityChecks QualityCheck[]
+
+  @@map("production_orders")
+}
+
+model QualityCheck {
+  id                String             @id @default(uuid())
+  productionOrderId String?            @map("production_order_id")
+  lotNumber         String             @map("lot_number")
+  ph                Float?
+  chlorineFree      Float?             @map("chlorine_free")
+  tds               Float?
+  turbidity         Float?
+  microbiologyOk    Boolean?           @map("microbiology_ok")
+  status            QualityCheckStatus @default(EN_ATTENTE)
+  validatedBy       String?            @map("validated_by")
+  validatedAt       DateTime?          @map("validated_at")
+  notes             String?
+  createdAt         DateTime           @default(now()) @map("created_at")
+
+  productionOrder ProductionOrder? @relation(fields: [productionOrderId], references: [id])
+
+  @@map("quality_checks")
+}
+
+model ShiftAssignment {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  date      DateTime @db.Date
+  startTime String   @map("start_time")
+  endTime   String   @map("end_time")
+  postLabel String   @map("post_label")
+  notes     String?
+  validated Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("shift_assignments")
+}
+
+model DailyActivityReport {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  date        DateTime @db.Date
+  activities  Json
+  incidents   String?
+  validated   Boolean  @default(false)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([userId, date])
+  @@map("daily_activity_reports")
+}
+
+model FountainAsset {
+  id           String   @id @default(uuid())
+  serialNumber String   @unique @map("serial_number")
+  clientId     String?  @map("client_id")
+  model        String?
+  contractType String?  @map("contract_type")
+  lastService  DateTime? @map("last_service")
+  nextService  DateTime? @map("next_service")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("fountain_assets")
+}
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ALERT
+}
+
+enum NotificationCategory {
+  COMMANDE
+  TOURNEE
+  LIVRAISON
+  PAIEMENT
+  PRODUCTION
+  QUALITE
+  STOCK
+  CONSIGNE
+  FIDELITE
+  RH
+  SYSTEME
+  SUPERVISION
+}
+
+model Notification {
+  id        String               @id @default(uuid())
+  userId    String               @map("user_id")
+  title     String
+  message   String
+  type      NotificationType     @default(INFO)
+  category  NotificationCategory @default(SYSTEME)
+  link      String?
+  read      Boolean              @default(false) @map("is_read")
+  createdAt DateTime             @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@map("notifications")
+}
+
+model PackagingUnit {
+  id              String        @id @default(uuid())
+  barcode         String        @unique
+  productFormat   ProductFormat @map("product_format")
+  rotationCount   Int           @default(0) @map("rotation_count")
+  maxRotations    Int           @map("max_rotations")
+  status          String        @default("ACTIF")
+  lastSanitizedAt DateTime?     @map("last_sanitized_at")
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  @@map("packaging_units")
 }

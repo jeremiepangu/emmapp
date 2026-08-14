@@ -12,7 +12,9 @@ import { PaymentsModule } from './payments/payments.module';
 import { ConsignesModule } from './consignes/consignes.module';
 import { SyncModule } from './sync/sync.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { EmmapureModule } from './emmapure/emmapure.module';
 import { VehiclesModule } from './vehicles/vehicles.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -31,6 +33,8 @@ import { HealthController } from './health.controller';
     ConsignesModule,
     SyncModule,
     DashboardModule,
+    EmmapureModule,
+    NotificationsModule,
   ],
   controllers: [HealthController],
 })

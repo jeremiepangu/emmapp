@@ -40,7 +40,7 @@ export class DeliveriesController {
     return this.deliveriesService.findOne(id);
   }
 
-  @Roles(UserRole.LIVREUR, UserRole.COMMERCIAL, UserRole.ADMIN)
+  @Roles(UserRole.LIVREUR, UserRole.CHARGE_LIVRAISON, UserRole.COMMERCIAL, UserRole.ADMIN)
   @Post()
   create(
     @Body() dto: CreateDeliveryDto,

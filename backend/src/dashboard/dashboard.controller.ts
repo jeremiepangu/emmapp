@@ -12,7 +12,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 export class DashboardController {
   constructor(private dashboardService: DashboardService) {}
 
-  @Roles(UserRole.ADMIN, UserRole.DG, UserRole.SUPERVISEUR, UserRole.MAGASINIER)
+  @Roles(UserRole.ADMIN, UserRole.DG, UserRole.SUPERVISEUR, UserRole.MAGASINIER, UserRole.CHEF_EXPLOITATION, UserRole.CHEF_PRODUCTION, UserRole.COMPTABLE)
   @Get('overview')
   overview() {
     return this.dashboardService.getOverview();
