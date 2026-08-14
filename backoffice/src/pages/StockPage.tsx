@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, StockItem } from '../api';
+import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
+import StatusPill from '../components/ErpUi';
 
 export default function StockPage() {
   const [items, setItems] = useState<StockItem[]>([]);
@@ -9,13 +11,13 @@ export default function StockPage() {
   }, []);
 
   return (
-    <div>
-      <div className="page-header">
-        <h2>Stocks</h2>
-        <p>Produits finis et stock embarqué</p>
-      </div>
-      <div className="card">
-        <table>
+    <div className="erp-page">
+      <ErpPageHeader
+        title="Stocks"
+        subtitle="Produits finis et stock embarqué"
+      />
+      <ErpPanel title={`Inventaire (${items.length} lignes)`}>
+        <table className="erp-table">
           <thead>
             <tr>
               <th>Produit</th>
@@ -27,20 +29,20 @@ export default function StockPage() {
           <tbody>
             {items.map((item) => (
               <tr key={item.id}>
-                <td>{item.product.name}</td>
+                <td><strong>{item.product.name}</strong></td>
                 <td>{item.location.name}</td>
-                <td>{item.lotNumber ?? '-'}</td>
+                <td>{item.lotNumber ?? '—'}</td>
                 <td>
                   <strong>{item.quantity}</strong>
                   {item.quantity < 50 && (
-                    <span className="badge badge-warning" style={{ marginLeft: 8 }}>Stock bas</span>
+                    <StatusPill status="ALERTE" label="Stock bas" />
                   )}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-      </div>
+      </ErpPanel>
     </div>
   );
 }

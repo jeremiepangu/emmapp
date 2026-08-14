@@ -2,18 +2,25 @@ import { useEffect, useState, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { api, Tour, Order, PaymentMethod } from '../api';
+import EmmaLogo from '../components/EmmaBrand';
 
 const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
   { value: 'ESPECES', label: 'Espèces' },
-  { value: 'MOBILE_MONEY', label: 'Mobile Money' },
+  { value: 'MPESA', label: 'M-Pesa' },
+  { value: 'ORANGE_MONEY', label: 'Orange Money' },
+  { value: 'AIRTEL_MONEY', label: 'Airtel Money' },
+  { value: 'WAVE', label: 'Wave' },
+  { value: 'MOBILE_MONEY', label: 'Mobile Money (générique)' },
   { value: 'CHEQUE', label: 'Chèque' },
   { value: 'VIREMENT', label: 'Virement' },
   { value: 'CREDIT', label: 'Crédit' },
 ];
 
+const FIELD_ROLES = ['LIVREUR', 'CHARGE_LIVRAISON'];
+
 export default function MobilePage() {
   const { user, login, logout } = useAuth();
-  const [email, setEmail] = useState('livreur@emmapp.cd');
+  const [email, setEmail] = useState('livreur@emmapure.cd');
   const [password, setPassword] = useState('password123');
   const [error, setError] = useState('');
   const [tours, setTours] = useState<Tour[]>([]);
@@ -28,11 +35,12 @@ export default function MobilePage() {
   const [gps, setGps] = useState<{ lat: number; lng: number } | null>(null);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [notifCount, setNotifCount] = useState(0);
 
   const loadTours = async () => {
     if (!user) return;
     try {
-      const params = user.role === 'LIVREUR' ? { driverId: user.id } : undefined;
+      const params = FIELD_ROLES.includes(user.role) ? { driverId: user.id } : undefined;
       setTours(await api.getTours(params));
     } catch {
       setError('Impossible de charger les tournées');
@@ -40,8 +48,11 @@ export default function MobilePage() {
   };
 
   useEffect(() => {
-    if (user?.role === 'LIVREUR' || user?.role === 'ADMIN') {
+    if (user?.role === 'LIVREUR' || user?.role === 'CHARGE_LIVRAISON' || user?.role === 'ADMIN') {
       loadTours();
+    }
+    if (user) {
+      api.getUnreadNotificationCount().then((r) => setNotifCount(r.count)).catch(() => setNotifCount(0));
     }
   }, [user]);
 
@@ -133,30 +144,32 @@ export default function MobilePage() {
 
   if (!user) {
     return (
-      <div className="mobile-app">
-        <div className="mobile-header">
-          <h1>EMMAPP Web</h1>
-          <p>Application livreur — navigateur</p>
+      <div className="erp-mobile-app">
+        <div className="erp-mobile-header">
+          <div className="mobile-logo-wrap">
+            <EmmaLogo size="sm" variant="light" />
+          </div>
+          <p className="erp-mobile-tagline">Application livreur</p>
         </div>
-        <form className="mobile-login" onSubmit={handleLogin}>
+        <form className="erp-mobile-login" onSubmit={handleLogin}>
           <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" autoComplete="username" />
           <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mot de passe" autoComplete="current-password" />
           {error && <p className="error-msg">{error}</p>}
-          <button type="submit" className="btn btn-primary">Se connecter</button>
-          <Link to="/login" className="mobile-link">Accès administration →</Link>
+          <button type="submit" className="erp-btn erp-mobile-submit">Se connecter</button>
+          <Link to="/login" className="erp-mobile-link">Accès administration →</Link>
         </form>
       </div>
     );
   }
 
-  if (user.role !== 'LIVREUR' && user.role !== 'ADMIN') {
+  if (!FIELD_ROLES.includes(user.role) && user.role !== 'ADMIN') {
     return (
-      <div className="mobile-app">
-        <div className="mobile-header">
+      <div className="erp-mobile-app">
+        <div className="erp-mobile-header">
           <h1>Accès réservé</h1>
-          <p>Cette interface est réservée aux livreurs</p>
+          <p>Cette interface est réservée aux chargés de livraison</p>
         </div>
-        <div className="mobile-card">
+        <div className="erp-mobile-card">
           <Link to="/">Retour au back-office</Link>
         </div>
       </div>
@@ -166,14 +179,14 @@ export default function MobilePage() {
   if (selectedOrder && selectedTour) {
     const lines = selectedOrder.lines || [];
     return (
-      <div className="mobile-app">
-        <div className="mobile-header">
+      <div className="erp-mobile-app">
+        <div className="erp-mobile-header">
           <button type="button" onClick={() => setSelectedOrder(null)}>← Retour</button>
           <h2>{selectedOrder.client?.name}</h2>
-          <p className="mobile-gps">{gps ? `GPS : ${gps.lat.toFixed(5)}, ${gps.lng.toFixed(5)}` : 'GPS indisponible'}</p>
+          <p className="erp-mobile-gps">{gps ? `GPS : ${gps.lat.toFixed(5)}, ${gps.lng.toFixed(5)}` : 'GPS indisponible'}</p>
         </div>
         {lines.map((line) => (
-          <div key={line.productId} className="mobile-card">
+          <div key={line.productId} className="erp-mobile-card">
             <strong>{line.product?.name}</strong>
             <label>Commandé : {line.quantity}</label>
             <label>Livrés</label>
@@ -194,7 +207,7 @@ export default function MobilePage() {
               onChange={(e) => setQtyRefused({ ...qtyRefused, [line.productId]: Number(e.target.value) })} />
           </div>
         ))}
-        <div className="mobile-card">
+        <div className="erp-mobile-card">
           <label>Encaissement (CDF)</label>
           <input type="number" min={0} value={payment} onChange={(e) => setPayment(e.target.value)} />
           <label>Mode de paiement</label>
@@ -202,52 +215,53 @@ export default function MobilePage() {
             {PAYMENT_METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
           </select>
         </div>
-        <button type="button" className="btn btn-primary mobile-submit" onClick={submitDelivery} disabled={loading}>
+        <button type="button" className="erp-btn erp-mobile-submit" onClick={submitDelivery} disabled={loading}>
           {loading ? 'Envoi...' : 'Confirmer livraison'}
         </button>
-        {message && <p className="mobile-msg">{message}</p>}
+        {message && <p className="erp-mobile-msg">{message}</p>}
       </div>
     );
   }
 
   return (
-    <div className="mobile-app">
-      <div className="mobile-header">
+    <div className="erp-mobile-app">
+      <div className="erp-mobile-header">
         <h1>Mes tournées</h1>
         <p>{user.firstName} {user.lastName}</p>
-        <div className="mobile-header-actions">
-          {user.role === 'ADMIN' && <Link to="/" className="mobile-header-link">Admin</Link>}
+        <div className="erp-mobile-header-actions">
+          {notifCount > 0 && <span className="erp-mobile-notif-badge">{notifCount} alerte{notifCount > 1 ? 's' : ''}</span>}
+          {user.role === 'ADMIN' && <Link to="/" className="erp-mobile-header-link">Admin</Link>}
           <button type="button" className="btn btn-ghost" onClick={logout}>Déconnexion</button>
         </div>
       </div>
       {tours.length === 0 && (
-        <div className="mobile-card"><p>Aucune tournée assignée.</p></div>
+        <div className="erp-mobile-card"><p>Aucune tournée assignée.</p></div>
       )}
       {tours.map((tour) => (
-        <div key={tour.id} className="mobile-card">
-          <div className="mobile-card-head">
+        <div key={tour.id} className="erp-mobile-card">
+          <div className="erp-mobile-card-head">
             <strong>{tour.tourNumber}</strong>
-            <span className="badge badge-info">{tour.status}</span>
+            <span className="erp-pill erp-pill--blue">{tour.status}</span>
           </div>
           <p>{tour.zone} — {new Date(tour.date).toLocaleDateString('fr-FR')}</p>
           {tour.status === 'PLANIFIEE' && (
-            <button type="button" className="btn btn-sm btn-primary" onClick={() => handleStartTour(tour.id)}>
+            <button type="button" className="erp-btn erp-btn--sm" onClick={() => handleStartTour(tour.id)}>
               Démarrer la tournée
             </button>
           )}
           {tour.status === 'EN_COURS' && (
-            <button type="button" className="btn btn-sm" onClick={() => handleCompleteTour(tour.id)}>
+            <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => handleCompleteTour(tour.id)}>
               Terminer la tournée
             </button>
           )}
           {(tour.orders || []).map((order) => (
-            <button key={order.id} type="button" className="mobile-order-btn" onClick={() => openOrder(tour, order)}>
+            <button key={order.id} type="button" className="erp-mobile-order-btn" onClick={() => openOrder(tour, order)}>
               {order.client?.name} — {order.orderNumber}
             </button>
           ))}
         </div>
       ))}
-      <nav className="mobile-bottom-nav">
+      <nav className="erp-mobile-bottom-nav">
         <span className="active">Tournées</span>
         <button type="button" onClick={loadTours}>Actualiser</button>
       </nav>

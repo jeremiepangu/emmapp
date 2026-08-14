@@ -1,11 +1,11 @@
 {
-  "name": "EMMAPP Web",
-  "short_name": "EMMAPP",
-  "description": "ERP/CRM distribution eau potable — administration et livraison terrain",
+  "name": "EMMAS Web",
+  "short_name": "EMMAS",
+  "description": "EMMAS — Eau potable Kinshasa. ERP distribution, production HACCP et livraison terrain.",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#0066a1",
-  "theme_color": "#0066a1",
+  "background_color": "#0077be",
+  "theme_color": "#0077be",
   "lang": "fr",
   "orientation": "any",
   "icons": [
