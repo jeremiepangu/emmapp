@@ -1,6 +1,11 @@
 import { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, NavLink, Outlet } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider, useAuth } from './AuthContext';
+import { usePermissions } from './hooks/usePermissions';
+import { FIELD_ROLES } from './permissions';
+import RoleGate from './components/RoleGate';
+import ErpSidebar from './components/ErpSidebar';
+import ErpTopBar from './components/ErpTopBar';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import ClientsPage from './pages/ClientsPage';
@@ -10,51 +15,48 @@ import ToursPage from './pages/ToursPage';
 import StockPage from './pages/StockPage';
 import DeliveriesPage from './pages/DeliveriesPage';
 import PaymentsPage from './pages/PaymentsPage';
+import ProductionPage from './pages/ProductionPage';
+import QualityPage from './pages/QualityPage';
+import LoyaltyPage from './pages/LoyaltyPage';
+import HrPage from './pages/HrPage';
+import ConsignesPage from './pages/ConsignesPage';
+import ObservabilityPage from './pages/ObservabilityPage';
+import UsersPage from './pages/UsersPage';
+import NotificationsPage from './pages/NotificationsPage';
 import MobilePage from './pages/MobilePage';
+import { Resource } from './permissions';
 
 function ProtectedLayout() {
   const { user, logout } = useAuth();
+  const { menuItems, roleLabel } = usePermissions();
   const [menuOpen, setMenuOpen] = useState(false);
 
   if (!user) return <Navigate to="/login" replace />;
-  if (user.role === 'LIVREUR') return <Navigate to="/mobile" replace />;
+  if (FIELD_ROLES.includes(user.role)) return <Navigate to="/mobile" replace />;
 
   return (
-    <div className="app-layout">
-      <button type="button" className="menu-toggle" onClick={() => setMenuOpen(!menuOpen)} aria-label="Menu">
-        ☰
-      </button>
-      <aside className={`sidebar ${menuOpen ? 'open' : ''}`}>
-        <div className="sidebar-logo">
-          <h1>EMMAPP</h1>
-          <p>Application Web</p>
-        </div>
-        <nav onClick={() => setMenuOpen(false)}>
-          <NavLink to="/" end>Tableau de bord</NavLink>
-          <NavLink to="/clients">Clients</NavLink>
-          <NavLink to="/orders">Commandes</NavLink>
-          <NavLink to="/products">Produits</NavLink>
-          <NavLink to="/tours">Tournées</NavLink>
-          <NavLink to="/stock">Stocks</NavLink>
-          <NavLink to="/deliveries">Livraisons</NavLink>
-          <NavLink to="/payments">Paiements</NavLink>
-          <NavLink to="/mobile" className="nav-mobile">App livreur</NavLink>
-        </nav>
+    <div className="erp-layout">
+      <aside className={`erp-sidebar ${menuOpen ? 'open' : ''}`}>
+        <ErpSidebar onNavigate={() => setMenuOpen(false)} />
       </aside>
       {menuOpen && <div className="sidebar-backdrop" onClick={() => setMenuOpen(false)} />}
-      <main className="main-content">
-        <div className="header-bar">
-          <div className="header-title">ERP / CRM — Distribution eau potable</div>
-          <div className="user-info">
-            <span className="user-name">{user.firstName} {user.lastName} ({user.role})</span>
-            <div className="user-avatar">{user.firstName[0]}</div>
-            <button type="button" className="btn btn-primary" onClick={logout}>Déconnexion</button>
-          </div>
-        </div>
-        <Outlet />
-      </main>
+      <div className="erp-main-wrap">
+        <ErpTopBar
+          onMenuToggle={() => setMenuOpen(!menuOpen)}
+          onLogout={logout}
+          userName={`${user.firstName} ${user.lastName} · ${roleLabel}`}
+          showNotifications={menuItems.some((m) => m.resource === 'notifications')}
+        />
+        <main className="erp-content">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
+}
+
+function GuardedRoute({ resource, element }: { resource: Resource; element: JSX.Element }) {
+  return <RoleGate resource={resource}>{element}</RoleGate>;
 }
 
 function AppRoutes() {
@@ -62,19 +64,29 @@ function AppRoutes() {
 
   if (isLoading) return <div className="loading-screen">Chargement...</div>;
 
+  const home = user && FIELD_ROLES.includes(user.role) ? '/mobile' : '/';
+
   return (
     <Routes>
-      <Route path="/login" element={user ? <Navigate to={user.role === 'LIVREUR' ? '/mobile' : '/'} /> : <LoginPage />} />
+      <Route path="/login" element={user ? <Navigate to={home} /> : <LoginPage />} />
       <Route path="/mobile" element={<MobilePage />} />
       <Route element={<ProtectedLayout />}>
-        <Route path="/" element={<DashboardPage />} />
-        <Route path="/clients" element={<ClientsPage />} />
-        <Route path="/orders" element={<OrdersPage />} />
-        <Route path="/products" element={<ProductsPage />} />
-        <Route path="/tours" element={<ToursPage />} />
-        <Route path="/stock" element={<StockPage />} />
-        <Route path="/deliveries" element={<DeliveriesPage />} />
-        <Route path="/payments" element={<PaymentsPage />} />
+        <Route path="/" element={<GuardedRoute resource="dashboard" element={<DashboardPage />} />} />
+        <Route path="/clients" element={<GuardedRoute resource="clients" element={<ClientsPage />} />} />
+        <Route path="/orders" element={<GuardedRoute resource="orders" element={<OrdersPage />} />} />
+        <Route path="/products" element={<GuardedRoute resource="products" element={<ProductsPage />} />} />
+        <Route path="/tours" element={<GuardedRoute resource="tours" element={<ToursPage />} />} />
+        <Route path="/stock" element={<GuardedRoute resource="stock" element={<StockPage />} />} />
+        <Route path="/deliveries" element={<GuardedRoute resource="deliveries" element={<DeliveriesPage />} />} />
+        <Route path="/payments" element={<GuardedRoute resource="payments" element={<PaymentsPage />} />} />
+        <Route path="/production" element={<GuardedRoute resource="production" element={<ProductionPage />} />} />
+        <Route path="/quality" element={<GuardedRoute resource="quality" element={<QualityPage />} />} />
+        <Route path="/loyalty" element={<GuardedRoute resource="loyalty" element={<LoyaltyPage />} />} />
+        <Route path="/consignes" element={<GuardedRoute resource="consignes" element={<ConsignesPage />} />} />
+        <Route path="/hr" element={<GuardedRoute resource="hr" element={<HrPage />} />} />
+        <Route path="/observability" element={<GuardedRoute resource="observability" element={<ObservabilityPage />} />} />
+        <Route path="/users" element={<GuardedRoute resource="users" element={<UsersPage />} />} />
+        <Route path="/notifications" element={<GuardedRoute resource="notifications" element={<NotificationsPage />} />} />
       </Route>
     </Routes>
   );

@@ -6,6 +6,8 @@ export interface User {
   firstName: string;
   lastName: string;
   role: string;
+  phone?: string;
+  isActive?: boolean;
 }
 
 export interface Vehicle {
@@ -15,8 +17,24 @@ export interface Vehicle {
   capacity: number;
 }
 
-export type PaymentMethod = 'ESPECES' | 'CHEQUE' | 'VIREMENT' | 'MOBILE_MONEY' | 'CREDIT';
-export type ClientSegment = 'PARTICULIER' | 'DETAILLANT' | 'ENTREPRISE' | 'SUPERMARCHE';
+export type PaymentMethod =
+  | 'ESPECES'
+  | 'CHEQUE'
+  | 'VIREMENT'
+  | 'MOBILE_MONEY'
+  | 'MPESA'
+  | 'ORANGE_MONEY'
+  | 'AIRTEL_MONEY'
+  | 'WAVE'
+  | 'CREDIT';
+
+export type ClientSegment =
+  | 'PARTICULIER'
+  | 'BOUTIQUE'
+  | 'DETAILLANT'
+  | 'SUPERMARCHE'
+  | 'ENTREPRISE'
+  | 'HOTEL_RESTAURANT';
 
 function getToken(): string | null {
   return localStorage.getItem('token');
@@ -90,6 +108,48 @@ export const api = {
   getPayments: () => request<Payment[]>('/payments'),
   createPayment: (data: CreatePaymentInput) =>
     request<Payment>('/payments', { method: 'POST', body: JSON.stringify(data) }),
+
+  getProductionOrders: () => request<ProductionOrder[]>('/emmapure/production'),
+  createProductionOrder: (data: { productFormat: string; lineCode: string; plannedQty: number }) =>
+    request<ProductionOrder>('/emmapure/production', { method: 'POST', body: JSON.stringify(data) }),
+  validateProductionOrder: (id: string) =>
+    request<ProductionOrder>(`/emmapure/production/${id}/validate`, { method: 'PATCH' }),
+
+  getQualityChecks: () => request<QualityCheck[]>('/emmapure/quality'),
+  createQualityCheck: (data: CreateQualityCheckInput) =>
+    request<QualityCheck>('/emmapure/quality', { method: 'POST', body: JSON.stringify(data) }),
+  validateQualityCheck: (id: string, conform: boolean) =>
+    request<QualityCheck>(`/emmapure/quality/${id}/validate`, {
+      method: 'PATCH',
+      body: JSON.stringify({ conform }),
+    }),
+
+  getLoyaltyClients: () => request<LoyaltyClient[]>('/emmapure/loyalty'),
+
+  getShiftAssignments: (date?: string) => {
+    const qs = date ? `?date=${date}` : '';
+    return request<ShiftAssignment[]>(`/emmapure/shifts${qs}`);
+  },
+  createShiftAssignment: (data: CreateShiftInput) =>
+    request<ShiftAssignment>('/emmapure/shifts', { method: 'POST', body: JSON.stringify(data) }),
+
+  getPackagingUnits: () => request<PackagingUnit[]>('/emmapure/packaging'),
+  getFountains: () => request<FountainAsset[]>('/emmapure/fountains'),
+  getObservability: () => request<ObservabilityStatus>('/emmapure/observability'),
+
+  getUsers: () => request<User[]>('/users'),
+  createUser: (data: CreateUserInput) =>
+    request<User>('/users', { method: 'POST', body: JSON.stringify(data) }),
+  updateUser: (id: string, data: Partial<CreateUserInput & { isActive: boolean }>) =>
+    request<User>(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+
+  getNotifications: (unreadOnly?: boolean) =>
+    request<NotificationItem[]>(`/notifications${unreadOnly ? '?unread=true' : ''}`),
+  getUnreadNotificationCount: () => request<{ count: number }>('/notifications/unread-count'),
+  markNotificationRead: (id: string) =>
+    request(`/notifications/${id}/read`, { method: 'PATCH' }),
+  markAllNotificationsRead: () =>
+    request('/notifications/read-all', { method: 'PATCH' }),
 };
 
 export interface CreateClientInput {
@@ -138,6 +198,33 @@ export interface CreatePaymentInput {
   amount: number;
   method: PaymentMethod;
   reference?: string;
+}
+
+export interface CreateQualityCheckInput {
+  lotNumber: string;
+  ph?: number;
+  chlorineFree?: number;
+  tds?: number;
+  turbidity?: number;
+  microbiologyOk?: boolean;
+}
+
+export interface CreateShiftInput {
+  userId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  postLabel: string;
+  notes?: string;
+}
+
+export interface CreateUserInput {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  phone?: string;
+  role: string;
 }
 
 export interface DashboardOverview {
@@ -219,4 +306,81 @@ export interface Payment {
   method: string;
   createdAt: string;
   client?: { name: string };
+}
+
+export interface ProductionOrder {
+  id: string;
+  orderNumber: string;
+  lotNumber: string;
+  productFormat: string;
+  lineCode: string;
+  plannedQty: number;
+  producedQty: number;
+  lotStatus: string;
+  status: string;
+}
+
+export interface QualityCheck {
+  id: string;
+  lotNumber: string;
+  ph?: number;
+  tds?: number;
+  microbiologyOk?: boolean;
+  status: string;
+}
+
+export interface LoyaltyClient {
+  id: string;
+  code: string;
+  name: string;
+  segment: string;
+  loyaltyPoints: number;
+  loyaltyTier: string;
+  walletBalance: string | number;
+}
+
+export interface ShiftAssignment {
+  id: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  postLabel: string;
+  validated: boolean;
+  user?: { firstName: string; lastName: string; role: string };
+}
+
+export interface PackagingUnit {
+  id: string;
+  barcode: string;
+  productFormat: string;
+  rotationCount: number;
+  maxRotations: number;
+  status: string;
+}
+
+export interface FountainAsset {
+  id: string;
+  serialNumber: string;
+  model?: string;
+  contractType?: string;
+  nextService?: string;
+}
+
+export interface ObservabilityStatus {
+  pendingSync: number;
+  blockedLots: number;
+  openQualityChecks: number;
+  pendingShiftValidations: number;
+  services: Array<{ name: string; status: string }>;
+}
+
+export interface NotificationItem {
+  id: string;
+  title: string;
+  message: string;
+  type: string;
+  category: string;
+  read: boolean;
+  link?: string;
+  createdAt: string;
 }
