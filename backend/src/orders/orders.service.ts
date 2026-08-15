@@ -108,4 +108,15 @@ export class OrdersService {
       data: { status: OrderStatus.VALIDEE },
     });
   }
+
+  async cancel(id: string) {
+    const order = await this.findOne(id);
+    if (order.status === OrderStatus.LIVREE || order.status === OrderStatus.ANNULEE) {
+      throw new BadRequestException('Impossible d\'annuler cette commande');
+    }
+    return this.prisma.order.update({
+      where: { id },
+      data: { status: OrderStatus.ANNULEE },
+    });
+  }
 }

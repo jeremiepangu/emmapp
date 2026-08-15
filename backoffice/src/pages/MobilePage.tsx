@@ -36,6 +36,33 @@ export default function MobilePage() {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [notifCount, setNotifCount] = useState(0);
+  const [voiceHint, setVoiceHint] = useState('');
+
+  const startVoice = (onText: (text: string) => void) => {
+    const w = window as unknown as Record<string, unknown>;
+    const Ctor = (w.SpeechRecognition ?? w.webkitSpeechRecognition) as (new () => {
+      lang: string;
+      interimResults: boolean;
+      onresult: ((ev: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+      onerror: (() => void) | null;
+      start: () => void;
+    }) | undefined;
+    if (!Ctor) {
+      setVoiceHint('Saisie vocale non disponible sur ce navigateur.');
+      return;
+    }
+    const rec = new Ctor();
+    rec.lang = 'fr-FR';
+    rec.interimResults = false;
+    rec.onresult = (ev) => {
+      const text = ev.results[0]?.[0]?.transcript ?? '';
+      onText(text);
+      setVoiceHint(`Entendu : ${text}`);
+    };
+    rec.onerror = () => setVoiceHint('Saisie vocale interrompue.');
+    rec.start();
+    setVoiceHint('Parlez…');
+  };
 
   const loadTours = async () => {
     if (!user) return;
@@ -210,6 +237,17 @@ export default function MobilePage() {
         <div className="erp-mobile-card">
           <label>Encaissement (CDF)</label>
           <input type="number" min={0} value={payment} onChange={(e) => setPayment(e.target.value)} />
+          <button
+            type="button"
+            className="erp-btn erp-btn--sm erp-btn--ghost"
+            onClick={() => startVoice((text) => {
+              const n = text.replace(/[^\d]/g, '');
+              if (n) setPayment(n);
+            })}
+          >
+            Saisie vocale de l'encaissement
+          </button>
+          {voiceHint && <p className="erp-mobile-gps">{voiceHint}</p>}
           <label>Mode de paiement</label>
           <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}>
             {PAYMENT_METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}

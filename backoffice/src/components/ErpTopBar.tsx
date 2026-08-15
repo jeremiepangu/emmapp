@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom';
 import NotificationBell from './NotificationBell';
+import GlobalSearch from './GlobalSearch';
+import { useTheme } from '../ThemeContext';
 
 interface Props {
   onMenuToggle: () => void;
@@ -44,6 +46,8 @@ function TooltipBtn({
 }
 
 export default function ErpTopBar({ onMenuToggle, onLogout, userName, showNotifications }: Props) {
+  const { theme, setTheme } = useTheme();
+
   return (
     <header className="erp-topbar">
       <div className="erp-topbar-left">
@@ -57,8 +61,15 @@ export default function ErpTopBar({ onMenuToggle, onLogout, userName, showNotifi
             </Link>
           ))}
         </div>
+        <GlobalSearch />
       </div>
       <div className="erp-topbar-right">
+        <TooltipBtn
+          tooltip={theme === 'sombre' ? 'Mode clair' : 'Mode sombre'}
+          onClick={() => setTheme(theme === 'sombre' ? 'clair' : 'sombre')}
+        >
+          {theme === 'sombre' ? '☀' : '☾'}
+        </TooltipBtn>
         <TooltipBtn tooltip="Tableau de bord" to="/">▣</TooltipBtn>
         <TooltipBtn tooltip="Notifications" to="/notifications">✉</TooltipBtn>
         <TooltipBtn tooltip="Synchronisation">☁</TooltipBtn>

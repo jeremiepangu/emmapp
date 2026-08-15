@@ -7,6 +7,15 @@ import { TourStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.module';
 import { CreateTourDto } from './dto/tour.dto';
 
+/** Champs du livreur exposables par l'API : exclut l'empreinte du mot de passe. */
+const DRIVER_SELECT = {
+  id: true,
+  firstName: true,
+  lastName: true,
+  phone: true,
+  role: true,
+} as const;
+
 @Injectable()
 export class ToursService {
   constructor(private prisma: PrismaService) {}
@@ -25,7 +34,7 @@ export class ToursService {
         status: params?.status,
       },
       include: {
-        driver: { select: { id: true, firstName: true, lastName: true } },
+        driver: { select: DRIVER_SELECT },
         vehicle: true,
         orders: { include: { client: true, lines: { include: { product: true } } } },
         loadSheets: true,
@@ -38,7 +47,7 @@ export class ToursService {
     const tour = await this.prisma.tour.findUnique({
       where: { id },
       include: {
-        driver: true,
+        driver: { select: DRIVER_SELECT },
         vehicle: true,
         orders: {
           include: {
@@ -70,7 +79,7 @@ export class ToursService {
           : undefined,
       },
       include: {
-        driver: true,
+        driver: { select: DRIVER_SELECT },
         vehicle: true,
         orders: true,
       },

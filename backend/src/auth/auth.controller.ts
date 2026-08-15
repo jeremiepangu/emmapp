@@ -12,8 +12,10 @@ export class AuthController {
 
   @Public()
   @Post('login')
-  login(@Body() dto: LoginDto) {
-    return this.authService.login(dto);
+  login(@Body() dto: LoginDto, @Request() req: { ip?: string; headers: Record<string, string | string[] | undefined> }) {
+    const forwarded = req.headers['x-forwarded-for'];
+    const ip = Array.isArray(forwarded) ? forwarded[0] : forwarded?.split(',')[0] ?? req.ip;
+    return this.authService.login(dto, ip);
   }
 
   @ApiBearerAuth()

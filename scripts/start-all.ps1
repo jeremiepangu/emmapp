@@ -6,7 +6,7 @@ $root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $nodeDir = "$env:LOCALAPPDATA\Programs\nodejs\PFiles64\nodejs"
 $npm = Join-Path $nodeDir "npm.cmd"
 $env:NODE_TLS_REJECT_UNAUTHORIZED = "0"
-$env:DATABASE_URL = "postgresql://emmapp:emmapp_secret@localhost:5432/emmapp?schema=public"
+$env:DATABASE_URL = "postgresql://emmapp:emmapp_secret@127.0.0.1:5432/emmapp?schema=public"
 
 if (-not (Test-Path $npm)) {
   Write-Host "Node.js introuvable. Installez Node ou lancez depuis Cursor."

@@ -15,6 +15,17 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { EmmapureModule } from './emmapure/emmapure.module';
 import { VehiclesModule } from './vehicles/vehicles.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { AiModule } from './ai/ai.module';
+import { AssistantModule } from './assistant/assistant.module';
+import { IotModule } from './iot/iot.module';
+import { RoutingModule } from './routing/routing.module';
+import { EsgModule } from './esg/esg.module';
+import { PortalModule } from './portal/portal.module';
+import { MarketplaceModule } from './marketplace/marketplace.module';
+import { IntegrationsModule } from './integrations/integrations.module';
+import { SecurityModule } from './security/security.module';
+import { PreferencesModule } from './preferences/preferences.module';
+import { SearchModule } from './search/search.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -35,6 +46,17 @@ import { HealthController } from './health.controller';
     DashboardModule,
     EmmapureModule,
     NotificationsModule,
+    AiModule,
+    AssistantModule,
+    IotModule,
+    RoutingModule,
+    EsgModule,
+    PortalModule,
+    MarketplaceModule,
+    IntegrationsModule,
+    SecurityModule,
+    PreferencesModule,
+    SearchModule,
   ],
   controllers: [HealthController],
 })

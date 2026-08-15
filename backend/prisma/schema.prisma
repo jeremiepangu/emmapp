@@ -25,6 +25,9 @@ enum UserRole {
   RH
   SUPERVISEUR
   IT_GED
+  DATA_ANALYST
+  RESP_SECURITE
+  RESP_DURABILITE
 }
 
 enum ClientSegment {
@@ -149,6 +152,13 @@ model User {
   dailyReports     DailyActivityReport[]
   notifications    Notification[]
 
+  resolvedAnomalies Anomaly[]          @relation("AnomalyResolver")
+  assistantSessions AssistantSession[] @relation("AssistantUser")
+  securityAlerts    SecurityAlert[]    @relation("SecurityAlertUser")
+  mfaCredential     MfaCredential?
+  preference        UserPreference?
+  savedViews        SavedView[]
+
   @@map("users")
 }
 
@@ -180,6 +190,9 @@ model Client {
   consignes  ConsigneMovement[]
   payments   Payment[]
 
+  portalAccounts PortalAccount[]
+  quoteRequests  QuoteRequest[]
+
   @@map("clients")
 }
 
@@ -200,6 +213,7 @@ model Product {
   stockItems  StockItem[]
   orderLines  OrderLine[]
   deliveryLines DeliveryLine[]
+  forecasts   DemandForecast[]
 
   @@map("products")
 }
@@ -238,11 +252,15 @@ model Vehicle {
   plate     String   @unique
   name      String
   capacity  Int      @default(100)
+  fuelType  String   @default("DIESEL") @map("fuel_type")
+  /// Facteur d'émission utilisé pour estimer l'empreinte carbone d'une tournée (EF-ESG-01).
+  co2FactorKgPerKm Float @default(0.31) @map("co2_factor_kg_per_km")
   isActive  Boolean  @default(true) @map("is_active")
   createdAt DateTime @default(now()) @map("created_at")
 
   tours     Tour[]
   locations StockLocation[]
+  sensors   IotSensor[]
 
   @@map("vehicles")
 }
@@ -298,6 +316,9 @@ model Tour {
   orders     Order[]
   deliveries Delivery[]
   loadSheets LoadSheet[]
+
+  optimizedRoutes OptimizedRoute[]
+  esgIndicators   EsgIndicator[]
 
   @@map("tours")
 }
@@ -508,8 +529,11 @@ model FountainAsset {
   contractType String?  @map("contract_type")
   lastService  DateTime? @map("last_service")
   nextService  DateTime? @map("next_service")
+  fillLevelPct Float?    @map("fill_level_pct")
   isActive     Boolean  @default(true) @map("is_active")
   createdAt    DateTime @default(now()) @map("created_at")
+
+  sensors IotSensor[]
 
   @@map("fountain_assets")
 }
@@ -534,6 +558,11 @@ enum NotificationCategory {
   RH
   SYSTEME
   SUPERVISION
+  IA
+  IOT
+  ESG
+  SECURITE
+  PORTAIL
 }
 
 model Notification {
@@ -564,4 +593,419 @@ model PackagingUnit {
   createdAt       DateTime      @default(now()) @map("created_at")
 
   @@map("packaging_units")
+}
+
+// ============================================================================
+// v3.0 « Enterprise Smart & AI-Augmented »
+// ============================================================================
+
+enum SensorKind {
+  QUALITE_LIGNE
+  VEHICULE
+  FONTAINE
+}
+
+enum SensorStatus {
+  ACTIF
+  HORS_LIGNE
+  MAINTENANCE
+}
+
+enum AnomalyKind {
+  STOCK
+  CONSIGNE
+  ENCAISSEMENT
+  PRODUCTION
+  CAPTEUR
+}
+
+enum AnomalySeverity {
+  FAIBLE
+  MOYENNE
+  ELEVEE
+  CRITIQUE
+}
+
+enum AnomalyStatus {
+  OUVERTE
+  EN_COURS
+  RESOLUE
+  IGNOREE
+}
+
+enum AssistantChannel {
+  BACKOFFICE
+  PORTAIL
+  WHATSAPP
+}
+
+enum AssistantAuthor {
+  UTILISATEUR
+  ASSISTANT
+}
+
+enum SecurityAlertKind {
+  ECHEC_AUTHENTIFICATION
+  ACCES_REFUSE
+  ELEVATION_PRIVILEGE
+  ACTIVITE_ANORMALE
+  CONFORMITE
+}
+
+enum SecurityAlertStatus {
+  OUVERTE
+  ANALYSEE
+  CLOTUREE
+}
+
+enum EsgScope {
+  TOURNEE
+  SITE
+}
+
+/// Prévision de demande calculée par produit, zone et période (EF-IA-01).
+model DemandForecast {
+  id           String   @id @default(uuid())
+  productId    String   @map("product_id")
+  zone         String
+  horizonDate  DateTime @map("horizon_date") @db.Date
+  forecastQty  Int      @map("forecast_qty")
+  confidence   Float    @default(0)
+  /// Facteurs explicatifs restitués à l'utilisateur (EF-IA-04).
+  factors      Json
+  modelVersion String   @map("model_version")
+  generatedAt  DateTime @default(now()) @map("generated_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, zone, horizonDate])
+  @@index([zone, horizonDate])
+  @@map("demand_forecasts")
+}
+
+/// Anomalie signalée par le moteur d'analyse, avec son niveau de confiance (EF-IA-02).
+model Anomaly {
+  id           String          @id @default(uuid())
+  kind         AnomalyKind
+  severity     AnomalySeverity @default(MOYENNE)
+  status       AnomalyStatus   @default(OUVERTE)
+  entityType   String          @map("entity_type")
+  entityId     String?         @map("entity_id")
+  title        String
+  description  String
+  score        Float           @default(0)
+  factors      Json
+  detectedAt   DateTime        @default(now()) @map("detected_at")
+  resolvedAt   DateTime?       @map("resolved_at")
+  resolvedById String?         @map("resolved_by_id")
+
+  resolvedBy User? @relation("AnomalyResolver", fields: [resolvedById], references: [id])
+
+  @@index([status, severity])
+  @@map("anomalies")
+}
+
+/// Score de risque de panne par équipement (EF-IA-03).
+model MaintenanceRisk {
+  id                String   @id @default(uuid())
+  equipmentCode     String   @map("equipment_code")
+  lineCode          String   @map("line_code")
+  riskScore         Float    @map("risk_score")
+  factors           Json
+  predictedFailureAt DateTime? @map("predicted_failure_at")
+  computedAt        DateTime @default(now()) @map("computed_at")
+
+  @@unique([equipmentCode, computedAt])
+  @@index([equipmentCode])
+  @@map("maintenance_risks")
+}
+
+/// Journal de performance des modèles, réentraînement inclus (EF-IA-05).
+model ModelRun {
+  id           String   @id @default(uuid())
+  modelName    String   @map("model_name")
+  modelVersion String   @map("model_version")
+  samples      Int      @default(0)
+  /// Écart absolu moyen en pourcentage, mesuré sur l'historique.
+  mapePct      Float?   @map("mape_pct")
+  metrics      Json
+  ranAt        DateTime @default(now()) @map("ran_at")
+
+  @@index([modelName, ranAt])
+  @@map("model_runs")
+}
+
+/// Session d'échange avec l'assistant conversationnel (EF-BOT-04).
+model AssistantSession {
+  id              String           @id @default(uuid())
+  channel         AssistantChannel @default(BACKOFFICE)
+  userId          String?          @map("user_id")
+  portalAccountId String?          @map("portal_account_id")
+  escalated       Boolean          @default(false)
+  escalatedAt     DateTime?        @map("escalated_at")
+  startedAt       DateTime         @default(now()) @map("started_at")
+  lastMessageAt   DateTime         @default(now()) @map("last_message_at")
+
+  user          User?             @relation("AssistantUser", fields: [userId], references: [id])
+  portalAccount PortalAccount?    @relation(fields: [portalAccountId], references: [id])
+  messages      AssistantMessage[]
+
+  @@index([userId, startedAt])
+  @@map("assistant_sessions")
+}
+
+model AssistantMessage {
+  id         String          @id @default(uuid())
+  sessionId  String          @map("session_id")
+  author     AssistantAuthor
+  content    String
+  intent     String?
+  confidence Float?
+  createdAt  DateTime        @default(now()) @map("created_at")
+
+  session AssistantSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, createdAt])
+  @@map("assistant_messages")
+}
+
+/// Capteur rattaché à une machine, un véhicule ou une fontaine (EF-IOT-01 à 03).
+model IotSensor {
+  id          String       @id @default(uuid())
+  code        String       @unique
+  label       String
+  kind        SensorKind
+  metric      String
+  unit        String
+  minValue    Float?       @map("min_value")
+  maxValue    Float?       @map("max_value")
+  machineCode String?      @map("machine_code")
+  lineCode    String?      @map("line_code")
+  vehicleId   String?      @map("vehicle_id")
+  fountainId  String?      @map("fountain_id")
+  status      SensorStatus @default(ACTIF)
+  lastSeenAt  DateTime?    @map("last_seen_at")
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  vehicle  Vehicle?        @relation(fields: [vehicleId], references: [id])
+  fountain FountainAsset?  @relation(fields: [fountainId], references: [id])
+  readings SensorReading[]
+
+  @@index([kind, status])
+  @@map("iot_sensors")
+}
+
+model SensorReading {
+  id         String   @id @default(uuid())
+  sensorId   String   @map("sensor_id")
+  value      Float
+  outOfRange Boolean  @default(false) @map("out_of_range")
+  recordedAt DateTime @default(now()) @map("recorded_at")
+
+  sensor IotSensor @relation(fields: [sensorId], references: [id], onDelete: Cascade)
+
+  @@index([sensorId, recordedAt])
+  @@map("sensor_readings")
+}
+
+/// Séquence de points de livraison proposée par l'optimiseur (EF-OPT-01 à 03).
+model OptimizedRoute {
+  id                 String    @id @default(uuid())
+  tourId             String    @map("tour_id")
+  /// Ordre de passage : [{ order, clientId, clientName, latitude, longitude, priority }].
+  stops              Json
+  totalDistanceKm    Float     @map("total_distance_km")
+  estimatedDurationMin Int     @map("estimated_duration_min")
+  algorithm          String
+  manuallyAdjusted   Boolean   @default(false) @map("manually_adjusted")
+  appliedAt          DateTime? @map("applied_at")
+  actualDistanceKm   Float?    @map("actual_distance_km")
+  deviationPct       Float?    @map("deviation_pct")
+  generatedAt        DateTime  @default(now()) @map("generated_at")
+
+  tour Tour @relation(fields: [tourId], references: [id], onDelete: Cascade)
+
+  @@index([tourId, generatedAt])
+  @@map("optimized_routes")
+}
+
+/// Mesure de durabilité rattachée à une période et à une tournée ou un site (EF-ESG-01, 02).
+model EsgIndicator {
+  id            String   @id @default(uuid())
+  scope         EsgScope @default(TOURNEE)
+  periodStart   DateTime @map("period_start") @db.Date
+  periodEnd     DateTime @map("period_end") @db.Date
+  tourId        String?  @map("tour_id")
+  distanceKm    Float    @default(0) @map("distance_km")
+  co2Kg         Float    @default(0) @map("co2_kg")
+  waterM3       Float    @default(0) @map("water_m3")
+  energyKwh     Float    @default(0) @map("energy_kwh")
+  reusePct      Float    @default(0) @map("reuse_pct")
+  computedAt    DateTime @default(now()) @map("computed_at")
+
+  tour Tour? @relation(fields: [tourId], references: [id])
+
+  @@index([scope, periodStart])
+  @@map("esg_indicators")
+}
+
+/// Accès self-service du client, distinct du compte utilisateur interne (EF-PC-01).
+model PortalAccount {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  clientId     String    @map("client_id")
+  fullName     String    @map("full_name")
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  client            Client             @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  assistantSessions AssistantSession[]
+
+  @@index([clientId])
+  @@map("portal_accounts")
+}
+
+/// Alerte centralisée du centre de sécurité (ESE-12).
+model SecurityAlert {
+  id        String              @id @default(uuid())
+  kind      SecurityAlertKind
+  severity  AnomalySeverity     @default(MOYENNE)
+  status    SecurityAlertStatus @default(OUVERTE)
+  source    String
+  message   String
+  email     String?
+  ipAddress String?             @map("ip_address")
+  userId    String?             @map("user_id")
+  metadata  Json?
+  createdAt DateTime            @default(now()) @map("created_at")
+
+  user User? @relation("SecurityAlertUser", fields: [userId], references: [id])
+
+  @@index([status, createdAt])
+  @@map("security_alerts")
+}
+
+/// Second facteur d'authentification par code temporaire (ESE-08).
+model MfaCredential {
+  id         String    @id @default(uuid())
+  userId     String    @unique @map("user_id")
+  secret     String
+  confirmed  Boolean   @default(false)
+  confirmedAt DateTime? @map("confirmed_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("mfa_credentials")
+}
+
+/// Préférences d'affichage : thème et disposition du tableau de bord (EX-IHM-13, 14).
+model UserPreference {
+  id              String   @id @default(uuid())
+  userId          String   @unique @map("user_id")
+  theme           String   @default("clair")
+  /// Ordre et visibilité des panneaux : [{ key, visible }].
+  dashboardLayout Json?    @map("dashboard_layout")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+enum QuoteRequestStatus {
+  NOUVELLE
+  EN_NEGOCIATION
+  ACCEPTEE
+  REFUSEE
+}
+
+/// Clé d'accès à l'API publique pour un partenaire (canal « API publique et webhooks »).
+model ApiKey {
+  id         String    @id @default(uuid())
+  label      String
+  partner    String
+  keyPrefix  String    @unique @map("key_prefix")
+  keyHash    String    @map("key_hash")
+  scopes     String[]
+  isActive   Boolean   @default(true) @map("is_active")
+  lastUsedAt DateTime? @map("last_used_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  @@map("api_keys")
+}
+
+/// Abonnement d'un partenaire aux événements métier diffusés par le bus interne.
+model WebhookSubscription {
+  id        String   @id @default(uuid())
+  label     String
+  url       String
+  events    String[]
+  secret    String
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  deliveries WebhookDelivery[]
+
+  @@map("webhook_subscriptions")
+}
+
+model WebhookDelivery {
+  id             String    @id @default(uuid())
+  subscriptionId String    @map("subscription_id")
+  event          String
+  payload        Json
+  statusCode     Int?      @map("status_code")
+  error          String?
+  attempts       Int       @default(0)
+  deliveredAt    DateTime? @map("delivered_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  subscription WebhookSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId, createdAt])
+  @@map("webhook_deliveries")
+}
+
+/// Demande de cotation issue de la marketplace B2B (grossistes et détaillants).
+model QuoteRequest {
+  id           String             @id @default(uuid())
+  reference    String             @unique
+  clientId     String?            @map("client_id")
+  companyName  String             @map("company_name")
+  contactEmail String             @map("contact_email")
+  contactPhone String?            @map("contact_phone")
+  segment      ClientSegment      @default(DETAILLANT)
+  zone         String?
+  /// Lignes souhaitées : [{ productId, productName, quantity }].
+  lines        Json
+  message      String?
+  status       QuoteRequestStatus @default(NOUVELLE)
+  quotedAmount Decimal?           @map("quoted_amount") @db.Decimal(12, 2)
+  handledById  String?            @map("handled_by_id")
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
+
+  client Client? @relation(fields: [clientId], references: [id])
+
+  @@index([status, createdAt])
+  @@map("quote_requests")
+}
+
+/// Vue sauvegardée et filtres favoris par utilisateur (EX-IHM-16).
+model SavedView {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  resource  String
+  name      String
+  filters   Json
+  isDefault Boolean  @default(false) @map("is_default")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, resource, name])
+  @@map("saved_views")
 }

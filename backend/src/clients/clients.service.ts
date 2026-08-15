@@ -43,6 +43,12 @@ export class ClientsService {
     return this.prisma.client.update({ where: { id }, data: dto });
   }
 
+  async deactivate(id: string) {
+    const client = await this.prisma.client.findUnique({ where: { id } });
+    if (!client) throw new NotFoundException('Client introuvable');
+    return this.prisma.client.update({ where: { id }, data: { isActive: false } });
+  }
+
   getConsigneBalance(id: string) {
     return this.prisma.client.findUnique({
       where: { id },

@@ -42,9 +42,15 @@ export class OrdersController {
     return this.ordersService.create(dto);
   }
 
-  @Roles(UserRole.ADMIN, UserRole.COMMERCIAL)
+  @Roles(UserRole.ADMIN, UserRole.COMMERCIAL, UserRole.CHEF_EXPLOITATION)
   @Patch(':id/validate')
   validate(@Param('id') id: string) {
     return this.ordersService.validate(id);
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.COMMERCIAL, UserRole.CHEF_EXPLOITATION)
+  @Patch(':id/cancel')
+  cancel(@Param('id') id: string) {
+    return this.ordersService.cancel(id);
   }
 }

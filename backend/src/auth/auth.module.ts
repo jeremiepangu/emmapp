@@ -8,6 +8,7 @@ import { JwtStrategy } from './jwt.strategy';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Reflector } from '@nestjs/core';
+import { SecurityModule } from '../security/security.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { Reflector } from '@nestjs/core';
       secret: process.env.JWT_SECRET || 'dev-secret',
       signOptions: { expiresIn: process.env.JWT_EXPIRES_IN || '8h' },
     }),
+    SecurityModule,
   ],
   controllers: [AuthController],
   providers: [

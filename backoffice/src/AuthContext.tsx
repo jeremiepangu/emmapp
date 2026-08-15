@@ -4,7 +4,7 @@ import { api, User } from './api';
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, mfaCode?: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -22,8 +22,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(false);
   }, []);
 
-  const login = async (email: string, password: string) => {
-    const result = await api.login(email, password);
+  const login = async (email: string, password: string, mfaCode?: string) => {
+    const result = await api.login(email, password, mfaCode);
+    if (result.mfaRequired) {
+      throw new Error('MFA_REQUIRED');
+    }
     localStorage.setItem('token', result.accessToken);
     localStorage.setItem('user', JSON.stringify(result.user));
     setUser(result.user);

@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -47,5 +48,11 @@ export class ClientsController {
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateClientDto) {
     return this.clientsService.update(id, dto);
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.DG)
+  @Delete(':id')
+  deactivate(@Param('id') id: string) {
+    return this.clientsService.deactivate(id);
   }
 }
