@@ -7,6 +7,8 @@ import { usePermissions } from '../hooks/usePermissions';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 
 import StatusPill from '../components/ErpUi';
+import DocButton from '../components/DocButton';
+import { printProductionList, printProductionOrder } from '../documents/templates';
 
 
 
@@ -55,6 +57,8 @@ export default function ProductionPage() {
         title="Production"
 
         subtitle="Ordres de fabrication et traçabilité lots (format LOT-AAAAMMJJ-LIGNE-FORMAT)"
+
+        actions={<DocButton label="Imprimer le registre" onClick={() => printProductionList(orders)} />}
 
       />
 
@@ -154,7 +158,9 @@ export default function ProductionPage() {
 
                 <td><StatusPill status={o.lotStatus} /></td>
 
-                <td>
+                <td className="erp-row-actions">
+
+                  <DocButton onClick={() => printProductionOrder(o)} />
 
                   {can('production', 'validate') && o.lotStatus !== 'LIBERE' && (
 

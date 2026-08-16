@@ -3,6 +3,8 @@ import { api, Client, CreateQuoteRequestInput, Product, QuoteRequest, QuoteReque
 import { usePermissions } from '../hooks/usePermissions';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
+import DocButton from '../components/DocButton';
+import { printQuote, printQuotesList } from '../documents/templates';
 
 export default function MarketplacePage() {
   const { can } = usePermissions();
@@ -41,6 +43,7 @@ export default function MarketplacePage() {
       <ErpPageHeader
         title="Marketplace B2B"
         subtitle="Demandes de cotation des grossistes et détaillants, conversion en commande interne"
+        actions={<DocButton label="Imprimer les devis" onClick={() => printQuotesList(quotes)} />}
       />
       {error && <p className="error-msg">{error}</p>}
 
@@ -91,7 +94,8 @@ export default function MarketplacePage() {
                 <td>{q.lines.map((l) => `${l.productName} × ${l.quantity}`).join(', ')}</td>
                 <td>{q.quotedAmount != null ? Number(q.quotedAmount).toLocaleString('fr-FR') : '—'}</td>
                 <td><StatusPill status={q.status} /></td>
-                <td>
+                <td className="erp-row-actions">
+                  <DocButton label="Devis" onClick={() => printQuote(q)} />
                   {can('marketplace', 'update') && q.status === 'NOUVELLE' && (
                     <>
                       <input

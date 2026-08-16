@@ -4,6 +4,8 @@ import { usePermissions } from '../hooks/usePermissions';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
 import Modal from '../components/Modal';
+import DocButton from '../components/DocButton';
+import { printPaymentReceipt, printPaymentsList } from '../documents/templates';
 
 const methodLabel: Record<string, string> = {
   ESPECES: 'Espèces', CHEQUE: 'Chèque', VIREMENT: 'Virement', MOBILE_MONEY: 'Mobile Money',
@@ -35,7 +37,12 @@ export default function PaymentsPage() {
       <ErpPageHeader
         title="Paiements"
         subtitle={`Encaissements et suivi des règlements · Total : ${total.toLocaleString('fr-FR')} CDF`}
-        actions={can('payments', 'create') ? <button type="button" className="erp-btn" onClick={() => setShowForm(true)}>+ Encaissement</button> : undefined}
+        actions={
+          <>
+            <DocButton label="Imprimer le registre" onClick={() => printPaymentsList(payments)} />
+            {can('payments', 'create') && <button type="button" className="erp-btn" onClick={() => setShowForm(true)}>+ Encaissement</button>}
+          </>
+        }
       />
       <ErpPanel title={`Registre (${payments.length})`}>
         <table className="erp-table">
@@ -50,6 +57,7 @@ export default function PaymentsPage() {
                 <td><strong>{Number(p.amount).toLocaleString('fr-FR')} CDF</strong></td>
                 <td><StatusPill status="VALIDEE" label={methodLabel[p.method] ?? p.method} /></td>
                 <td className="erp-row-actions">
+                  <DocButton label="Reçu" onClick={() => printPaymentReceipt(p)} />
                   {can('payments', 'delete') && (
                     <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => api.deletePayment(p.id).then(load)}>Supprimer</button>
                   )}

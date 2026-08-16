@@ -5,11 +5,15 @@ import {
 } from '@nestjs/common';
 import { OrderStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.module';
+import { PricingService } from '../pricing/pricing.service';
 import { CreateOrderDto } from './dto/order.dto';
 
 @Injectable()
 export class OrdersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private pricing: PricingService,
+  ) {}
 
   private async generateOrderNumber(): Promise<string> {
     const count = await this.prisma.order.count();
@@ -48,18 +52,27 @@ export class OrdersService {
     return order;
   }
 
-  async create(dto: CreateOrderDto) {
+  async create(dto: CreateOrderDto, actor?: { id: string; role: string }) {
     const client = await this.prisma.client.findUnique({
       where: { id: dto.clientId },
     });
     if (!client) throw new NotFoundException('Client introuvable');
+
+    let driverId = dto.driverId || null;
+    if (dto.tourId) {
+      const tour = await this.prisma.tour.findUnique({ where: { id: dto.tourId } });
+      if (tour) driverId = tour.driverId;
+    } else if (!driverId && actor && (actor.role === 'LIVREUR' || actor.role === 'CHARGE_LIVRAISON')) {
+      driverId = actor.id;
+    }
+    const ctx = this.pricing.ctxFromClient(client, driverId);
 
     let totalAmount = new Prisma.Decimal(0);
     const linesData: Array<{
       productId: string;
       quantity: number;
       unitPrice: Prisma.Decimal;
-      discount: number;
+      discount: Prisma.Decimal;
     }> = [];
 
     for (const line of dto.lines) {
@@ -69,15 +82,15 @@ export class OrdersService {
       if (!product) {
         throw new NotFoundException(`Produit ${line.productId} introuvable`);
       }
-      const lineTotal = product.unitPrice
-        .mul(line.quantity)
-        .sub(line.discount ?? 0);
-      totalAmount = totalAmount.add(lineTotal);
+      const priced = await this.pricing.priceLine(ctx, product, line.quantity);
+      const extra = new Prisma.Decimal(line.discount ?? 0);
+      const discount = priced.discount.add(extra);
+      totalAmount = totalAmount.add(priced.unitPrice.mul(line.quantity).sub(extra));
       linesData.push({
         productId: line.productId,
         quantity: line.quantity,
-        unitPrice: product.unitPrice,
-        discount: line.discount ?? 0,
+        unitPrice: priced.unitPrice,
+        discount,
       });
     }
 

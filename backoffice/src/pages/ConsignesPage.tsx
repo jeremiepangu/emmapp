@@ -3,6 +3,8 @@ import { api, Client, ConsigneMovement, FountainAsset, PackagingUnit } from '../
 import { usePermissions } from '../hooks/usePermissions';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
+import DocButton from '../components/DocButton';
+import { printConsigneMovement, printConsignesList, printFountainsList, printPackagingList } from '../documents/templates';
 
 const FORMATS = ['BIDON_5L', 'BIDON_10L', 'BIDON_25L', 'BONBONNE_19L'];
 
@@ -29,7 +31,17 @@ export default function ConsignesPage() {
 
   return (
     <div className="erp-page">
-      <ErpPageHeader title="Consignes" subtitle="Éco-traçabilité emballages, mouvements clients et fontaines" />
+      <ErpPageHeader
+        title="Consignes"
+        subtitle="Éco-traçabilité emballages, mouvements clients et fontaines"
+        actions={
+          <>
+            <DocButton label="Mouvements" onClick={() => printConsignesList(movements)} />
+            <DocButton label="Emballages" onClick={() => printPackagingList(packaging)} />
+            <DocButton label="Fontaines" onClick={() => printFountainsList(fountains)} />
+          </>
+        }
+      />
       {can('consignes', 'create') && (
         <ErpPanel title="Nouveau mouvement / emballage" padded>
           <form className="form-row" onSubmit={addMove}>
@@ -66,7 +78,10 @@ export default function ConsignesPage() {
                 <td>{m.qtyIn}</td>
                 <td>{m.qtyOut}</td>
                 <td>{m.balanceAfter}</td>
-                <td>{can('consignes', 'delete') && <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => api.deleteConsigneMovement(m.id).then(load)}>Supprimer</button>}</td>
+                <td className="erp-row-actions">
+                  <DocButton onClick={() => printConsigneMovement(m)} />
+                  {can('consignes', 'delete') && <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => api.deleteConsigneMovement(m.id).then(load)}>Supprimer</button>}
+                </td>
               </tr>
             ))}
           </tbody>

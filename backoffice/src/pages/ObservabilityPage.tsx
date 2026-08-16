@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { api, ObservabilityStatus } from '../api';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
+import DocButton from '../components/DocButton';
+import { printObservabilityReport } from '../documents/templates';
 
 export default function ObservabilityPage() {
   const [data, setData] = useState<ObservabilityStatus | null>(null);
@@ -17,6 +19,7 @@ export default function ObservabilityPage() {
       <ErpPageHeader
         title="Observabilité"
         subtitle="Disponibilité services, sync offline et alertes qualité / production"
+        actions={<DocButton label="Synthèse" onClick={() => printObservabilityReport(data)} />}
       />
       <div className="erp-kpi-mini-row">
         <div className="erp-kpi-mini">

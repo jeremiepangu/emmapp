@@ -24,6 +24,9 @@ export class UsersController {
     UserRole.MAGASINIER,
     UserRole.CHEF_EXPLOITATION,
     UserRole.SUPERVISEUR,
+    UserRole.COMMERCIAL,
+    UserRole.DELEGUE_COMMERCIAL,
+    UserRole.DG,
   )
   @Get('by-role')
   findByRole(@Query('role') role: string) {

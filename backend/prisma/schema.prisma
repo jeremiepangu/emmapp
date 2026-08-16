@@ -46,6 +46,11 @@ enum ProductFormat {
   BONBONNE_19L
 }
 
+enum PricingRuleType {
+  PERCENT
+  FIXED
+}
+
 enum LoyaltyTier {
   BRONZE
   ARGENT
@@ -152,8 +157,10 @@ model User {
   dailyReports     DailyActivityReport[]
   notifications    Notification[]
   employeeProfile  EmployeeProfile?
+  managedEmployees EmployeeProfile[] @relation("EmployeeManager")
   leaveRequests    LeaveRequest[]    @relation("LeaveEmployee")
   leaveValidations LeaveRequest[]    @relation("LeaveValidator")
+  leaveManagerDecisions LeaveRequest[] @relation("LeaveManager")
   payslips         Payslip[]
   payrollValidated PayrollPeriod[]   @relation("PayrollValidator")
 
@@ -163,6 +170,14 @@ model User {
   mfaCredential     MfaCredential?
   preference        UserPreference?
   savedViews        SavedView[]
+  pricingRules      PricingRule[] @relation("PricingRuleDriver")
+  activityDeclarations ActivityDeclaration[] @relation("ActivityDeclarant")
+  activityValidations  ActivityDeclaration[] @relation("ActivityValidator")
+  objectives           PerformanceObjective[]
+  reviews              PerformanceReview[] @relation("ReviewEmployee")
+  reviewValidations    PerformanceReview[] @relation("ReviewManager")
+  trainingEnrollments  TrainingEnrollment[]
+  hrFieldChanges       EmployeeFieldHistory[] @relation("HistoryActor")
 
   @@map("users")
 }
@@ -173,12 +188,22 @@ model Client {
   name            String
   segment         ClientSegment
   address         String?
+  avenue          String?
+  avenueNumber    String?       @map("avenue_number")
+  quartier        String?
+  commune         String?
+  district        String?
+  province        String        @default("KINSHASA")
   city            String?
   zone            String?
   latitude        Float?
   longitude       Float?
   phone           String?
   email           String?
+  idDocumentType  String?       @map("id_document_type")
+  idDocumentNumber String?      @map("id_document_number")
+  logoUrl         String?       @map("logo_url") @db.Text
+  profession      String?
   creditLimit     Decimal       @default(0) @map("credit_limit") @db.Decimal(12, 2)
   creditBalance   Decimal       @default(0) @map("credit_balance") @db.Decimal(12, 2)
   consigneLimit   Int           @default(50) @map("consigne_limit")
@@ -197,6 +222,7 @@ model Client {
 
   portalAccounts PortalAccount[]
   quoteRequests  QuoteRequest[]
+  pricingRules   PricingRule[]
 
   @@map("clients")
 }
@@ -219,8 +245,36 @@ model Product {
   orderLines  OrderLine[]
   deliveryLines DeliveryLine[]
   forecasts   DemandForecast[]
+  pricingRules PricingRule[]
 
   @@map("products")
+}
+
+model PricingRule {
+  id          String           @id @default(uuid())
+  name        String
+  segment     ClientSegment?
+  clientId    String?          @map("client_id")
+  zone        String?
+  driverId    String?          @map("driver_id")
+  productId   String?          @map("product_id")
+  minQuantity Int              @default(1) @map("min_quantity")
+  maxQuantity Int?             @map("max_quantity")
+  type        PricingRuleType  @default(PERCENT)
+  value       Decimal          @db.Decimal(12, 2)
+  priority    Int              @default(0)
+  isActive    Boolean          @default(true) @map("is_active")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  product Product? @relation(fields: [productId], references: [id])
+  client  Client?  @relation(fields: [clientId], references: [id])
+  driver  User?    @relation("PricingRuleDriver", fields: [driverId], references: [id])
+
+  @@index([segment, isActive])
+  @@index([clientId, isActive])
+  @@index([driverId, isActive])
+  @@map("pricing_rules")
 }
 
 model StockLocation {
@@ -1035,14 +1089,61 @@ enum LeaveType {
   SANS_SOLDE
   AUTORISATION
   MATERNITE
+  PATERNITE
+  PERMISSION
+  ABSENCE_INJUSTIFIEE
 }
 
 enum LeaveStatus {
   BROUILLON
   SOUMISE
+  VALIDEE_MANAGER
   VALIDEE
   REJETEE
   ANNULEE
+}
+
+enum Gender {
+  HOMME
+  FEMME
+  AUTRE
+}
+
+enum MaritalStatus {
+  CELIBATAIRE
+  MARIE
+  DIVORCE
+  VEUF
+}
+
+enum HrDocumentType {
+  CONTRAT
+  PIECE_IDENTITE
+  DIPLOME
+  CV
+  ATTESTATION
+  AVENANT
+  CERTIFICAT_FORMATION
+  JUSTIFICATIF
+  AUTRE
+}
+
+enum TrainingKind {
+  INTERNE
+  EXTERNE
+}
+
+enum TrainingEnrollmentStatus {
+  INSCRITE
+  VALIDEE
+  REJETEE
+  SUIVIE
+}
+
+enum ReviewStatus {
+  BROUILLON
+  AUTO_EVALUEE
+  VALIDEE
 }
 
 enum PayrollPeriodStatus {
@@ -1076,11 +1177,31 @@ model EmployeeProfile {
   nif         String?
   status      EmployeeStatus @default(ACTIF)
   notes       String?
+  gender      Gender?
+  birthDate   DateTime?      @map("birth_date") @db.Date
+  address     String?
+  avenue      String?
+  avenueNumber String?       @map("avenue_number")
+  quartier    String?
+  commune     String?
+  district    String?
+  province    String         @default("KINSHASA")
+  maritalStatus MaritalStatus? @map("marital_status")
+  emergencyName String?      @map("emergency_name")
+  emergencyPhone String?     @map("emergency_phone")
+  photoUrl    String?        @map("photo_url") @db.Text
+  managerId   String?        @map("manager_id")
+  jobFunctionId String?      @map("job_function_id")
+  annualLeaveDays Int        @default(24) @map("annual_leave_days")
   createdAt   DateTime       @default(now()) @map("created_at")
   updatedAt   DateTime       @updatedAt @map("updated_at")
 
-  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  payslips Payslip[]
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  manager     User?         @relation("EmployeeManager", fields: [managerId], references: [id])
+  jobFunction JobFunction?  @relation(fields: [jobFunctionId], references: [id])
+  payslips    Payslip[]
+  documents   EmployeeDocument[]
+  fieldHistory EmployeeFieldHistory[]
 
   @@map("employee_profiles")
 }
@@ -1096,11 +1217,15 @@ model LeaveRequest {
   status        LeaveStatus @default(SOUMISE)
   validatedById String?     @map("validated_by_id")
   validatedAt   DateTime?   @map("validated_at")
+  managerId     String?     @map("manager_id")
+  managerAt     DateTime?   @map("manager_at")
+  rejectionReason String?   @map("rejection_reason")
   createdAt     DateTime    @default(now()) @map("created_at")
   updatedAt     DateTime    @updatedAt @map("updated_at")
 
   user        User  @relation("LeaveEmployee", fields: [userId], references: [id], onDelete: Cascade)
   validatedBy User? @relation("LeaveValidator", fields: [validatedById], references: [id])
+  manager     User? @relation("LeaveManager", fields: [managerId], references: [id])
 
   @@index([userId, startDate])
   @@map("leave_requests")
@@ -1153,4 +1278,156 @@ model Payslip {
 
   @@unique([periodId, userId])
   @@map("payslips")
+}
+
+model JobFunction {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  department  String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  activities JobFunctionActivity[]
+  employees  EmployeeProfile[]
+
+  @@map("job_functions")
+}
+
+model JobFunctionActivity {
+  id          String   @id @default(uuid())
+  functionId  String   @map("function_id")
+  name        String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  jobFunction   JobFunction            @relation(fields: [functionId], references: [id], onDelete: Cascade)
+  declarations  ActivityDeclaration[]
+
+  @@map("job_function_activities")
+}
+
+model ActivityDeclaration {
+  id                String      @id @default(uuid())
+  userId            String      @map("user_id")
+  activityId        String?     @map("activity_id")
+  date              DateTime    @db.Date
+  comment           String?
+  attachmentUrl     String?     @map("attachment_url") @db.Text
+  status            LeaveStatus @default(SOUMISE)
+  validatedById     String?     @map("validated_by_id")
+  validatedAt       DateTime?   @map("validated_at")
+  rejectionReason   String?     @map("rejection_reason")
+  createdAt         DateTime    @default(now()) @map("created_at")
+
+  user      User                  @relation("ActivityDeclarant", fields: [userId], references: [id], onDelete: Cascade)
+  activity  JobFunctionActivity?  @relation(fields: [activityId], references: [id])
+  validator User?                 @relation("ActivityValidator", fields: [validatedById], references: [id])
+
+  @@index([userId, date])
+  @@map("activity_declarations")
+}
+
+model PerformanceObjective {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  title       String
+  description String?
+  periodType  String   @default("ANNUEL") @map("period_type")
+  year        Int
+  quarter     Int?
+  weight      Decimal  @db.Decimal(5, 2)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, year])
+  @@map("performance_objectives")
+}
+
+model PerformanceReview {
+  id                 String       @id @default(uuid())
+  userId             String       @map("user_id")
+  year               Int
+  period             String
+  selfScores         Json?        @map("self_scores")
+  managerScores      Json?        @map("manager_scores")
+  selfComment        String?      @map("self_comment")
+  managerComment     String?      @map("manager_comment")
+  selfSubmittedAt    DateTime?    @map("self_submitted_at")
+  managerValidatedAt DateTime?    @map("manager_validated_at")
+  managerId          String?      @map("manager_id")
+  finalScore         Decimal?     @map("final_score") @db.Decimal(5, 2)
+  status             ReviewStatus @default(BROUILLON)
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
+
+  user    User  @relation("ReviewEmployee", fields: [userId], references: [id], onDelete: Cascade)
+  manager User? @relation("ReviewManager", fields: [managerId], references: [id])
+
+  @@unique([userId, year, period])
+  @@map("performance_reviews")
+}
+
+model TrainingCourse {
+  id        String        @id @default(uuid())
+  title     String
+  kind      TrainingKind  @default(INTERNE)
+  provider  String?
+  location  String?
+  startDate DateTime?     @map("start_date") @db.Date
+  endDate   DateTime?     @map("end_date") @db.Date
+  isActive  Boolean       @default(true) @map("is_active")
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  enrollments TrainingEnrollment[]
+
+  @@map("training_courses")
+}
+
+model TrainingEnrollment {
+  id              String                    @id @default(uuid())
+  courseId        String                    @map("course_id")
+  userId          String                    @map("user_id")
+  status          TrainingEnrollmentStatus  @default(INSCRITE)
+  certificateUrl  String?                   @map("certificate_url") @db.Text
+  validatedById   String?                   @map("validated_by_id")
+  rejectionReason String?                   @map("rejection_reason")
+  createdAt       DateTime                  @default(now()) @map("created_at")
+
+  course TrainingCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, userId])
+  @@map("training_enrollments")
+}
+
+model EmployeeDocument {
+  id         String         @id @default(uuid())
+  employeeId String         @map("employee_id")
+  type       HrDocumentType
+  title      String
+  fileUrl    String?        @map("file_url") @db.Text
+  issuedAt   DateTime?      @map("issued_at") @db.Date
+  createdAt  DateTime       @default(now()) @map("created_at")
+
+  employee EmployeeProfile @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId, type])
+  @@map("employee_documents")
+}
+
+model EmployeeFieldHistory {
+  id         String   @id @default(uuid())
+  employeeId String   @map("employee_id")
+  field      String
+  oldValue   String?  @map("old_value")
+  newValue   String?  @map("new_value")
+  actorId    String   @map("actor_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  employee EmployeeProfile @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  actor    User            @relation("HistoryActor", fields: [actorId], references: [id])
+
+  @@index([employeeId, createdAt])
+  @@map("employee_field_history")
 }

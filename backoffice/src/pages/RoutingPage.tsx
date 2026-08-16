@@ -3,6 +3,8 @@ import { api, OptimizedRoute, RouteStop, Tour } from '../api';
 import { usePermissions } from '../hooks/usePermissions';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
+import DocButton from '../components/DocButton';
+import { printRouteSheet } from '../documents/templates';
 
 export default function RoutingPage() {
   const { can } = usePermissions();
@@ -48,6 +50,7 @@ export default function RoutingPage() {
       <ErpPageHeader
         title="Itinéraires optimisés"
         subtitle="Plus proche voisin + 2-opt, priorités clients et trafic horaire — ajustable avant validation"
+        actions={selected ? <DocButton label="Imprimer l'itinéraire" onClick={() => printRouteSheet({ ...selected, stops })} /> : undefined}
       />
       {error && <p className="error-msg">{error}</p>}
 
@@ -76,14 +79,19 @@ export default function RoutingPage() {
       {selected && (
         <ErpPanel
           title={`Proposition ${selected.algorithm} · ${selected.totalDistanceKm.toFixed(1)} km · ${selected.estimatedDurationMin} min`}
-          actions={can('routing', 'validate') && (
+          actions={(
             <>
-              <button type="button" className="erp-btn erp-btn--sm" onClick={() => api.adjustOptimizedRoute(selected.tourId, stops).then((r) => { setSelected(r); setStops(r.stops); load(); })}>
-                Enregistrer l'ajustement
-              </button>
-              <button type="button" className="erp-btn erp-btn--sm" onClick={() => api.applyOptimizedRoute(selected.tourId).then((r) => { setSelected(r); load(); })}>
-                Appliquer
-              </button>
+              {selected && <DocButton label="Itinéraire" onClick={() => printRouteSheet({ ...selected, stops })} />}
+              {can('routing', 'validate') && (
+                <>
+                  <button type="button" className="erp-btn erp-btn--sm" onClick={() => api.adjustOptimizedRoute(selected.tourId, stops).then((r) => { setSelected(r); setStops(r.stops); load(); })}>
+                    Enregistrer l'ajustement
+                  </button>
+                  <button type="button" className="erp-btn erp-btn--sm" onClick={() => api.applyOptimizedRoute(selected.tourId).then((r) => { setSelected(r); load(); })}>
+                    Appliquer
+                  </button>
+                </>
+              )}
             </>
           )}
         >
@@ -115,7 +123,7 @@ export default function RoutingPage() {
 
       <ErpPanel title="Historique">
         <table className="erp-table">
-          <thead><tr><th>Tournée</th><th>Distance</th><th>Durée</th><th>Appliqué</th></tr></thead>
+          <thead><tr><th>Tournée</th><th>Distance</th><th>Durée</th><th>Appliqué</th><th></th></tr></thead>
           <tbody>
             {routes.map((r) => (
               <tr key={r.id} onClick={() => { setSelected(r); setStops(r.stops); }}>
@@ -123,6 +131,9 @@ export default function RoutingPage() {
                 <td>{r.totalDistanceKm.toFixed(1)} km</td>
                 <td>{r.estimatedDurationMin} min</td>
                 <td>{r.appliedAt ? new Date(r.appliedAt).toLocaleString('fr-FR') : '—'}</td>
+                <td onClick={(e) => e.stopPropagation()}>
+                  <DocButton onClick={() => printRouteSheet(r)} />
+                </td>
               </tr>
             ))}
           </tbody>

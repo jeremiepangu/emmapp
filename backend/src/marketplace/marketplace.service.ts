@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { NotificationCategory, NotificationType, OrderStatus, Prisma, QuoteRequestStatus, UserRole } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
+import { PricingService } from '../pricing/pricing.service';
 import { PrismaService } from '../prisma/prisma.module';
 import { WebhooksService } from '../integrations/webhooks.service';
 
@@ -10,6 +11,7 @@ export class MarketplaceService {
     private prisma: PrismaService,
     private notifications: NotificationsService,
     private webhooks: WebhooksService,
+    private pricing: PricingService,
   ) {}
 
   findAll(status?: string) {
@@ -95,16 +97,24 @@ export class MarketplaceService {
       clientId = byEmail?.id ?? null;
     }
     if (!clientId) throw new BadRequestException('Aucun client rattaché à cette demande');
+    const client = await this.prisma.client.findUnique({ where: { id: clientId } });
+    if (!client) throw new BadRequestException('Client introuvable');
     const lines = quote.lines as Array<{ productId: string; quantity: number }>;
     const count = await this.prisma.order.count();
     const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     let total = new Prisma.Decimal(0);
-    const linesData: Array<{ productId: string; quantity: number; unitPrice: Prisma.Decimal; discount: number }> = [];
+    const linesData: Array<{ productId: string; quantity: number; unitPrice: Prisma.Decimal; discount: Prisma.Decimal }> = [];
     for (const line of lines) {
       const product = await this.prisma.product.findUnique({ where: { id: line.productId } });
       if (!product) continue;
-      total = total.add(product.unitPrice.mul(line.quantity));
-      linesData.push({ productId: product.id, quantity: line.quantity, unitPrice: product.unitPrice, discount: 0 });
+      const priced = await this.pricing.priceLine(this.pricing.ctxFromClient(client), product, line.quantity);
+      total = total.add(priced.unitPrice.mul(line.quantity));
+      linesData.push({
+        productId: product.id,
+        quantity: line.quantity,
+        unitPrice: priced.unitPrice,
+        discount: priced.discount,
+      });
     }
     const order = await this.prisma.order.create({
       data: {

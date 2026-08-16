@@ -3,6 +3,8 @@ import { api, LoyaltyClient } from '../api';
 import { usePermissions } from '../hooks/usePermissions';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
+import DocButton from '../components/DocButton';
+import { printLoyaltyList, printLoyaltySheet } from '../documents/templates';
 
 const tierLabel: Record<string, string> = { BRONZE: 'Bronze', ARGENT: 'Argent', OR: 'Or', PLATINE: 'Platine' };
 
@@ -25,6 +27,7 @@ export default function LoyaltyPage() {
       <ErpPageHeader
         title="Fidélité"
         subtitle="Barème : Bonbonne 19L = 10 pts · Bidon 25L = 8 pts · Bidon 10L = 4 pts · Wallet prépayé"
+        actions={<DocButton label="Imprimer le registre" onClick={() => printLoyaltyList(clients)} />}
       />
       <ErpPanel title={`Clients fidélité (${clients.length})`}>
         <table className="erp-table">
@@ -40,12 +43,15 @@ export default function LoyaltyPage() {
                 <td><StatusPill status="VALIDEE" label={tierLabel[c.loyaltyTier] ?? c.loyaltyTier} /></td>
                 <td>{Number(c.walletBalance).toLocaleString('fr-FR')}</td>
                 <td>
-                  {can('loyalty', 'create') && (
-                    <form className="erp-row-actions" onSubmit={(e) => credit(e, c.id)}>
-                      <input type="number" style={{ width: 80 }} value={points[c.id] ?? 0} onChange={(e) => setPoints({ ...points, [c.id]: Number(e.target.value) })} />
-                      <button type="submit" className="erp-btn erp-btn--sm">Créditer</button>
-                    </form>
-                  )}
+                  <div className="erp-row-actions">
+                    <DocButton onClick={() => printLoyaltySheet(c)} />
+                    {can('loyalty', 'create') && (
+                      <form className="erp-row-actions" onSubmit={(e) => credit(e, c.id)}>
+                        <input type="number" style={{ width: 80 }} value={points[c.id] ?? 0} onChange={(e) => setPoints({ ...points, [c.id]: Number(e.target.value) })} />
+                        <button type="submit" className="erp-btn erp-btn--sm">Créditer</button>
+                      </form>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

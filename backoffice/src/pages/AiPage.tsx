@@ -11,6 +11,8 @@ import {
 import { usePermissions } from '../hooks/usePermissions';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
+import DocButton from '../components/DocButton';
+import { printAnomalies, printForecasts } from '../documents/templates';
 
 function Factors({ factors }: { factors: Array<{ label: string; weight: number; detail?: string }> }) {
   if (!factors?.length) return <span className="erp-muted">—</span>;
@@ -92,17 +94,23 @@ export default function AiPage() {
       <ErpPageHeader
         title="IA prédictive & analytics"
         subtitle="Prévision de demande, anomalies, maintenance et scoring — chaque résultat affiche ses facteurs (EF-IA-04)"
-        actions={can('ai', 'validate') && (
+        actions={(
           <>
-            <button type="button" className="erp-btn" disabled={!!busy} onClick={() => run('prévision', () => api.runDemandForecast())}>
-              {busy === 'prévision' ? 'Calcul…' : 'Actualiser les prévisions'}
-            </button>
-            <button type="button" className="erp-btn erp-btn--ghost" disabled={!!busy} onClick={() => run('anomalies', () => api.runAnomalyDetection())}>
-              {busy === 'anomalies' ? 'Analyse…' : 'Détecter les anomalies'}
-            </button>
-            <button type="button" className="erp-btn erp-btn--ghost" disabled={!!busy} onClick={() => run('maintenance', () => api.runMaintenanceRisk())}>
-              {busy === 'maintenance' ? 'Analyse…' : 'Score de panne'}
-            </button>
+            <DocButton label="Prévisions" onClick={() => printForecasts(forecasts)} />
+            <DocButton label="Anomalies" onClick={() => printAnomalies(anomalies)} />
+            {can('ai', 'validate') && (
+              <>
+                <button type="button" className="erp-btn" disabled={!!busy} onClick={() => run('prévision', () => api.runDemandForecast())}>
+                  {busy === 'prévision' ? 'Calcul…' : 'Actualiser les prévisions'}
+                </button>
+                <button type="button" className="erp-btn erp-btn--ghost" disabled={!!busy} onClick={() => run('anomalies', () => api.runAnomalyDetection())}>
+                  {busy === 'anomalies' ? 'Analyse…' : 'Détecter les anomalies'}
+                </button>
+                <button type="button" className="erp-btn erp-btn--ghost" disabled={!!busy} onClick={() => run('maintenance', () => api.runMaintenanceRisk())}>
+                  {busy === 'maintenance' ? 'Analyse…' : 'Score de panne'}
+                </button>
+              </>
+            )}
           </>
         )}
       />

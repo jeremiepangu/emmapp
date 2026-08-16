@@ -17,6 +17,7 @@ import {
   SensorKind,
   SensorStatus,
   QuoteRequestStatus,
+  PricingRuleType,
   type Order,
   type Delivery,
 } from '@prisma/client';
@@ -217,6 +218,20 @@ async function main() {
       },
     }),
   ]);
+
+  const existingRules = await prisma.pricingRule.count();
+  if (existingRules === 0) {
+    await prisma.pricingRule.createMany({
+      data: [
+        { name: 'Remise boutique', segment: ClientSegment.BOUTIQUE, minQuantity: 1, type: PricingRuleType.PERCENT, value: 3, priority: 0 },
+        { name: 'Remise detaillant', segment: ClientSegment.DETAILLANT, minQuantity: 1, type: PricingRuleType.PERCENT, value: 5, priority: 0 },
+        { name: 'Remise supermarche 1-49', segment: ClientSegment.SUPERMARCHE, minQuantity: 1, maxQuantity: 49, type: PricingRuleType.PERCENT, value: 7, priority: 0 },
+        { name: 'Remise supermarche volume', segment: ClientSegment.SUPERMARCHE, minQuantity: 50, type: PricingRuleType.PERCENT, value: 10, priority: 10 },
+        { name: 'Remise hotel restaurant', segment: ClientSegment.HOTEL_RESTAURANT, minQuantity: 1, type: PricingRuleType.PERCENT, value: 8, priority: 0 },
+        { name: 'Remise entreprise', segment: ClientSegment.ENTREPRISE, minQuantity: 1, type: PricingRuleType.PERCENT, value: 10, priority: 0 },
+      ],
+    });
+  }
 
   const vehicle = await prisma.vehicle.upsert({
     where: { plate: 'KIN-1234-AB' },
@@ -772,6 +787,35 @@ async function main() {
         },
       });
     }
+  }
+
+  const functionSeeds = [
+    { name: 'Comptable', department: 'Finance', activities: ['Saisie des écritures', 'Rapprochements bancaires', 'Classement des pièces comptables', 'Production des états financiers'] },
+    { name: 'Livreur', department: 'Exploitation', activities: ['Préparation de tournée', 'Livraison client', 'Encaissement terrain', 'Retour des consignes'] },
+    { name: 'Magasinier', department: 'Exploitation', activities: ['Réception stock', 'Inventaire', 'Chargement véhicule'] },
+    { name: 'Opérateur production', department: 'Production', activities: ['Conduite de ligne', 'Contrôle qualité en ligne', 'Lavage des bidons'] },
+    { name: 'Commercial', department: 'Commercial', activities: ['Prospection', 'Prise de commande', 'Suivi client'] },
+  ];
+  for (const fn of functionSeeds) {
+    const created = await prisma.jobFunction.upsert({
+      where: { name: fn.name },
+      update: { department: fn.department },
+      create: { name: fn.name, department: fn.department },
+    });
+    for (const act of fn.activities) {
+      const exists = await prisma.jobFunctionActivity.findFirst({ where: { functionId: created.id, name: act } });
+      if (!exists) {
+        await prisma.jobFunctionActivity.create({ data: { functionId: created.id, name: act } });
+      }
+    }
+  }
+  const courses = [
+    { title: 'Hygiène et HACCP', kind: 'INTERNE' as const, location: 'Usine Bandalungwa' },
+    { title: 'Conduite défensive', kind: 'EXTERNE' as const, provider: 'Auto-école Kinshasa' },
+  ];
+  for (const c of courses) {
+    const exists = await prisma.trainingCourse.findFirst({ where: { title: c.title } });
+    if (!exists) await prisma.trainingCourse.create({ data: c });
   }
   const payrollNow = new Date();
   await prisma.payrollPeriod.upsert({

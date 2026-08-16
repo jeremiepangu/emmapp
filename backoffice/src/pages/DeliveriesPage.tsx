@@ -3,6 +3,8 @@ import { api, Delivery } from '../api';
 import { usePermissions } from '../hooks/usePermissions';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
+import DocButton from '../components/DocButton';
+import { printDeliveriesList, printDeliveryNote } from '../documents/templates';
 
 export default function DeliveriesPage() {
   const { can } = usePermissions();
@@ -12,7 +14,11 @@ export default function DeliveriesPage() {
 
   return (
     <div className="erp-page">
-      <ErpPageHeader title="Livraisons" subtitle="Preuves de livraison, validation et historique" />
+      <ErpPageHeader
+        title="Livraisons"
+        subtitle="Preuves de livraison, validation et historique"
+        actions={<DocButton label="Imprimer la liste" onClick={() => printDeliveriesList(deliveries)} />}
+      />
       <ErpPanel title={`Historique (${deliveries.length})`}>
         {deliveries.length === 0 ? (
           <p className="erp-table-empty">Aucune livraison enregistrée pour le moment.</p>
@@ -29,6 +35,7 @@ export default function DeliveriesPage() {
                   <td><StatusPill status={d.status} label={d.status} /></td>
                   <td>{d.deliveredAt ? new Date(d.deliveredAt).toLocaleString('fr-FR') : '—'}</td>
                   <td className="erp-row-actions">
+                    <DocButton label="BL" onClick={() => printDeliveryNote(d)} />
                     {can('deliveries', 'validate') && d.status === 'EN_ATTENTE' && (
                       <button type="button" className="erp-btn erp-btn--sm" onClick={() => api.updateDelivery(d.id, { status: 'LIVREE' }).then(load)}>Valider</button>
                     )}

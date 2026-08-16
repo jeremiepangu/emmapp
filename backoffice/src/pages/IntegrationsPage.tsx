@@ -3,6 +3,8 @@ import { api, ApiKeyInfo, WebhookDelivery, WebhookSubscription } from '../api';
 import { usePermissions } from '../hooks/usePermissions';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
+import DocButton from '../components/DocButton';
+import { printList } from '../documents/printDocument';
 
 const EVENTS = [
   'commande.creee',
@@ -59,6 +61,19 @@ export default function IntegrationsPage() {
       <ErpPageHeader
         title="API publique & webhooks"
         subtitle="Clés partenaires, événements métier et intégration des opérateurs de monnaie électronique"
+        actions={
+          <DocButton
+            label="Registre"
+            onClick={() => printList(
+              'Registre API et webhooks',
+              ['Type', 'Libellé', 'Détail', 'Statut'],
+              [
+                ...keys.map((k) => ['Clé API', k.label, `${k.partner} · ${k.keyPrefix}`, k.isActive ? 'Actif' : 'Révoqué']),
+                ...hooks.map((h) => ['Webhook', h.label, h.events.join(', '), h.isActive ? 'Actif' : 'Inactif']),
+              ],
+            )}
+          />
+        }
       />
       {error && <p className="error-msg">{error}</p>}
       {createdKey && (

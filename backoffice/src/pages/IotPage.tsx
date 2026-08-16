@@ -11,6 +11,8 @@ import {
 import { usePermissions } from '../hooks/usePermissions';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
+import DocButton from '../components/DocButton';
+import { printIotReport } from '../documents/templates';
 
 const EMPTY: CreateSensorInput = {
   code: '',
@@ -56,6 +58,7 @@ export default function IotPage() {
       <ErpPageHeader
         title="Capteurs & télémétrie"
         subtitle="Qualité en ligne, véhicules et fontaines connectées — alerte automatique hors plage"
+        actions={<DocButton label="Rapport capteurs" onClick={() => printIotReport(sensors)} />}
       />
       {error && <p className="error-msg">{error}</p>}
 

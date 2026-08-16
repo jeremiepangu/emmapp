@@ -7,6 +7,7 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
@@ -39,8 +40,8 @@ export class OrdersController {
 
   @Roles(UserRole.ADMIN, UserRole.COMMERCIAL, UserRole.LIVREUR)
   @Post()
-  create(@Body() dto: CreateOrderDto) {
-    return this.ordersService.create(dto);
+  create(@Req() req: { user: { id: string; role: string } }, @Body() dto: CreateOrderDto) {
+    return this.ordersService.create(dto, req.user);
   }
 
   @Roles(UserRole.ADMIN, UserRole.COMMERCIAL, UserRole.CHEF_EXPLOITATION)

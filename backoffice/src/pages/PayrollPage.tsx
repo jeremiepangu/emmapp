@@ -3,6 +3,8 @@ import { api, PayrollPeriod, Payslip } from '../api';
 import { usePermissions } from '../hooks/usePermissions';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
+import DocButton from '../components/DocButton';
+import { printPayrollRegister, printPayslip } from '../documents/templates';
 
 const MONTHS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
 
@@ -59,6 +61,9 @@ export default function PayrollPage() {
       <ErpPageHeader
         title="Paie des agents"
         subtitle="Périodes mensuelles, calcul CNSS / IPRF, validation et paiement des bulletins"
+        actions={selected ? (
+          <DocButton label="Registre de paie" onClick={() => printPayrollRegister(payslips, selected)} />
+        ) : undefined}
       />
       {can('payroll', 'create') && (
         <ErpPanel title="Nouvelle période" padded>
@@ -126,6 +131,7 @@ export default function PayrollPage() {
                     <td><strong>{money(s.netPay)}</strong></td>
                     <td><StatusPill status={s.status} label={s.status} /></td>
                     <td className="erp-row-actions">
+                      <DocButton label="Bulletin" onClick={() => printPayslip(s, selected)} />
                       {can('payroll', 'validate') && s.status === 'BROUILLON' && (
                         <button type="button" className="erp-btn erp-btn--sm" onClick={() => api.validatePayslip(s.id).then(() => open(selected))}>Valider</button>
                       )}

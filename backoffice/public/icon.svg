@@ -1,17 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
     <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#004a8f"/>
-      <stop offset="50%" stop-color="#0066b3"/>
-      <stop offset="100%" stop-color="#00b4e1"/>
+      <stop offset="0%" stop-color="#2c3e50"/>
+      <stop offset="100%" stop-color="#34495e"/>
     </linearGradient>
     <linearGradient id="drop" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#5ecfff"/>
-      <stop offset="100%" stop-color="#004a8f"/>
+      <stop offset="0%" stop-color="#4db8ff"/>
+      <stop offset="100%" stop-color="#00a3ff"/>
     </linearGradient>
   </defs>
-  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <rect width="512" height="512" rx="32" fill="url(#bg)"/>
   <path fill="url(#drop)" d="M256 80c0 0-72 88-72 144a72 72 0 0 0 144 0c0-56-72-144-72-144zm0 192a48 48 0 1 1 0-96 48 48 0 0 1 0 96z"/>
   <ellipse cx="230" cy="200" rx="20" ry="32" fill="rgba(255,255,255,0.3)"/>
-  <text x="256" y="400" text-anchor="middle" fill="#fff" font-family="Segoe UI,Arial,sans-serif" font-size="48" font-weight="800" letter-spacing="6">EMMAS</text>
+  <text x="256" y="400" text-anchor="middle" fill="#fff" font-family="Open Sans,Roboto,Segoe UI,Arial,sans-serif" font-size="48" font-weight="700" letter-spacing="2">EMMAS</text>
 </svg>

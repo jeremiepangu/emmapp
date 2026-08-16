@@ -27,6 +27,7 @@ import { SecurityModule } from './security/security.module';
 import { PreferencesModule } from './preferences/preferences.module';
 import { SearchModule } from './search/search.module';
 import { HrModule } from './hr/hr.module';
+import { PricingModule } from './pricing/pricing.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -59,6 +60,7 @@ import { HealthController } from './health.controller';
     PreferencesModule,
     SearchModule,
     HrModule,
+    PricingModule,
   ],
   controllers: [HealthController],
 })

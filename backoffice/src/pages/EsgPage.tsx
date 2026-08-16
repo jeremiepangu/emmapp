@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { api, EsgDashboard, EsgIndicator, EsgReport } from '../api';
 import { usePermissions } from '../hooks/usePermissions';
 import { ErpPageHeader, ErpPanel, RingGauge } from '../components/ErpUi';
+import DocButton from '../components/DocButton';
+import { printEsgReport } from '../documents/templates';
 
 export default function EsgPage() {
   const { can } = usePermissions();
@@ -55,6 +57,7 @@ export default function EsgPage() {
         subtitle="Empreinte carbone des tournées, eau de production et réemploi des emballages"
         actions={(
           <>
+            <DocButton label="Rapport à en-tête" onClick={() => dash && printEsgReport(dash, rows)} />
             {can('esg', 'validate') && (
               <button type="button" className="erp-btn" disabled={busy} onClick={compute}>
                 {busy ? 'Calcul…' : 'Recalculer'}
@@ -103,7 +106,7 @@ export default function EsgPage() {
               </table>
             </ErpPanel>
             <ErpPanel title="Réemploi" padded>
-              <RingGauge value={Math.round(dash.reusePct)} label="Taux de réemploi" color="#449d44" />
+              <RingGauge value={Math.round(dash.reusePct)} label="Taux de réemploi" color="#1abc9c" />
             </ErpPanel>
           </div>
           <ErpPanel title="Tournées les plus émettrices">

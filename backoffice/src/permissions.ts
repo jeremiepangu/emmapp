@@ -24,7 +24,9 @@ export type Resource =
   | 'security'
   | 'portal'
   | 'marketplace'
-  | 'integrations';
+  | 'integrations'
+  | 'pricing'
+  | 'activity';
 
 export type Action = 'read' | 'create' | 'update' | 'delete' | 'validate';
 
@@ -44,25 +46,25 @@ export const PERMISSIONS: Record<string, Partial<Record<Resource, Action[]>>> = 
     stock: FULL, deliveries: FULL, payments: FULL, production: FULL, quality: FULL,
     loyalty: FULL, consignes: FULL, hr: FULL, payroll: FULL, observability: FULL, users: FULL, notifications: FULL,
     ai: FULL, assistant: FULL, iot: FULL, routing: FULL, esg: FULL, security: FULL,
-    portal: FULL, marketplace: FULL, integrations: FULL,
+    portal: FULL, marketplace: FULL, integrations: FULL, pricing: FULL, activity: FULL,
   },
   DG: {
     dashboard: R, clients: R, orders: R, products: R, tours: R, stock: R, deliveries: R,
     payments: R, production: R, quality: R, loyalty: R, consignes: R, hr: R, payroll: R,
     observability: R, users: R, notifications: R,
-    ai: R, assistant: RC, iot: R, routing: R, esg: R, security: R, portal: R, marketplace: R,
+    ai: R, assistant: RC, iot: R, routing: R, esg: R, security: R, portal: R, marketplace: R, pricing: R,
   },
   CHEF_PRODUCTION: {
     dashboard: R, production: FULL, quality: R, stock: FULL, products: RCU, observability: R, notifications: R,
-    ai: R, assistant: RC, iot: RU,
+    ai: R, assistant: RC, iot: RU, hr: RUV,
   },
   CHEF_EXPLOITATION: {
     dashboard: R, orders: FULL, tours: FULL, deliveries: RUV, stock: R, clients: R, notifications: R,
-    ai: R, assistant: RC, routing: RCUV, iot: R, esg: R,
+    ai: R, assistant: RC, routing: RCUV, iot: R, esg: R, hr: RUV,
   },
   CHARGE_EXPLOITATION: {
     dashboard: R, orders: R, tours: RU, deliveries: R, stock: R, notifications: R,
-    assistant: RC, routing: R, iot: R,
+    assistant: RC, routing: R, iot: R, hr: R,
   },
   RESP_QUALITE: {
     dashboard: R, quality: RCV, production: R, consignes: R, observability: R, notifications: R,
@@ -70,31 +72,31 @@ export const PERMISSIONS: Record<string, Partial<Record<Resource, Action[]>>> = 
   },
   MAGASINIER: {
     dashboard: R, stock: FULL, tours: RC, consignes: FULL, products: R, notifications: R,
-    assistant: RC,
+    assistant: RC, hr: R,
   },
   AGENT_CHARGEUR: {
     dashboard: R, tours: RU, stock: R, deliveries: R, notifications: R,
-    assistant: RC,
+    assistant: RC, hr: R,
   },
   LIVREUR: {
     dashboard: R, deliveries: RCUV, payments: RC, orders: R, clients: R, notifications: R,
-    assistant: RC, routing: R,
+    assistant: RC, routing: R, hr: R,
   },
   CHARGE_LIVRAISON: {
     dashboard: R, deliveries: RCUV, payments: RC, orders: R, clients: R, notifications: R,
-    assistant: RC, routing: R,
+    assistant: RC, routing: R, hr: R,
   },
   COMMERCIAL: {
     dashboard: R, clients: FULL, orders: FULL, loyalty: RCU, products: R, payments: RCU, notifications: R,
-    ai: R, assistant: RC, portal: RCU, marketplace: RCUV,
+    ai: R, assistant: RC, portal: RCU, marketplace: RCUV, pricing: FULL, hr: R,
   },
   DELEGUE_COMMERCIAL: {
     dashboard: R, clients: RC, orders: RC, loyalty: R, products: R, notifications: R,
-    assistant: RC, marketplace: RC,
+    assistant: RC, marketplace: RC, pricing: R, hr: R,
   },
   CAISSIER: {
     dashboard: R, payments: FULL, clients: R, orders: R, notifications: R,
-    assistant: RC,
+    assistant: RC, hr: R,
   },
   COMPTABLE: {
     payments: RCU, clients: R, orders: R, dashboard: R, notifications: R,
@@ -106,7 +108,7 @@ export const PERMISSIONS: Record<string, Partial<Record<Resource, Action[]>>> = 
   },
   SUPERVISEUR: {
     dashboard: R, tours: R, observability: R, users: R, deliveries: R, notifications: R,
-    ai: R, assistant: RC, iot: R, routing: R, esg: R, security: R,
+    ai: R, assistant: RC, iot: R, routing: R, esg: R, security: R, hr: RUV,
   },
   IT_GED: {
     observability: R, users: R, notifications: R, dashboard: R,
@@ -179,6 +181,7 @@ export const MENU_ITEMS: MenuItem[] = [
   { path: '/portal-accounts', label: 'Comptes portail', resource: 'portal', section: 'ANNUAIRES' },
   { path: '/orders', label: 'Historique commandes', resource: 'orders', section: 'COMMANDES' },
   { path: '/products', label: 'Catalogue produits', resource: 'products', section: 'COMMANDES' },
+  { path: '/pricing', label: 'Tarifs et remises', resource: 'pricing', section: 'COMMANDES' },
   { path: '/stock', label: 'Stocks & achats', resource: 'stock', section: 'ACHATS' },
   { path: '/production', label: 'Fabrication / OF', resource: 'production', section: 'FABRICATION' },
   { path: '/quality', label: 'Contrôle qualité', resource: 'quality', section: 'FABRICATION' },
@@ -192,6 +195,7 @@ export const MENU_ITEMS: MenuItem[] = [
   { path: '/marketplace', label: 'Marketplace B2B', resource: 'marketplace', section: 'COMMERCE' },
   { path: '/esg', label: 'Durabilité / ESG', resource: 'esg', section: 'DURABILITÉ' },
   { path: '/hr', label: 'Administration RH', resource: 'hr', section: 'PERSONNEL' },
+  { path: '/activity', label: 'Rapports d’activité', resource: 'activity', section: 'PERSONNEL' },
   { path: '/payroll', label: 'Paie des agents', resource: 'payroll', section: 'PERSONNEL' },
   { path: '/users', label: 'Utilisateurs', resource: 'users', section: 'PERSONNEL' },
   { path: '/security', label: 'Centre de sécurité', resource: 'security', section: 'SÉCURITÉ' },
@@ -202,6 +206,11 @@ export const MENU_ITEMS: MenuItem[] = [
 export function can(role: string | undefined, resource: Resource, action: Action): boolean {
   if (!role) return false;
   if (role === 'ADMIN') return true;
+  if (resource === 'activity') {
+    if (PORTAL_ONLY_ROLES.includes(role)) return false;
+    if (action === 'read' || action === 'create') return true;
+    return ['DG', 'RH', 'SUPERVISEUR', 'CHEF_EXPLOITATION', 'CHEF_PRODUCTION', 'COMPTABLE'].includes(role);
+  }
   const allowed = PERMISSIONS[role]?.[resource] ?? [];
   return allowed.includes(action);
 }

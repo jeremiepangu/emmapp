@@ -3,6 +3,8 @@ import { api, Product, StockItem } from '../api';
 import { usePermissions } from '../hooks/usePermissions';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
+import DocButton from '../components/DocButton';
+import { printInventory } from '../documents/templates';
 
 export default function StockPage() {
   const { can } = usePermissions();
@@ -31,7 +33,11 @@ export default function StockPage() {
 
   return (
     <div className="erp-page">
-      <ErpPageHeader title="Stocks" subtitle="Produits finis, ajustements et stock embarqué" />
+      <ErpPageHeader
+        title="Stocks"
+        subtitle="Produits finis, ajustements et stock embarqué"
+        actions={<DocButton label="État d'inventaire" onClick={() => printInventory(items)} />}
+      />
       {can('stock', 'create') && (
         <ErpPanel title="Ajuster le stock" padded>
           <form className="form-row" onSubmit={adjust}>

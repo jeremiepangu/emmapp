@@ -9,6 +9,7 @@ const ICONS: Record<string, string> = {
   '/clients': '☰',
   '/orders': '☷',
   '/products': '▤',
+  '/pricing': '％',
   '/tours': '➤',
   '/stock': '▦',
   '/deliveries': '➚',
@@ -18,6 +19,7 @@ const ICONS: Record<string, string> = {
   '/loyalty': '★',
   '/consignes': '↻',
   '/hr': '◉',
+  '/activity': '◷',
   '/observability': '◎',
   '/users': '⚑',
   '/notifications': '✉',
@@ -68,8 +70,11 @@ export default function ErpSidebar({ onNavigate }: Props) {
   return (
     <div className="erp-sidebar-inner">
       <div className="erp-sidebar-brand">
-        <div className="erp-brand-logo">EMMAS</div>
-        <div className="erp-brand-sub">ERP · Eau potable</div>
+        <div className="erp-brand-mark" aria-hidden>E</div>
+        <div>
+          <div className="erp-brand-logo">EMMAS</div>
+          <div className="erp-brand-sub">ERP · Eau potable</div>
+        </div>
       </div>
 
       <div className="erp-user-card">
@@ -119,4 +124,4 @@ export default function ErpSidebar({ onNavigate }: Props) {
     </div>
   );
 }
-
+

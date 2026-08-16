@@ -11,6 +11,7 @@ import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import ClientsPage from './pages/ClientsPage';
 import ProductsPage from './pages/ProductsPage';
+import PricingPage from './pages/PricingPage';
 import OrdersPage from './pages/OrdersPage';
 import ToursPage from './pages/ToursPage';
 import StockPage from './pages/StockPage';
@@ -20,6 +21,7 @@ import ProductionPage from './pages/ProductionPage';
 import QualityPage from './pages/QualityPage';
 import LoyaltyPage from './pages/LoyaltyPage';
 import HrPage from './pages/HrPage';
+import ActivityPage from './pages/ActivityPage';
 import PayrollPage from './pages/PayrollPage';
 import ConsignesPage from './pages/ConsignesPage';
 import ObservabilityPage from './pages/ObservabilityPage';
@@ -123,6 +125,7 @@ function AppRoutes() {
         <Route path="/clients" element={<GuardedRoute resource="clients" element={<ClientsPage />} />} />
         <Route path="/orders" element={<GuardedRoute resource="orders" element={<OrdersPage />} />} />
         <Route path="/products" element={<GuardedRoute resource="products" element={<ProductsPage />} />} />
+        <Route path="/pricing" element={<GuardedRoute resource="pricing" element={<PricingPage />} />} />
         <Route path="/tours" element={<GuardedRoute resource="tours" element={<ToursPage />} />} />
         <Route path="/stock" element={<GuardedRoute resource="stock" element={<StockPage />} />} />
         <Route path="/deliveries" element={<GuardedRoute resource="deliveries" element={<DeliveriesPage />} />} />
@@ -132,6 +135,7 @@ function AppRoutes() {
         <Route path="/loyalty" element={<GuardedRoute resource="loyalty" element={<LoyaltyPage />} />} />
         <Route path="/consignes" element={<GuardedRoute resource="consignes" element={<ConsignesPage />} />} />
         <Route path="/hr" element={<GuardedRoute resource="hr" element={<HrPage />} />} />
+        <Route path="/activity" element={<GuardedRoute resource="activity" element={<ActivityPage />} />} />
         <Route path="/payroll" element={<GuardedRoute resource="payroll" element={<PayrollPage />} />} />
         <Route path="/observability" element={<GuardedRoute resource="observability" element={<ObservabilityPage />} />} />
         <Route path="/users" element={<GuardedRoute resource="users" element={<UsersPage />} />} />

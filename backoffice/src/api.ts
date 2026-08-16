@@ -94,6 +94,18 @@ export const api = {
     request<Product>(`/products/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteProduct: (id: string) => request<Product>(`/products/${id}`, { method: 'DELETE' }),
 
+  getPricingRules: () => request<PricingRule[]>('/pricing-rules'),
+  createPricingRule: (data: CreatePricingRuleInput) =>
+    request<PricingRule>('/pricing-rules', { method: 'POST', body: JSON.stringify(data) }),
+  updatePricingRule: (id: string, data: Partial<CreatePricingRuleInput>) =>
+    request<PricingRule>(`/pricing-rules/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deletePricingRule: (id: string) => request<PricingRule>(`/pricing-rules/${id}`, { method: 'DELETE' }),
+  previewPrice: (clientId: string, productId: string, quantity: number, driverId?: string) => {
+    const q = new URLSearchParams({ clientId, productId, quantity: String(quantity) });
+    if (driverId) q.set('driverId', driverId);
+    return request<PricePreview>(`/pricing-rules/preview?${q.toString()}`);
+  },
+
   deleteClient: (id: string) => request<Client>(`/clients/${id}`, { method: 'DELETE' }),
 
   getUsersByRole: (role: string) => request<User[]>(`/users/by-role?role=${role}`),
@@ -213,11 +225,88 @@ export const api = {
   updateEmployee: (id: string, data: Partial<CreateEmployeeInput & { status: string }>) =>
     request<EmployeeProfile>(`/hr/employees/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteEmployee: (id: string) => request<EmployeeProfile>(`/hr/employees/${id}`, { method: 'DELETE' }),
+  getHrDashboard: (params?: { department?: string; year?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.department) q.set('department', params.department);
+    if (params?.year) q.set('year', String(params.year));
+    const qs = q.toString();
+    return request<HrDashboard>(`/hr/dashboard${qs ? `?${qs}` : ''}`);
+  },
+  getLeaveBalance: (userId?: string, year?: number) => {
+    const q = new URLSearchParams();
+    if (userId) q.set('userId', userId);
+    if (year) q.set('year', String(year));
+    const qs = q.toString();
+    return request<LeaveBalance>(`/hr/leave-balance${qs ? `?${qs}` : ''}`);
+  },
+  getLeaveCalendar: (start: string, end: string, department?: string) => {
+    const q = new URLSearchParams({ start, end });
+    if (department) q.set('department', department);
+    return request<LeaveRequest[]>(`/hr/leave-calendar?${q.toString()}`);
+  },
+  getJobFunctions: () => request<JobFunction[]>(`/hr/functions`),
+  createJobFunction: (data: { name: string; department?: string; activities?: string[] }) =>
+    request<JobFunction>('/hr/functions', { method: 'POST', body: JSON.stringify(data) }),
+  addJobActivity: (functionId: string, name: string) =>
+    request(`/hr/functions/${functionId}/activities`, { method: 'POST', body: JSON.stringify({ name }) }),
+  getMyJobActivities: () => request<JobFunctionActivity[]>('/hr/functions/my-activities'),
+  getActivityDeclarations: (userId?: string) =>
+    request<ActivityDeclaration[]>(`/hr/declarations${userId ? `?userId=${userId}` : ''}`),
+  declareActivity: (data: { activityId?: string; date: string; comment?: string; attachmentUrl?: string }) =>
+    request<ActivityDeclaration>('/hr/declarations', { method: 'POST', body: JSON.stringify(data) }),
+  validateDeclaration: (id: string) =>
+    request(`/hr/declarations/${id}/validate`, { method: 'PATCH' }),
+  rejectDeclaration: (id: string, reason: string) =>
+    request(`/hr/declarations/${id}/reject`, { method: 'PATCH', body: JSON.stringify({ reason }) }),
+  getObjectives: (userId?: string, year?: number) => {
+    const q = new URLSearchParams();
+    if (userId) q.set('userId', userId);
+    if (year) q.set('year', String(year));
+    const qs = q.toString();
+    return request<PerformanceObjective[]>(`/hr/objectives${qs ? `?${qs}` : ''}`);
+  },
+  createObjective: (data: { userId: string; title: string; year: number; weight: number; periodType?: string; quarter?: number; description?: string }) =>
+    request<PerformanceObjective>('/hr/objectives', { method: 'POST', body: JSON.stringify(data) }),
+  getReviews: (year?: number) => request<PerformanceReview[]>(`/hr/reviews${year ? `?year=${year}` : ''}`),
+  getReviewRanking: (year: number, department?: string) => {
+    const q = new URLSearchParams({ year: String(year) });
+    if (department) q.set('department', department);
+    return request<PerformanceReview[]>(`/hr/reviews/ranking?${q.toString()}`);
+  },
+  submitSelfReview: (data: { year: number; period: string; selfScores: Record<string, number>; selfComment?: string }) =>
+    request<PerformanceReview>('/hr/reviews/self', { method: 'POST', body: JSON.stringify(data) }),
+  validateReview: (id: string, data: { managerScores: Record<string, number>; managerComment?: string }) =>
+    request(`/hr/reviews/${id}/validate`, { method: 'PATCH', body: JSON.stringify(data) }),
+  getTrainings: () => request<TrainingCourse[]>('/hr/trainings'),
+  createTraining: (data: { title: string; kind?: string; provider?: string; location?: string; startDate?: string; endDate?: string }) =>
+    request<TrainingCourse>('/hr/trainings', { method: 'POST', body: JSON.stringify(data) }),
+  getTrainingEnrollments: () => request<TrainingEnrollment[]>('/hr/trainings/enrollments'),
+  enrollTraining: (courseId: string) =>
+    request(`/hr/trainings/${courseId}/enroll`, { method: 'POST' }),
+  validateEnrollment: (id: string) =>
+    request(`/hr/trainings/enrollments/${id}/validate`, { method: 'PATCH' }),
+  rejectEnrollment: (id: string, reason: string) =>
+    request(`/hr/trainings/enrollments/${id}/reject`, { method: 'PATCH', body: JSON.stringify({ reason }) }),
+  followEnrollment: (id: string, certificateUrl?: string) =>
+    request(`/hr/trainings/enrollments/${id}/follow`, { method: 'PATCH', body: JSON.stringify({ certificateUrl }) }),
+  getHrDocuments: (params?: { employeeId?: string; type?: string; q?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.employeeId) q.set('employeeId', params.employeeId);
+    if (params?.type) q.set('type', params.type);
+    if (params?.q) q.set('q', params.q);
+    const qs = q.toString();
+    return request<HrDocument[]>(`/hr/documents${qs ? `?${qs}` : ''}`);
+  },
+  addHrDocument: (data: { employeeId: string; type: string; title: string; fileUrl?: string; issuedAt?: string }) =>
+    request<HrDocument>('/hr/documents', { method: 'POST', body: JSON.stringify(data) }),
+  getEmployeeHistory: (id: string) => request<EmployeeFieldHistory[]>(`/hr/employees/${id}/history`),
   getLeaves: () => request<LeaveRequest[]>('/hr/leaves'),
+  getMyLeaves: () => request<LeaveRequest[]>('/hr/leaves/me'),
   createLeave: (data: CreateLeaveInput) =>
     request<LeaveRequest>('/hr/leaves', { method: 'POST', body: JSON.stringify(data) }),
   validateLeave: (id: string) => request<LeaveRequest>(`/hr/leaves/${id}/validate`, { method: 'PATCH' }),
-  rejectLeave: (id: string) => request<LeaveRequest>(`/hr/leaves/${id}/reject`, { method: 'PATCH' }),
+  rejectLeave: (id: string, reason?: string) =>
+    request<LeaveRequest>(`/hr/leaves/${id}/reject`, { method: 'PATCH', body: JSON.stringify({ reason }) }),
   cancelLeave: (id: string) => request<void>(`/hr/leaves/${id}`, { method: 'DELETE' }),
   getPayrollPeriods: () => request<PayrollPeriod[]>('/hr/payroll/periods'),
   createPayrollPeriod: (data: { year: number; month: number; expectedDays?: number }) =>
@@ -235,11 +324,22 @@ export const api = {
     request<Payslip>(`/hr/payroll/payslips/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   validatePayslip: (id: string) =>
     request<Payslip>(`/hr/payroll/payslips/${id}/validate`, { method: 'PATCH' }),
-  payPayslip: (id: string, paymentReference?: string) =>
+    payPayslip: (id: string, paymentReference?: string) =>
     request<Payslip>(`/hr/payroll/payslips/${id}/pay`, {
       method: 'PATCH',
       body: JSON.stringify({ paymentReference }),
     }),
+
+  getMyActivityReport: (date: string) =>
+    request<ActivityReportDetail>(`/hr/activity-reports/me?date=${date}`),
+  saveMyActivityReport: (data: { date: string; summary?: string; incidents?: string }) =>
+    request<DailyActivityReport>('/hr/activity-reports/me', { method: 'POST', body: JSON.stringify(data) }),
+  getActivityOverview: (date: string) =>
+    request<ActivityOverview>(`/hr/activity-reports/overview?date=${date}`),
+  getAgentActivityReport: (userId: string, date: string) =>
+    request<ActivityReportDetail>(`/hr/activity-reports/${userId}?date=${date}`),
+  validateActivityReport: (id: string) =>
+    request<DailyActivityReport>(`/hr/activity-reports/${id}/validate`, { method: 'PATCH' }),
 
   getConsigneMovements: () => request<ConsigneMovement[]>('/consignes'),
   createConsigneMovement: (data: { clientId: string; productFormat: string; qtyIn: number; qtyOut: number; notes?: string }) =>
@@ -491,9 +591,22 @@ export interface CreateClientInput {
   code: string;
   name: string;
   segment: ClientSegment;
+  avenue?: string;
+  avenueNumber?: string;
+  quartier?: string;
+  commune?: string;
+  district?: string;
+  province?: string;
+  city?: string;
   zone?: string;
   phone?: string;
   email?: string;
+  idDocumentType?: string;
+  idDocumentNumber?: string;
+  logoUrl?: string;
+  profession?: string;
+  latitude?: number;
+  longitude?: number;
   consigneLimit?: number;
 }
 
@@ -508,8 +621,59 @@ export interface CreateTourInput {
 export interface CreateOrderInput {
   clientId: string;
   tourId?: string;
+  driverId?: string;
   notes?: string;
   lines: Array<{ productId: string; quantity: number; discount?: number }>;
+}
+
+export type PricingRuleType = 'PERCENT' | 'FIXED';
+
+export interface PricingRule {
+  id: string;
+  name: string;
+  segment?: ClientSegment | null;
+  clientId?: string | null;
+  zone?: string | null;
+  driverId?: string | null;
+  productId?: string | null;
+  minQuantity: number;
+  maxQuantity?: number | null;
+  type: PricingRuleType;
+  value: string | number;
+  priority: number;
+  isActive: boolean;
+  product?: { id: string; code: string; name: string } | null;
+  client?: { id: string; code: string; name: string } | null;
+  driver?: { id: string; firstName: string; lastName: string } | null;
+}
+
+export interface CreatePricingRuleInput {
+  name: string;
+  segment?: ClientSegment | null;
+  clientId?: string | null;
+  zone?: string | null;
+  driverId?: string | null;
+  productId?: string | null;
+  minQuantity: number;
+  maxQuantity?: number | null;
+  type: PricingRuleType;
+  value: number;
+  priority?: number;
+  isActive?: boolean;
+}
+
+export interface PricePreview {
+  segment: ClientSegment;
+  zone?: string | null;
+  quantity: number;
+  catalogPrice: number;
+  unitPrice: number;
+  lineTotal: number;
+  discount: number;
+  discountPct: number;
+  ruleId: string | null;
+  ruleName: string | null;
+  type: PricingRuleType | null;
 }
 
 export interface CreateDeliveryInput {
@@ -585,10 +749,26 @@ export interface CreateEmployeeInput {
   cnssNumber?: string;
   nif?: string;
   notes?: string;
+  gender?: string;
+  birthDate?: string;
+  address?: string;
+  avenue?: string;
+  avenueNumber?: string;
+  quartier?: string;
+  commune?: string;
+  district?: string;
+  maritalStatus?: string;
+  emergencyName?: string;
+  emergencyPhone?: string;
+  photoUrl?: string;
+  managerId?: string;
+  jobFunctionId?: string;
+  annualLeaveDays?: number;
 }
 
 export interface EmployeeProfile {
   id: string;
+  userId?: string;
   matricule: string;
   jobTitle: string;
   department: string;
@@ -599,8 +779,196 @@ export interface EmployeeProfile {
   bankName?: string;
   bankAccount?: string;
   cnssNumber?: string;
+  nif?: string;
   status: string;
+  gender?: string | null;
+  birthDate?: string | null;
+  address?: string | null;
+  avenue?: string | null;
+  avenueNumber?: string | null;
+  quartier?: string | null;
+  commune?: string | null;
+  district?: string | null;
+  province?: string | null;
+  maritalStatus?: string | null;
+  emergencyName?: string | null;
+  emergencyPhone?: string | null;
+  photoUrl?: string | null;
+  managerId?: string | null;
+  jobFunctionId?: string | null;
+  annualLeaveDays?: number;
   user?: User;
+  manager?: User | null;
+  jobFunction?: JobFunction | null;
+}
+
+export interface JobFunctionActivity {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+export interface JobFunction {
+  id: string;
+  name: string;
+  department?: string;
+  activities: JobFunctionActivity[];
+  _count?: { employees: number };
+}
+
+export interface ActivityDeclaration {
+  id: string;
+  date: string;
+  comment?: string;
+  status: string;
+  rejectionReason?: string | null;
+  user?: User;
+  activity?: JobFunctionActivity | null;
+}
+
+export interface PerformanceObjective {
+  id: string;
+  userId: string;
+  title: string;
+  year: number;
+  quarter?: number | null;
+  periodType: string;
+  weight: string | number;
+  user?: User;
+}
+
+export interface PerformanceReview {
+  id: string;
+  userId: string;
+  year: number;
+  period: string;
+  status: string;
+  finalScore?: string | number | null;
+  selfComment?: string | null;
+  managerComment?: string | null;
+  selfScores?: Record<string, number> | null;
+  managerScores?: Record<string, number> | null;
+  user?: User & { employeeProfile?: { department?: string; matricule?: string } };
+}
+
+export interface TrainingCourse {
+  id: string;
+  title: string;
+  kind: string;
+  provider?: string | null;
+  location?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+}
+
+export interface TrainingEnrollment {
+  id: string;
+  status: string;
+  certificateUrl?: string | null;
+  rejectionReason?: string | null;
+  course?: TrainingCourse;
+  user?: User;
+}
+
+export interface HrDocument {
+  id: string;
+  type: string;
+  title: string;
+  fileUrl?: string | null;
+  issuedAt?: string | null;
+  createdAt: string;
+  employee?: EmployeeProfile;
+}
+
+export interface EmployeeFieldHistory {
+  id: string;
+  field: string;
+  oldValue?: string | null;
+  newValue?: string | null;
+  createdAt: string;
+  actor?: { firstName: string; lastName: string };
+}
+
+export interface LeaveBalance {
+  year: number;
+  rights: number;
+  consumed: number;
+  remaining: number;
+}
+
+export interface HrDashboard {
+  year: number;
+  department?: string | null;
+  effectifs: { total: number; archived: number; byDepartment: Record<string, number>; byGender: Record<string, number> };
+  conges: { consumed: number; remaining: number; rights: number; absentToday: number };
+  activites: { declared: number; validated: number; rejected: number; rate: number };
+  performance: { average: number; reviews: number; objectives: number };
+  formations: { inscribed: number; followed: number };
+  alerts: {
+    contractsEnding: Array<{ matricule: string; name: string; endDate?: string | null }>;
+    birthdays: Array<{ matricule: string; name: string; birthDate?: string | null }>;
+  };
+}
+
+export interface DailyActivityReport {
+  id: string;
+  userId: string;
+  date: string;
+  activities: Record<string, unknown>;
+  incidents?: string | null;
+  validated: boolean;
+}
+
+export interface ActivityMetrics {
+  deliveries: number;
+  delivered: number;
+  refused: number;
+  qtyDelivered: number;
+  tours: number;
+  paymentsCount: number;
+  paymentsAmount: number;
+  shifts: number;
+}
+
+export interface ActivityReportDetail {
+  user: User;
+  date: string;
+  metrics: ActivityMetrics;
+  deliveries: Array<{ id: string; deliveryNumber: string; status: string; clientName?: string; qtyDelivered: number }>;
+  tours: Array<{ id: string; tourNumber: string; zone: string; status: string }>;
+  payments: Array<{ id: string; paymentNumber: string; amount: number; method: string }>;
+  shifts: ShiftAssignment[];
+  report: DailyActivityReport | null;
+  summary: string;
+  incidents: string;
+}
+
+export interface ActivityOverviewRow {
+  user: User;
+  deliveries: number;
+  delivered: number;
+  refused: number;
+  tours: number;
+  shifts: number;
+  paymentsCount: number;
+  paymentsAmount: number;
+  submitted: boolean;
+  validated: boolean;
+  incidents: string;
+  reportId: string | null;
+}
+
+export interface ActivityOverview {
+  date: string;
+  totals: {
+    agents: number;
+    submitted: number;
+    validated: number;
+    deliveries: number;
+    tours: number;
+    paymentsAmount: number;
+  };
+  rows: ActivityOverviewRow[];
 }
 
 export interface CreateLeaveInput {
@@ -613,13 +981,15 @@ export interface CreateLeaveInput {
 
 export interface LeaveRequest {
   id: string;
+  userId?: string;
   type: string;
   startDate: string;
   endDate: string;
   days: number;
   reason?: string;
   status: string;
-  user?: User;
+  rejectionReason?: string | null;
+  user?: User & { employeeProfile?: { department?: string; matricule?: string } };
 }
 
 export interface PayrollPeriod {
@@ -672,8 +1042,23 @@ export interface Client {
   code: string;
   name: string;
   segment: string;
+  address?: string;
+  avenue?: string;
+  avenueNumber?: string;
+  quartier?: string;
+  commune?: string;
+  district?: string;
+  province?: string;
+  city?: string;
   zone?: string;
   phone?: string;
+  email?: string;
+  idDocumentType?: string;
+  idDocumentNumber?: string;
+  logoUrl?: string;
+  profession?: string;
+  latitude?: number;
+  longitude?: number;
   consigneBalance: number;
   consigneLimit: number;
 }
@@ -710,6 +1095,7 @@ export interface Order {
     productId: string;
     quantity: number;
     unitPrice: string | number;
+    discount?: string | number;
     product?: { name: string; isReusable: boolean };
   }>;
 }
@@ -1157,6 +1543,16 @@ export interface PortalCatalogItem {
   basePrice: number;
   segmentPrice: number;
   discountPct: number;
+  tiers?: Array<{
+    id: string;
+    name: string;
+    productId?: string | null;
+    minQuantity: number;
+    maxQuantity: number | null;
+    type: PricingRuleType;
+    value: number;
+    priority: number;
+  }>;
 }
 
 export interface DeliveryTracking {

@@ -10,9 +10,9 @@ export default function EmmaLogo({ size = 'md', variant = 'light' }: { size?: 's
       <svg className="emma-logo-icon" viewBox="0 0 64 80" aria-hidden="true">
         <defs>
           <linearGradient id="emmaDrop" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#5ecfff" />
-            <stop offset="45%" stopColor="#0095da" />
-            <stop offset="100%" stopColor="#004a8f" />
+            <stop offset="0%" stopColor="#4db8ff" />
+            <stop offset="45%" stopColor="#00a3ff" />
+            <stop offset="100%" stopColor="#2c3e50" />
           </linearGradient>
         </defs>
         <path

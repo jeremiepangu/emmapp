@@ -3,6 +3,8 @@ import { api, AuditEntry, MfaStatus, SecurityAlert, SecuritySummary } from '../a
 import { usePermissions } from '../hooks/usePermissions';
 import { ErpPageHeader, ErpPanel, RingGauge } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
+import DocButton from '../components/DocButton';
+import { printSecurityReport } from '../documents/templates';
 
 export default function SecurityPage() {
   const { can } = usePermissions();
@@ -47,6 +49,7 @@ export default function SecurityPage() {
       <ErpPageHeader
         title="Centre de sécurité"
         subtitle="Alertes, conformité, couverture MFA des comptes sensibles et journal d'audit"
+        actions={<DocButton label="Rapport" onClick={() => printSecurityReport(summary, alerts, audit)} />}
       />
       {error && <p className="error-msg">{error}</p>}
       {message && <p className="erp-success">{message}</p>}
@@ -86,7 +89,7 @@ export default function SecurityPage() {
 
       {can('security', 'read') && summary && (
         <ErpPanel title="Couverture des comptes sensibles" padded>
-          <RingGauge value={Math.round(summary.mfaCoveragePct)} label={`${summary.mfaEnabledCount} / ${summary.sensitiveAccountsCount} protégés`} color="#c9302c" />
+          <RingGauge value={Math.round(summary.mfaCoveragePct)} label={`${summary.mfaEnabledCount} / ${summary.sensitiveAccountsCount} protégés`} color="#00a3ff" />
         </ErpPanel>
       )}
 

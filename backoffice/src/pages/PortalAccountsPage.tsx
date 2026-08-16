@@ -3,6 +3,8 @@ import { api, Client, CreatePortalAccountInput, PortalAccount } from '../api';
 import { usePermissions } from '../hooks/usePermissions';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
+import DocButton from '../components/DocButton';
+import { printPortalAccountsList } from '../documents/templates';
 
 export default function PortalAccountsPage() {
   const { can } = usePermissions();
@@ -31,6 +33,7 @@ export default function PortalAccountsPage() {
       <ErpPageHeader
         title="Comptes portail client"
         subtitle="Accès self-service distinct des comptes internes — commande, suivi, consigne et fidélité"
+        actions={<DocButton label="Imprimer la liste" onClick={() => printPortalAccountsList(accounts)} />}
       />
       {error && <p className="error-msg">{error}</p>}
       {can('portal', 'create') && (

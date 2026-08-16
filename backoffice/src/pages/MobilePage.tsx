@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { api, Tour, Order, PaymentMethod } from '../api';
 import EmmaLogo from '../components/EmmaBrand';
+import { printOrder, printTourSheet } from '../documents/templates';
 
 const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
   { value: 'ESPECES', label: 'Espèces' },
@@ -210,6 +211,7 @@ export default function MobilePage() {
         <div className="erp-mobile-header">
           <button type="button" onClick={() => setSelectedOrder(null)}>← Retour</button>
           <h2>{selectedOrder.client?.name}</h2>
+          <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => printOrder(selectedOrder)}>BL / commande</button>
           <p className="erp-mobile-gps">{gps ? `GPS : ${gps.lat.toFixed(5)}, ${gps.lng.toFixed(5)}` : 'GPS indisponible'}</p>
         </div>
         {lines.map((line) => (
@@ -282,6 +284,7 @@ export default function MobilePage() {
             <span className="erp-pill erp-pill--blue">{tour.status}</span>
           </div>
           <p>{tour.zone} — {new Date(tour.date).toLocaleDateString('fr-FR')}</p>
+          <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => printTourSheet(tour)}>Feuille de tournée</button>
           {tour.status === 'PLANIFIEE' && (
             <button type="button" className="erp-btn erp-btn--sm" onClick={() => handleStartTour(tour.id)}>
               Démarrer la tournée

@@ -4,8 +4,8 @@
   "description": "EMMAS — Eau potable Kinshasa. ERP distribution, production HACCP et livraison terrain.",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#0077be",
-  "theme_color": "#0077be",
+  "background_color": "#2c3e50",
+  "theme_color": "#2c3e50",
   "lang": "fr",
   "orientation": "any",
   "icons": [

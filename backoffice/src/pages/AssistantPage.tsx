@@ -1,6 +1,8 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { api, AssistantSession } from '../api';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
+import DocButton from '../components/DocButton';
+import { printDocument } from '../documents/printDocument';
 import StatusPill from '../components/ErpUi';
 
 export default function AssistantPage() {
@@ -48,6 +50,25 @@ export default function AssistantPage() {
       <ErpPageHeader
         title="Assistant conversationnel"
         subtitle="Questions sur commandes, livraisons, consignes, stock et fidélité — français et lingala"
+        actions={active ? (
+          <DocButton
+            label="Exporter la conversation"
+            onClick={() => printDocument({
+              kind: 'Compte-rendu assistant',
+              reference: active.id.slice(0, 8),
+              fields: [
+                { label: 'Canal', value: active.channel },
+                { label: 'Début', value: new Date(active.startedAt).toLocaleString('fr-FR') },
+                { label: 'Escaladée', value: active.escalated ? 'Oui' : 'Non' },
+              ],
+              tables: [{
+                headers: ['Auteur', 'Message'],
+                rows: (active.messages ?? []).map((m) => [m.author, m.content]),
+              }],
+              signatures: ['Pour EMMAPURE'],
+            })}
+          />
+        ) : undefined}
       />
       {error && <p className="error-msg">{error}</p>}
       <div className="erp-split">

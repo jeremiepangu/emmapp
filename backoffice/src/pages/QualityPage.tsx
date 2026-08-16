@@ -3,6 +3,8 @@ import { api, QualityCheck } from '../api';
 import { usePermissions } from '../hooks/usePermissions';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
+import DocButton from '../components/DocButton';
+import { printQualityList, printQualityReport } from '../documents/templates';
 
 export default function QualityPage() {
   const { can } = usePermissions();
@@ -25,6 +27,7 @@ export default function QualityPage() {
       <ErpPageHeader
         title="Contrôle qualité"
         subtitle="Analyses physico-chimiques et microbiologiques — workflow quarantaine / libération"
+        actions={<DocButton label="Imprimer le registre" onClick={() => printQualityList(checks)} />}
       />
       {can('quality', 'create') && (
         <ErpPanel title="Nouveau contrôle" padded>
@@ -50,7 +53,8 @@ export default function QualityPage() {
                 <td>{c.tds ?? '—'}</td>
                 <td>{c.microbiologyOk ? 'OK' : '—'}</td>
                 <td><StatusPill status={c.status} /></td>
-                <td>
+                <td className="erp-row-actions">
+                  <DocButton onClick={() => printQualityReport(c)} />
                   {can('quality', 'validate') && c.status === 'EN_ATTENTE' && (
                     <>
                       <button type="button" className="erp-btn erp-btn--sm" onClick={() => api.validateQualityCheck(c.id, true).then(load)}>Conforme</button>
@@ -70,4 +74,4 @@ export default function QualityPage() {
     </div>
   );
 }
-
+

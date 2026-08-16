@@ -9,6 +9,8 @@ import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
 
 import Modal from '../components/Modal';
+import DocButton from '../components/DocButton';
+import { printTourSheet, printToursList } from '../documents/templates';
 
 
 
@@ -132,15 +134,21 @@ export default function ToursPage() {
 
         actions={
 
-          can('tours', 'create') ? (
+          <>
 
-            <button type="button" className="erp-btn" onClick={() => setShowForm(true)}>
+            <DocButton label="Imprimer la liste" onClick={() => printToursList(tours)} />
 
-              + Nouvelle tournée
+            {can('tours', 'create') && (
 
-            </button>
+              <button type="button" className="erp-btn" onClick={() => setShowForm(true)}>
 
-          ) : undefined
+                + Nouvelle tournée
+
+              </button>
+
+            )}
+
+          </>
 
         }
 
@@ -193,6 +201,7 @@ export default function ToursPage() {
 
                 <td><StatusPill status={t.status} /></td>
                 <td className="erp-row-actions">
+                  <DocButton onClick={() => printTourSheet(t)} />
                   {can('tours', 'validate') && t.status === 'PLANIFIEE' && (
                     <button type="button" className="erp-btn erp-btn--sm" onClick={() => api.startTour(t.id).then(load)}>Démarrer</button>
                   )}

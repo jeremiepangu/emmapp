@@ -15,6 +15,10 @@ export class ClientsService {
         { name: { contains: params.search, mode: 'insensitive' } },
         { code: { contains: params.search, mode: 'insensitive' } },
         { phone: { contains: params.search } },
+        { commune: { contains: params.search, mode: 'insensitive' } },
+        { quartier: { contains: params.search, mode: 'insensitive' } },
+        { avenue: { contains: params.search, mode: 'insensitive' } },
+        { idDocumentNumber: { contains: params.search, mode: 'insensitive' } },
       ];
     }
     return this.prisma.client.findMany({
@@ -36,11 +40,31 @@ export class ClientsService {
   }
 
   create(dto: CreateClientDto) {
-    return this.prisma.client.create({ data: dto });
+    return this.prisma.client.create({ data: this.normalizeIdentity(dto) as Prisma.ClientUncheckedCreateInput });
   }
 
   update(id: string, dto: UpdateClientDto) {
-    return this.prisma.client.update({ where: { id }, data: dto });
+    return this.prisma.client.update({
+      where: { id },
+      data: this.normalizeIdentity(dto) as Prisma.ClientUncheckedUpdateInput,
+    });
+  }
+
+  private normalizeIdentity(dto: CreateClientDto | UpdateClientDto) {
+    const province = dto.province?.trim() || 'KINSHASA';
+    const avenueLine = [dto.avenue, dto.avenueNumber].filter(Boolean).join(' ').trim();
+    const address =
+      dto.address?.trim() ||
+      [avenueLine, dto.quartier, dto.commune, dto.district, province].filter(Boolean).join(', ') ||
+      undefined;
+    return {
+      ...dto,
+      province,
+      city: dto.city?.trim() || 'Kinshasa',
+      zone: dto.zone?.trim() || dto.commune || undefined,
+      address,
+      logoUrl: dto.logoUrl?.trim() || undefined,
+    };
   }
 
   async deactivate(id: string) {

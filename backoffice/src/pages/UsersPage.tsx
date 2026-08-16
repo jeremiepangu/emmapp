@@ -5,6 +5,8 @@ import { ROLE_LABELS } from '../permissions';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
 import Modal from '../components/Modal';
+import DocButton from '../components/DocButton';
+import { printUserSheet, printUsersList } from '../documents/templates';
 
 const ROLES = Object.keys(ROLE_LABELS);
 
@@ -50,9 +52,12 @@ export default function UsersPage() {
         title="Utilisateurs"
         subtitle="Gestion des comptes et rôles CRUDVN"
         actions={
-          can('users', 'create') ? (
-            <button type="button" className="erp-btn" onClick={() => setShowForm(true)}>+ Nouvel utilisateur</button>
-          ) : undefined
+          <>
+            <DocButton label="Imprimer la liste" onClick={() => printUsersList(users)} />
+            {can('users', 'create') && (
+              <button type="button" className="erp-btn" onClick={() => setShowForm(true)}>+ Nouvel utilisateur</button>
+            )}
+          </>
         }
       />
       <ErpPanel title={`Comptes (${users.length})`}>
@@ -68,7 +73,8 @@ export default function UsersPage() {
                 <td><StatusPill status="PLANIFIEE" label={ROLE_LABELS[u.role] ?? u.role} /></td>
                 <td>{u.phone ?? '—'}</td>
                 <td><StatusPill status={u.isActive ? 'CONFORME' : 'ANNULEE'} label={u.isActive ? 'Actif' : 'Inactif'} /></td>
-                <td>
+                <td className="erp-row-actions">
+                  <DocButton onClick={() => printUserSheet(u)} />
                   {can('users', 'update') && (
                     <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => toggleActive(u)}>
                       {u.isActive ? 'Désactiver' : 'Activer'}
@@ -107,4 +113,4 @@ export default function UsersPage() {
     </div>
   );
 }
-
+

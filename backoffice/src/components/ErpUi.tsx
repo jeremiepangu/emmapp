@@ -91,7 +91,7 @@ export function ErpPanel({
   );
 }
 
-export function RingGauge({ value, label, color = '#5cb85c' }: { value: number; label: string; color?: string }) {
+export function RingGauge({ value, label, color = '#00a3ff' }: { value: number; label: string; color?: string }) {
   const pct = Math.min(100, Math.max(0, value));
   return (
     <div className="erp-ring-gauge">
@@ -105,4 +105,4 @@ export function RingGauge({ value, label, color = '#5cb85c' }: { value: number; 
     </div>
   );
 }
-
+

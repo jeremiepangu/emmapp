@@ -4,6 +4,8 @@ import { usePermissions } from '../hooks/usePermissions';
 import { EmmaFormatBadge } from '../components/EmmaBrand';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import Modal from '../components/Modal';
+import DocButton from '../components/DocButton';
+import { printProductSheet, printProductsCatalog } from '../documents/templates';
 
 const FORMATS = ['BIDON_5L', 'BIDON_10L', 'BIDON_25L', 'BONBONNE_19L'];
 
@@ -31,7 +33,12 @@ export default function ProductsPage() {
       <ErpPageHeader
         title="Produits"
         subtitle="Catalogue bidons et bonbonnes — formats étiquetés EMMAS"
-        actions={can('products', 'create') ? <button type="button" className="erp-btn" onClick={() => { setEditing(null); setShowForm(true); }}>+ Nouveau produit</button> : undefined}
+        actions={
+          <>
+            <DocButton label="Catalogue" onClick={() => printProductsCatalog(products)} />
+            {can('products', 'create') && <button type="button" className="erp-btn" onClick={() => { setEditing(null); setShowForm(true); }}>+ Nouveau produit</button>}
+          </>
+        }
       />
       <div className="emma-product-grid" style={{ marginBottom: 24 }}>
         {products.map((p) => (
@@ -59,6 +66,7 @@ export default function ProductsPage() {
                 <td>{Number(p.unitPrice).toLocaleString('fr-FR')}</td>
                 <td>{p.isReusable ? 'Oui' : 'Non'}</td>
                 <td className="erp-row-actions">
+                  <DocButton onClick={() => printProductSheet(p)} />
                   {can('products', 'update') && (
                     <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => {
                       setEditing(p);

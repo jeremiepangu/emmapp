@@ -6,6 +6,8 @@ import { usePermissions } from '../hooks/usePermissions';
 import { useTheme } from '../ThemeContext';
 import { ErpPanel, ErpPageHeader, RingGauge } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
+import DocButton from '../components/DocButton';
+import { printDashboardReport } from '../documents/templates';
 
 /** Un panneau refusé au profil connecté ne doit pas faire échouer la page entière. */
 function optional<T>(promise: Promise<T>, fallback: T): Promise<T> {
@@ -54,6 +56,7 @@ export default function DashboardPage() {
         subtitle={`Vue d'ensemble · ${user?.firstName} ${user?.lastName}`}
         actions={
           <>
+            <DocButton label="Synthèse" onClick={() => printDashboardReport(data)} />
             <select className="erp-select" defaultValue={user?.id} aria-label="Profil utilisateur">
               <option>{user?.firstName} {user?.lastName} — {roleLabel}</option>
             </select>
@@ -204,8 +207,9 @@ export default function DashboardPage() {
         <div className="erp-dashboard-col erp-dashboard-col--charts">
           <ErpPanel title="Vos objectifs">
             <div className="erp-rings-row">
-              <RingGauge value={orderGoal} label="Objectif commandes / mois" color="#5cb85c" />
-              <RingGauge value={revenueGoal} label="Objectif CA / mois" color="#5bc0de" />
+              <RingGauge value={orderGoal} label="Objectif commandes / mois" color="#1abc9c" />
+              <RingGauge value={revenueGoal} label="Objectif CA / mois" color="#00a3ff" />
+              <RingGauge value={Math.max(8, 100 - stockLow * 18)} label="Disponibilité stock" color="#9b59b6" />
             </div>
           </ErpPanel>
 
