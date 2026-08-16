@@ -156,7 +156,94 @@ export class EmmapureService {
         postLabel: data.postLabel,
         notes: data.notes,
       },
+      include: { user: { select: { firstName: true, lastName: true, role: true } } },
     });
+  }
+
+  async updateShift(
+    id: string,
+    data: Partial<{ date: string; startTime: string; endTime: string; postLabel: string; notes: string }>,
+  ) {
+    return this.prisma.shiftAssignment.update({
+      where: { id },
+      data: {
+        date: data.date ? new Date(data.date) : undefined,
+        startTime: data.startTime,
+        endTime: data.endTime,
+        postLabel: data.postLabel,
+        notes: data.notes,
+      },
+      include: { user: { select: { firstName: true, lastName: true, role: true } } },
+    });
+  }
+
+  validateShift(id: string) {
+    return this.prisma.shiftAssignment.update({
+      where: { id },
+      data: { validated: true },
+      include: { user: { select: { firstName: true, lastName: true, role: true } } },
+    });
+  }
+
+  deleteShift(id: string) {
+    return this.prisma.shiftAssignment.delete({ where: { id } });
+  }
+
+  updateProduction(id: string, data: { producedQty?: number; lineCode?: string; plannedQty?: number }) {
+    return this.prisma.productionOrder.update({ where: { id }, data });
+  }
+
+  deleteProduction(id: string) {
+    return this.prisma.productionOrder.delete({ where: { id } });
+  }
+
+  deleteQuality(id: string) {
+    return this.prisma.qualityCheck.delete({ where: { id } });
+  }
+
+  createPackaging(data: { barcode: string; productFormat: string; maxRotations: number }) {
+    return this.prisma.packagingUnit.create({
+      data: {
+        barcode: data.barcode,
+        productFormat: data.productFormat as never,
+        maxRotations: data.maxRotations,
+      },
+    });
+  }
+
+  updatePackaging(id: string, data: { rotationCount?: number; status?: string; maxRotations?: number }) {
+    return this.prisma.packagingUnit.update({ where: { id }, data });
+  }
+
+  deletePackaging(id: string) {
+    return this.prisma.packagingUnit.delete({ where: { id } });
+  }
+
+  createFountain(data: { serialNumber: string; model?: string; contractType?: string; nextService?: string }) {
+    return this.prisma.fountainAsset.create({
+      data: {
+        serialNumber: data.serialNumber,
+        model: data.model,
+        contractType: data.contractType,
+        nextService: data.nextService ? new Date(data.nextService) : undefined,
+      },
+    });
+  }
+
+  updateFountain(id: string, data: { model?: string; contractType?: string; nextService?: string; isActive?: boolean }) {
+    return this.prisma.fountainAsset.update({
+      where: { id },
+      data: {
+        model: data.model,
+        contractType: data.contractType,
+        nextService: data.nextService ? new Date(data.nextService) : undefined,
+        isActive: data.isActive,
+      },
+    });
+  }
+
+  deleteFountain(id: string) {
+    return this.prisma.fountainAsset.update({ where: { id }, data: { isActive: false } });
   }
 
   getPackagingUnits() {

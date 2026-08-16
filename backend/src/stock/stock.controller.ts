@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { StockService } from './stock.service';
@@ -44,5 +44,17 @@ export class StockController {
       body.quantity,
       body.lotNumber,
     );
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.MAGASINIER)
+  @Patch(':id')
+  setQuantity(@Param('id') id: string, @Body() body: { quantity: number }) {
+    return this.stockService.setQuantity(id, body.quantity);
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.MAGASINIER)
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.stockService.remove(id);
   }
 }

@@ -49,4 +49,12 @@ export class StockService {
       data: { productId, locationId, quantity, lotNumber },
     });
   }
+
+  setQuantity(id: string, quantity: number) {
+    return this.prisma.stockItem.update({ where: { id }, data: { quantity } });
+  }
+
+  remove(id: string) {
+    return this.prisma.stockItem.delete({ where: { id } });
+  }
 }

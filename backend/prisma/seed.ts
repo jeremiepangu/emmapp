@@ -722,6 +722,63 @@ async function main() {
   });
 
   const allUsers = await prisma.user.findMany({ where: { isActive: true } });
+
+  const salaryByRole: Record<string, number> = {
+    ADMIN: 2500000, DG: 4500000, CHEF_PRODUCTION: 1800000, CHEF_EXPLOITATION: 1800000,
+    CHARGE_EXPLOITATION: 900000, RESP_QUALITE: 1400000, MAGASINIER: 750000, AGENT_CHARGEUR: 450000,
+    LIVREUR: 550000, CHARGE_LIVRAISON: 650000, COMMERCIAL: 1200000, DELEGUE_COMMERCIAL: 800000,
+    CAISSIER: 700000, COMPTABLE: 1300000, RH: 1200000, SUPERVISEUR: 1100000, IT_GED: 1400000,
+    DATA_ANALYST: 1500000, RESP_SECURITE: 1400000, RESP_DURABILITE: 1300000,
+  };
+  const deptByRole: Record<string, string> = {
+    ADMIN: 'Direction', DG: 'Direction', CHEF_PRODUCTION: 'Production', CHEF_EXPLOITATION: 'Exploitation',
+    CHARGE_EXPLOITATION: 'Exploitation', RESP_QUALITE: 'Qualité', MAGASINIER: 'Exploitation',
+    AGENT_CHARGEUR: 'Exploitation', LIVREUR: 'Exploitation', CHARGE_LIVRAISON: 'Exploitation',
+    COMMERCIAL: 'Commercial', DELEGUE_COMMERCIAL: 'Commercial', CAISSIER: 'Finance', COMPTABLE: 'Finance',
+    RH: 'RH', SUPERVISEUR: 'Direction', IT_GED: 'IT', DATA_ANALYST: 'Direction', RESP_SECURITE: 'IT',
+    RESP_DURABILITE: 'Production',
+  };
+  let empIndex = 0;
+  for (const user of allUsers) {
+    empIndex += 1;
+    const matricule = `EMP-${String(empIndex).padStart(4, '0')}`;
+    await prisma.employeeProfile.upsert({
+      where: { userId: user.id },
+      update: { baseSalary: salaryByRole[user.role] ?? 500000, department: deptByRole[user.role] ?? 'Exploitation' },
+      create: {
+        userId: user.id,
+        matricule,
+        jobTitle: user.role.replace(/_/g, ' '),
+        department: deptByRole[user.role] ?? 'Exploitation',
+        hireDate: new Date('2024-01-08'),
+        baseSalary: salaryByRole[user.role] ?? 500000,
+        cnssNumber: `CNSS-${String(10000 + empIndex)}`,
+      },
+    });
+  }
+  const rhUser = allUsers.find((u) => u.role === UserRole.RH);
+  if (rhUser) {
+    const existingLeave = await prisma.leaveRequest.findFirst({ where: { userId: rhUser.id, reason: 'Seed congé annuel' } });
+    if (!existingLeave) {
+      await prisma.leaveRequest.create({
+        data: {
+          userId: rhUser.id,
+          type: 'CONGE_PAYE',
+          startDate: new Date('2026-08-20'),
+          endDate: new Date('2026-08-25'),
+          days: 6,
+          reason: 'Seed congé annuel',
+          status: 'SOUMISE',
+        },
+      });
+    }
+  }
+  const payrollNow = new Date();
+  await prisma.payrollPeriod.upsert({
+    where: { year_month: { year: payrollNow.getFullYear(), month: payrollNow.getMonth() + 1 } },
+    update: {},
+    create: { year: payrollNow.getFullYear(), month: payrollNow.getMonth() + 1, expectedDays: 26, notes: 'Période initiale' },
+  });
   const notifTemplates: Array<{
     roles: UserRole[];
     title: string;
@@ -737,7 +794,7 @@ async function main() {
     { roles: [UserRole.COMMERCIAL, UserRole.DELEGUE_COMMERCIAL], title: 'Commande validée', message: 'Supermarché Kin Marché — commande prête.', type: NotificationType.SUCCESS, category: NotificationCategory.COMMANDE },
     { roles: [UserRole.CAISSIER, UserRole.COMPTABLE], title: 'Encaissement', message: 'Paiements mobile money à rapprocher.', type: NotificationType.INFO, category: NotificationCategory.PAIEMENT },
     { roles: [UserRole.MAGASINIER], title: 'Stock bas', message: 'EMMA 5L — seuil minimum atteint.', type: NotificationType.ALERT, category: NotificationCategory.STOCK },
-    { roles: [UserRole.RH], title: 'Planning RH', message: '2 affectations en attente de validation.', type: NotificationType.WARNING, category: NotificationCategory.RH },
+    { roles: [UserRole.RH, UserRole.COMPTABLE], title: 'Paie du mois', message: 'La periode de paie est prete a etre calculee.', type: NotificationType.INFO, category: NotificationCategory.RH },
     { roles: [UserRole.IT_GED, UserRole.SUPERVISEUR], title: 'Supervision', message: '1 sync mobile en attente.', type: NotificationType.WARNING, category: NotificationCategory.SUPERVISION },
     { roles: [UserRole.DATA_ANALYST, UserRole.ADMIN, UserRole.DG], title: 'Prévision de demande', message: 'Les prévisions à 7 jours sont prêtes à être actualisées.', type: NotificationType.INFO, category: NotificationCategory.IA },
     { roles: [UserRole.RESP_QUALITE, UserRole.CHEF_PRODUCTION, UserRole.IT_GED], title: 'Capteur hors plage', message: 'Le pH de la ligne L1 a été hors plage récemment.', type: NotificationType.ALERT, category: NotificationCategory.IOT },

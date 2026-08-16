@@ -46,4 +46,19 @@ export class PaymentsService {
       },
     });
   }
+
+  async update(id: string, data: Partial<{ amount: number; method: PaymentMethod; reference: string }>) {
+    return this.prisma.payment.update({
+      where: { id },
+      data,
+      include: {
+        client: { select: { name: true } },
+        collector: { select: { firstName: true, lastName: true } },
+      },
+    });
+  }
+
+  async remove(id: string) {
+    return this.prisma.payment.delete({ where: { id } });
+  }
 }

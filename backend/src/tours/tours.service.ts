@@ -138,4 +138,15 @@ export class ToursService {
       data: { status: TourStatus.TERMINEE, completedAt: new Date() },
     });
   }
+
+  async cancelTour(id: string) {
+    const tour = await this.findOne(id);
+    if (tour.status === TourStatus.TERMINEE) {
+      throw new BadRequestException('Tournée déjà terminée');
+    }
+    return this.prisma.tour.update({
+      where: { id },
+      data: { status: TourStatus.ANNULEE },
+    });
+  }
 }

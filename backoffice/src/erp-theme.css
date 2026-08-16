@@ -750,6 +750,35 @@ body {
   font-size: 10px;
 }
 
+.erp-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.erp-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+
+.erp-tab {
+  border: 1px solid var(--erp-border);
+  background: var(--erp-surface);
+  color: var(--erp-text);
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.erp-tab.active {
+  background: var(--erp-green);
+  color: #fff;
+  border-color: var(--erp-green);
+}
+
 .erp-btn--ghost {
   background: var(--erp-surface);
   color: var(--erp-text);

@@ -151,6 +151,11 @@ model User {
   shiftAssignments ShiftAssignment[]
   dailyReports     DailyActivityReport[]
   notifications    Notification[]
+  employeeProfile  EmployeeProfile?
+  leaveRequests    LeaveRequest[]    @relation("LeaveEmployee")
+  leaveValidations LeaveRequest[]    @relation("LeaveValidator")
+  payslips         Payslip[]
+  payrollValidated PayrollPeriod[]   @relation("PayrollValidator")
 
   resolvedAnomalies Anomaly[]          @relation("AnomalyResolver")
   assistantSessions AssistantSession[] @relation("AssistantUser")
@@ -1008,4 +1013,144 @@ model SavedView {
 
   @@unique([userId, resource, name])
   @@map("saved_views")
+}
+
+enum ContractType {
+  CDI
+  CDD
+  STAGE
+  PRESTATION
+  JOURNALIER
+}
+
+enum EmployeeStatus {
+  ACTIF
+  SUSPENDU
+  SORTI
+}
+
+enum LeaveType {
+  CONGE_PAYE
+  MALADIE
+  SANS_SOLDE
+  AUTORISATION
+  MATERNITE
+}
+
+enum LeaveStatus {
+  BROUILLON
+  SOUMISE
+  VALIDEE
+  REJETEE
+  ANNULEE
+}
+
+enum PayrollPeriodStatus {
+  BROUILLON
+  CALCULEE
+  VALIDEE
+  CLOTUREE
+}
+
+enum PayslipStatus {
+  BROUILLON
+  VALIDEE
+  PAYEE
+}
+
+/// Dossier administratif d'un agent (contrat, salaire de base, affiliation CNSS).
+model EmployeeProfile {
+  id          String         @id @default(uuid())
+  userId      String         @unique @map("user_id")
+  matricule   String         @unique
+  jobTitle    String         @map("job_title")
+  department  String
+  contractType ContractType  @default(CDI) @map("contract_type")
+  hireDate    DateTime       @map("hire_date") @db.Date
+  endDate     DateTime?      @map("end_date") @db.Date
+  baseSalary  Decimal        @map("base_salary") @db.Decimal(12, 2)
+  currency    String         @default("CDF")
+  bankName    String?        @map("bank_name")
+  bankAccount String?        @map("bank_account")
+  cnssNumber  String?        @map("cnss_number")
+  nif         String?
+  status      EmployeeStatus @default(ACTIF)
+  notes       String?
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  payslips Payslip[]
+
+  @@map("employee_profiles")
+}
+
+model LeaveRequest {
+  id            String      @id @default(uuid())
+  userId        String      @map("user_id")
+  type          LeaveType
+  startDate     DateTime    @map("start_date") @db.Date
+  endDate       DateTime    @map("end_date") @db.Date
+  days          Int
+  reason        String?
+  status        LeaveStatus @default(SOUMISE)
+  validatedById String?     @map("validated_by_id")
+  validatedAt   DateTime?   @map("validated_at")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  user        User  @relation("LeaveEmployee", fields: [userId], references: [id], onDelete: Cascade)
+  validatedBy User? @relation("LeaveValidator", fields: [validatedById], references: [id])
+
+  @@index([userId, startDate])
+  @@map("leave_requests")
+}
+
+model PayrollPeriod {
+  id            String               @id @default(uuid())
+  year          Int
+  month         Int
+  status        PayrollPeriodStatus  @default(BROUILLON)
+  expectedDays  Int                  @default(26) @map("expected_days")
+  generatedAt   DateTime?            @map("generated_at")
+  validatedAt   DateTime?            @map("validated_at")
+  validatedById String?              @map("validated_by_id")
+  closedAt      DateTime?            @map("closed_at")
+  notes         String?
+  createdAt     DateTime             @default(now()) @map("created_at")
+
+  validatedBy User?     @relation("PayrollValidator", fields: [validatedById], references: [id])
+  payslips    Payslip[]
+
+  @@unique([year, month])
+  @@map("payroll_periods")
+}
+
+model Payslip {
+  id                String        @id @default(uuid())
+  periodId          String        @map("period_id")
+  userId            String        @map("user_id")
+  employeeProfileId String?       @map("employee_profile_id")
+  baseSalary        Decimal       @map("base_salary") @db.Decimal(12, 2)
+  workedDays        Int           @map("worked_days")
+  overtimeHours     Decimal       @default(0) @map("overtime_hours") @db.Decimal(8, 2)
+  overtimeAmount    Decimal       @default(0) @map("overtime_amount") @db.Decimal(12, 2)
+  bonuses           Decimal       @default(0) @db.Decimal(12, 2)
+  deductions        Decimal       @default(0) @db.Decimal(12, 2)
+  cnssEmployee      Decimal       @default(0) @map("cnss_employee") @db.Decimal(12, 2)
+  iprf              Decimal       @default(0) @db.Decimal(12, 2)
+  grossPay          Decimal       @map("gross_pay") @db.Decimal(12, 2)
+  netPay            Decimal       @map("net_pay") @db.Decimal(12, 2)
+  status            PayslipStatus @default(BROUILLON)
+  paidAt            DateTime?     @map("paid_at")
+  paymentReference  String?       @map("payment_reference")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  period   PayrollPeriod    @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employee EmployeeProfile? @relation(fields: [employeeProfileId], references: [id])
+
+  @@unique([periodId, userId])
+  @@map("payslips")
 }

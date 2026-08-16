@@ -167,4 +167,25 @@ export class DeliveriesService {
       loadSheets: tour?.loadSheets ?? [],
     };
   }
+
+  async updateStatus(id: string, status: DeliveryStatus, notes?: string) {
+    const delivery = await this.findOne(id);
+    return this.prisma.delivery.update({
+      where: { id: delivery.id },
+      data: {
+        status,
+        notes: notes ?? delivery.notes,
+        deliveredAt: status === DeliveryStatus.LIVREE ? new Date() : delivery.deliveredAt,
+      },
+      include: { client: true, order: true, lines: { include: { product: true } } },
+    });
+  }
+
+  async remove(id: string) {
+    const delivery = await this.findOne(id);
+    if (delivery.status === DeliveryStatus.LIVREE) {
+      throw new BadRequestException('Impossible de supprimer une livraison déjà effectuée');
+    }
+    return this.prisma.delivery.delete({ where: { id } });
+  }
 }

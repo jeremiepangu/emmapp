@@ -119,4 +119,21 @@ export class OrdersService {
       data: { status: OrderStatus.ANNULEE },
     });
   }
+
+  async updateNotes(id: string, notes: string) {
+    await this.findOne(id);
+    return this.prisma.order.update({
+      where: { id },
+      data: { notes },
+      include: { client: true, lines: { include: { product: true } } },
+    });
+  }
+
+  async remove(id: string) {
+    const order = await this.findOne(id);
+    if (order.status === OrderStatus.LIVREE) {
+      throw new BadRequestException('Impossible de supprimer une commande livrée');
+    }
+    return this.prisma.order.delete({ where: { id } });
+  }
 }

@@ -20,6 +20,7 @@ import ProductionPage from './pages/ProductionPage';
 import QualityPage from './pages/QualityPage';
 import LoyaltyPage from './pages/LoyaltyPage';
 import HrPage from './pages/HrPage';
+import PayrollPage from './pages/PayrollPage';
 import ConsignesPage from './pages/ConsignesPage';
 import ObservabilityPage from './pages/ObservabilityPage';
 import UsersPage from './pages/UsersPage';
@@ -131,6 +132,7 @@ function AppRoutes() {
         <Route path="/loyalty" element={<GuardedRoute resource="loyalty" element={<LoyaltyPage />} />} />
         <Route path="/consignes" element={<GuardedRoute resource="consignes" element={<ConsignesPage />} />} />
         <Route path="/hr" element={<GuardedRoute resource="hr" element={<HrPage />} />} />
+        <Route path="/payroll" element={<GuardedRoute resource="payroll" element={<PayrollPage />} />} />
         <Route path="/observability" element={<GuardedRoute resource="observability" element={<ObservabilityPage />} />} />
         <Route path="/users" element={<GuardedRoute resource="users" element={<UsersPage />} />} />
         <Route path="/notifications" element={<GuardedRoute resource="notifications" element={<NotificationsPage />} />} />

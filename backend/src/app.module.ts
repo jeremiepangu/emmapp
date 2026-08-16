@@ -26,6 +26,7 @@ import { IntegrationsModule } from './integrations/integrations.module';
 import { SecurityModule } from './security/security.module';
 import { PreferencesModule } from './preferences/preferences.module';
 import { SearchModule } from './search/search.module';
+import { HrModule } from './hr/hr.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -57,6 +58,7 @@ import { HealthController } from './health.controller';
     SecurityModule,
     PreferencesModule,
     SearchModule,
+    HrModule,
   ],
   controllers: [HealthController],
 })

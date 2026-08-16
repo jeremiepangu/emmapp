@@ -166,6 +166,16 @@ export default function ProductionPage() {
 
                   )}
 
+                  {can('production', 'delete') && (
+
+                    <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => api.deleteProductionOrder(o.id).then(load)}>
+
+                      Supprimer
+
+                    </button>
+
+                  )}
+
                 </td>
 
               </tr>

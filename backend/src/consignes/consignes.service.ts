@@ -46,4 +46,16 @@ export class ConsignesService {
       orderBy: { createdAt: 'desc' },
     });
   }
+
+  listRecent() {
+    return this.prisma.consigneMovement.findMany({
+      include: { client: { select: { name: true, code: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    });
+  }
+
+  async remove(id: string) {
+    return this.prisma.consigneMovement.delete({ where: { id } });
+  }
 }

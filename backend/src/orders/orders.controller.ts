@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -52,5 +53,17 @@ export class OrdersController {
   @Patch(':id/cancel')
   cancel(@Param('id') id: string) {
     return this.ordersService.cancel(id);
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.COMMERCIAL)
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() body: { notes?: string }) {
+    return this.ordersService.updateNotes(id, body.notes ?? '');
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.COMMERCIAL)
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.ordersService.remove(id);
   }
 }

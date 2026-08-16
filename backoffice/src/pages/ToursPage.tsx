@@ -167,6 +167,7 @@ export default function ToursPage() {
               <th>Commandes</th>
 
               <th>Statut</th>
+              <th>Actions</th>
 
             </tr>
 
@@ -191,6 +192,17 @@ export default function ToursPage() {
                 <td>{t.orders?.length ?? 0}</td>
 
                 <td><StatusPill status={t.status} /></td>
+                <td className="erp-row-actions">
+                  {can('tours', 'validate') && t.status === 'PLANIFIEE' && (
+                    <button type="button" className="erp-btn erp-btn--sm" onClick={() => api.startTour(t.id).then(load)}>Démarrer</button>
+                  )}
+                  {can('tours', 'update') && t.status === 'EN_COURS' && (
+                    <button type="button" className="erp-btn erp-btn--sm" onClick={() => api.completeTour(t.id).then(load)}>Clôturer</button>
+                  )}
+                  {can('tours', 'delete') && t.status !== 'TERMINEE' && t.status !== 'ANNULEE' && (
+                    <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => api.cancelTour(t.id).then(load)}>Annuler</button>
+                  )}
+                </td>
 
               </tr>
 

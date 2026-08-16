@@ -12,6 +12,7 @@ export type Resource =
   | 'loyalty'
   | 'consignes'
   | 'hr'
+  | 'payroll'
   | 'observability'
   | 'users'
   | 'notifications'
@@ -41,22 +42,22 @@ export const PERMISSIONS: Record<string, Partial<Record<Resource, Action[]>>> = 
   ADMIN: {
     dashboard: FULL, clients: FULL, orders: FULL, products: FULL, tours: FULL,
     stock: FULL, deliveries: FULL, payments: FULL, production: FULL, quality: FULL,
-    loyalty: FULL, consignes: FULL, hr: FULL, observability: FULL, users: FULL, notifications: FULL,
+    loyalty: FULL, consignes: FULL, hr: FULL, payroll: FULL, observability: FULL, users: FULL, notifications: FULL,
     ai: FULL, assistant: FULL, iot: FULL, routing: FULL, esg: FULL, security: FULL,
     portal: FULL, marketplace: FULL, integrations: FULL,
   },
   DG: {
     dashboard: R, clients: R, orders: R, products: R, tours: R, stock: R, deliveries: R,
-    payments: R, production: R, quality: R, loyalty: R, consignes: R, hr: R,
+    payments: R, production: R, quality: R, loyalty: R, consignes: R, hr: R, payroll: R,
     observability: R, users: R, notifications: R,
     ai: R, assistant: RC, iot: R, routing: R, esg: R, security: R, portal: R, marketplace: R,
   },
   CHEF_PRODUCTION: {
-    dashboard: R, production: RCU, quality: R, stock: RU, products: R, observability: R, notifications: R,
+    dashboard: R, production: FULL, quality: R, stock: FULL, products: RCU, observability: R, notifications: R,
     ai: R, assistant: RC, iot: RU,
   },
   CHEF_EXPLOITATION: {
-    dashboard: R, orders: RUV, tours: RCU, deliveries: R, stock: R, clients: R, notifications: R,
+    dashboard: R, orders: FULL, tours: FULL, deliveries: RUV, stock: R, clients: R, notifications: R,
     ai: R, assistant: RC, routing: RCUV, iot: R, esg: R,
   },
   CHARGE_EXPLOITATION: {
@@ -68,7 +69,7 @@ export const PERMISSIONS: Record<string, Partial<Record<Resource, Action[]>>> = 
     ai: R, assistant: RC, iot: RU,
   },
   MAGASINIER: {
-    dashboard: R, stock: RCU, tours: RC, consignes: RU, products: R, notifications: R,
+    dashboard: R, stock: FULL, tours: RC, consignes: FULL, products: R, notifications: R,
     assistant: RC,
   },
   AGENT_CHARGEUR: {
@@ -76,15 +77,15 @@ export const PERMISSIONS: Record<string, Partial<Record<Resource, Action[]>>> = 
     assistant: RC,
   },
   LIVREUR: {
-    dashboard: R, deliveries: RC, payments: RC, orders: R, clients: R, notifications: R,
+    dashboard: R, deliveries: RCUV, payments: RC, orders: R, clients: R, notifications: R,
     assistant: RC, routing: R,
   },
   CHARGE_LIVRAISON: {
-    dashboard: R, deliveries: RC, payments: RC, orders: R, clients: R, notifications: R,
+    dashboard: R, deliveries: RCUV, payments: RC, orders: R, clients: R, notifications: R,
     assistant: RC, routing: R,
   },
   COMMERCIAL: {
-    dashboard: R, clients: RCU, orders: RCU, loyalty: R, products: R, payments: R, notifications: R,
+    dashboard: R, clients: FULL, orders: FULL, loyalty: RCU, products: R, payments: RCU, notifications: R,
     ai: R, assistant: RC, portal: RCU, marketplace: RCUV,
   },
   DELEGUE_COMMERCIAL: {
@@ -92,15 +93,15 @@ export const PERMISSIONS: Record<string, Partial<Record<Resource, Action[]>>> = 
     assistant: RC, marketplace: RC,
   },
   CAISSIER: {
-    dashboard: R, payments: RCU, clients: R, orders: R, notifications: R,
+    dashboard: R, payments: FULL, clients: R, orders: R, notifications: R,
     assistant: RC,
   },
   COMPTABLE: {
-    payments: R, clients: R, orders: R, dashboard: R, notifications: R,
-    ai: R, assistant: RC,
+    payments: RCU, clients: R, orders: R, dashboard: R, notifications: R,
+    ai: R, assistant: RC, payroll: RCUV, hr: R,
   },
   RH: {
-    dashboard: R, hr: RCU, users: RCU, notifications: R,
+    dashboard: R, hr: FULL, payroll: FULL, users: FULL, notifications: R,
     assistant: RC,
   },
   SUPERVISEUR: {
@@ -190,7 +191,8 @@ export const MENU_ITEMS: MenuItem[] = [
   { path: '/consignes', label: 'Consignes circulaires', resource: 'consignes', section: 'COMMERCE' },
   { path: '/marketplace', label: 'Marketplace B2B', resource: 'marketplace', section: 'COMMERCE' },
   { path: '/esg', label: 'Durabilité / ESG', resource: 'esg', section: 'DURABILITÉ' },
-  { path: '/hr', label: 'Personnel / shifts', resource: 'hr', section: 'PERSONNEL' },
+  { path: '/hr', label: 'Administration RH', resource: 'hr', section: 'PERSONNEL' },
+  { path: '/payroll', label: 'Paie des agents', resource: 'payroll', section: 'PERSONNEL' },
   { path: '/users', label: 'Utilisateurs', resource: 'users', section: 'PERSONNEL' },
   { path: '/security', label: 'Centre de sécurité', resource: 'security', section: 'SÉCURITÉ' },
   { path: '/integrations', label: 'API & webhooks', resource: 'integrations', section: 'PARAMÉTRAGE' },
@@ -227,8 +229,8 @@ export const NOTIFICATION_CATEGORIES_BY_ROLE: Record<string, string[]> = {
   COMMERCIAL: ['COMMANDE', 'FIDELITE', 'IA', 'PORTAIL'],
   DELEGUE_COMMERCIAL: ['COMMANDE', 'FIDELITE', 'PORTAIL'],
   CAISSIER: ['PAIEMENT', 'LIVRAISON', 'PORTAIL'],
-  COMPTABLE: ['PAIEMENT', 'SYSTEME', 'IA'],
   RH: ['RH', 'SYSTEME'],
+  COMPTABLE: ['PAIEMENT', 'SYSTEME', 'IA', 'RH'],
   SUPERVISEUR: ['SUPERVISION', 'TOURNEE', 'QUALITE', 'SYSTEME', 'IA', 'IOT', 'SECURITE'],
   IT_GED: ['SUPERVISION', 'SYSTEME', 'IOT', 'SECURITE'],
   DATA_ANALYST: ['IA', 'SUPERVISION', 'SYSTEME'],

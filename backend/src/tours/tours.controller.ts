@@ -60,15 +60,21 @@ export class ToursController {
     return this.toursService.validateLoadSheet(id, sheetId, body.role);
   }
 
-  @Roles(UserRole.LIVREUR, UserRole.CHARGE_LIVRAISON, UserRole.ADMIN)
+  @Roles(UserRole.LIVREUR, UserRole.CHARGE_LIVRAISON, UserRole.ADMIN, UserRole.CHEF_EXPLOITATION)
   @Patch(':id/start')
   start(@Param('id') id: string) {
     return this.toursService.startTour(id);
   }
 
-  @Roles(UserRole.LIVREUR, UserRole.CHARGE_LIVRAISON, UserRole.ADMIN)
+  @Roles(UserRole.LIVREUR, UserRole.CHARGE_LIVRAISON, UserRole.ADMIN, UserRole.CHEF_EXPLOITATION)
   @Patch(':id/complete')
   complete(@Param('id') id: string) {
     return this.toursService.completeTour(id);
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.CHEF_EXPLOITATION, UserRole.SUPERVISEUR)
+  @Patch(':id/cancel')
+  cancel(@Param('id') id: string) {
+    return this.toursService.cancelTour(id);
   }
 }

@@ -88,6 +88,13 @@ export const api = {
     request<Client>(`/clients/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
 
   getProducts: () => request<Product[]>('/products'),
+  createProduct: (data: CreateProductInput) =>
+    request<Product>('/products', { method: 'POST', body: JSON.stringify(data) }),
+  updateProduct: (id: string, data: Partial<CreateProductInput>) =>
+    request<Product>(`/products/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteProduct: (id: string) => request<Product>(`/products/${id}`, { method: 'DELETE' }),
+
+  deleteClient: (id: string) => request<Client>(`/clients/${id}`, { method: 'DELETE' }),
 
   getUsersByRole: (role: string) => request<User[]>(`/users/by-role?role=${role}`),
 
@@ -104,28 +111,50 @@ export const api = {
     request<Tour>('/tours', { method: 'POST', body: JSON.stringify(data) }),
   startTour: (id: string) => request<Tour>(`/tours/${id}/start`, { method: 'PATCH' }),
   completeTour: (id: string) => request<Tour>(`/tours/${id}/complete`, { method: 'PATCH' }),
+  cancelTour: (id: string) => request<Tour>(`/tours/${id}/cancel`, { method: 'PATCH' }),
 
   getOrders: () => request<Order[]>('/orders'),
   createOrder: (data: CreateOrderInput) =>
     request<Order>('/orders', { method: 'POST', body: JSON.stringify(data) }),
   validateOrder: (id: string) =>
     request<Order>(`/orders/${id}/validate`, { method: 'PATCH' }),
+  cancelOrder: (id: string) =>
+    request<Order>(`/orders/${id}/cancel`, { method: 'PATCH' }),
+  updateOrder: (id: string, data: { notes?: string }) =>
+    request<Order>(`/orders/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteOrder: (id: string) => request<void>(`/orders/${id}`, { method: 'DELETE' }),
 
   getStock: () => request<StockItem[]>('/stock'),
+  getStockLocations: () => request<Array<{ id: string; name: string; code: string }>>('/stock/locations'),
+  adjustStock: (data: { productId: string; locationId: string; quantity: number; lotNumber?: string }) =>
+    request<StockItem>('/stock/adjust', { method: 'POST', body: JSON.stringify(data) }),
+  updateStockQuantity: (id: string, quantity: number) =>
+    request<StockItem>(`/stock/${id}`, { method: 'PATCH', body: JSON.stringify({ quantity }) }),
+  deleteStockItem: (id: string) => request<void>(`/stock/${id}`, { method: 'DELETE' }),
 
   getDeliveries: () => request<Delivery[]>('/deliveries'),
   createDelivery: (data: CreateDeliveryInput) =>
     request<Delivery>('/deliveries', { method: 'POST', body: JSON.stringify(data) }),
+  updateDelivery: (id: string, data: { status: string; notes?: string }) =>
+    request<Delivery>(`/deliveries/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteDelivery: (id: string) => request<void>(`/deliveries/${id}`, { method: 'DELETE' }),
 
   getPayments: () => request<Payment[]>('/payments'),
   createPayment: (data: CreatePaymentInput) =>
     request<Payment>('/payments', { method: 'POST', body: JSON.stringify(data) }),
+  updatePayment: (id: string, data: Partial<CreatePaymentInput>) =>
+    request<Payment>(`/payments/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deletePayment: (id: string) => request<void>(`/payments/${id}`, { method: 'DELETE' }),
 
   getProductionOrders: () => request<ProductionOrder[]>('/emmapure/production'),
   createProductionOrder: (data: { productFormat: string; lineCode: string; plannedQty: number }) =>
     request<ProductionOrder>('/emmapure/production', { method: 'POST', body: JSON.stringify(data) }),
   validateProductionOrder: (id: string) =>
     request<ProductionOrder>(`/emmapure/production/${id}/validate`, { method: 'PATCH' }),
+  updateProductionOrder: (id: string, data: { producedQty?: number; plannedQty?: number }) =>
+    request<ProductionOrder>(`/emmapure/production/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteProductionOrder: (id: string) =>
+    request<void>(`/emmapure/production/${id}`, { method: 'DELETE' }),
 
   getQualityChecks: () => request<QualityCheck[]>('/emmapure/quality'),
   createQualityCheck: (data: CreateQualityCheckInput) =>
@@ -135,8 +164,14 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ conform }),
     }),
+  deleteQualityCheck: (id: string) => request<void>(`/emmapure/quality/${id}`, { method: 'DELETE' }),
 
   getLoyaltyClients: () => request<LoyaltyClient[]>('/emmapure/loyalty'),
+  creditLoyalty: (clientId: string, points: number) =>
+    request<LoyaltyClient>(`/emmapure/loyalty/${clientId}/points`, {
+      method: 'POST',
+      body: JSON.stringify({ points }),
+    }),
 
   getShiftAssignments: (date?: string) => {
     const qs = date ? `?date=${date}` : '';
@@ -144,9 +179,25 @@ export const api = {
   },
   createShiftAssignment: (data: CreateShiftInput) =>
     request<ShiftAssignment>('/emmapure/shifts', { method: 'POST', body: JSON.stringify(data) }),
+  updateShiftAssignment: (id: string, data: Partial<CreateShiftInput>) =>
+    request<ShiftAssignment>(`/emmapure/shifts/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  validateShiftAssignment: (id: string) =>
+    request<ShiftAssignment>(`/emmapure/shifts/${id}/validate`, { method: 'PATCH' }),
+  deleteShiftAssignment: (id: string) =>
+    request<void>(`/emmapure/shifts/${id}`, { method: 'DELETE' }),
 
   getPackagingUnits: () => request<PackagingUnit[]>('/emmapure/packaging'),
+  createPackagingUnit: (data: { barcode: string; productFormat: string; maxRotations: number }) =>
+    request<PackagingUnit>('/emmapure/packaging', { method: 'POST', body: JSON.stringify(data) }),
+  updatePackagingUnit: (id: string, data: { rotationCount?: number; status?: string; maxRotations?: number }) =>
+    request<PackagingUnit>(`/emmapure/packaging/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deletePackagingUnit: (id: string) => request<void>(`/emmapure/packaging/${id}`, { method: 'DELETE' }),
   getFountains: () => request<FountainAsset[]>('/emmapure/fountains'),
+  createFountain: (data: { serialNumber: string; model?: string; contractType?: string; nextService?: string }) =>
+    request<FountainAsset>('/emmapure/fountains', { method: 'POST', body: JSON.stringify(data) }),
+  updateFountain: (id: string, data: { model?: string; contractType?: string; nextService?: string; isActive?: boolean }) =>
+    request<FountainAsset>(`/emmapure/fountains/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteFountain: (id: string) => request<void>(`/emmapure/fountains/${id}`, { method: 'DELETE' }),
   getObservability: () => request<ObservabilityStatus>('/emmapure/observability'),
 
   getUsers: () => request<User[]>('/users'),
@@ -154,6 +205,46 @@ export const api = {
     request<User>('/users', { method: 'POST', body: JSON.stringify(data) }),
   updateUser: (id: string, data: Partial<CreateUserInput & { isActive: boolean }>) =>
     request<User>(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteUser: (id: string) => request<User>(`/users/${id}`, { method: 'DELETE' }),
+
+  getEmployees: () => request<EmployeeProfile[]>('/hr/employees'),
+  createEmployee: (data: CreateEmployeeInput) =>
+    request<EmployeeProfile>('/hr/employees', { method: 'POST', body: JSON.stringify(data) }),
+  updateEmployee: (id: string, data: Partial<CreateEmployeeInput & { status: string }>) =>
+    request<EmployeeProfile>(`/hr/employees/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteEmployee: (id: string) => request<EmployeeProfile>(`/hr/employees/${id}`, { method: 'DELETE' }),
+  getLeaves: () => request<LeaveRequest[]>('/hr/leaves'),
+  createLeave: (data: CreateLeaveInput) =>
+    request<LeaveRequest>('/hr/leaves', { method: 'POST', body: JSON.stringify(data) }),
+  validateLeave: (id: string) => request<LeaveRequest>(`/hr/leaves/${id}/validate`, { method: 'PATCH' }),
+  rejectLeave: (id: string) => request<LeaveRequest>(`/hr/leaves/${id}/reject`, { method: 'PATCH' }),
+  cancelLeave: (id: string) => request<void>(`/hr/leaves/${id}`, { method: 'DELETE' }),
+  getPayrollPeriods: () => request<PayrollPeriod[]>('/hr/payroll/periods'),
+  createPayrollPeriod: (data: { year: number; month: number; expectedDays?: number }) =>
+    request<PayrollPeriod>('/hr/payroll/periods', { method: 'POST', body: JSON.stringify(data) }),
+  computePayroll: (id: string) =>
+    request<PayrollPeriod>(`/hr/payroll/periods/${id}/compute`, { method: 'POST' }),
+  validatePayrollPeriod: (id: string) =>
+    request<PayrollPeriod>(`/hr/payroll/periods/${id}/validate`, { method: 'PATCH' }),
+  closePayrollPeriod: (id: string) =>
+    request<PayrollPeriod>(`/hr/payroll/periods/${id}/close`, { method: 'PATCH' }),
+  deletePayrollPeriod: (id: string) =>
+    request<void>(`/hr/payroll/periods/${id}`, { method: 'DELETE' }),
+  getPayslips: (periodId: string) => request<Payslip[]>(`/hr/payroll/periods/${periodId}/payslips`),
+  updatePayslip: (id: string, data: { overtimeHours?: number; bonuses?: number; deductions?: number }) =>
+    request<Payslip>(`/hr/payroll/payslips/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  validatePayslip: (id: string) =>
+    request<Payslip>(`/hr/payroll/payslips/${id}/validate`, { method: 'PATCH' }),
+  payPayslip: (id: string, paymentReference?: string) =>
+    request<Payslip>(`/hr/payroll/payslips/${id}/pay`, {
+      method: 'PATCH',
+      body: JSON.stringify({ paymentReference }),
+    }),
+
+  getConsigneMovements: () => request<ConsigneMovement[]>('/consignes'),
+  createConsigneMovement: (data: { clientId: string; productFormat: string; qtyIn: number; qtyOut: number; notes?: string }) =>
+    request<ConsigneMovement>('/consignes', { method: 'POST', body: JSON.stringify(data) }),
+  deleteConsigneMovement: (id: string) => request<void>(`/consignes/${id}`, { method: 'DELETE' }),
 
   getNotifications: (unreadOnly?: boolean) =>
     request<NotificationItem[]>(`/notifications${unreadOnly ? '?unread=true' : ''}`),
@@ -469,6 +560,101 @@ export interface CreateUserInput {
   lastName: string;
   phone?: string;
   role: string;
+}
+
+export interface CreateProductInput {
+  code: string;
+  name: string;
+  format: string;
+  unitPrice: number;
+  consigneAmount?: number;
+  isReusable?: boolean;
+}
+
+export interface CreateEmployeeInput {
+  userId: string;
+  matricule?: string;
+  jobTitle: string;
+  department: string;
+  contractType?: string;
+  hireDate: string;
+  endDate?: string;
+  baseSalary: number;
+  bankName?: string;
+  bankAccount?: string;
+  cnssNumber?: string;
+  nif?: string;
+  notes?: string;
+}
+
+export interface EmployeeProfile {
+  id: string;
+  matricule: string;
+  jobTitle: string;
+  department: string;
+  contractType: string;
+  hireDate: string;
+  endDate?: string;
+  baseSalary: string | number;
+  bankName?: string;
+  bankAccount?: string;
+  cnssNumber?: string;
+  status: string;
+  user?: User;
+}
+
+export interface CreateLeaveInput {
+  userId: string;
+  type: string;
+  startDate: string;
+  endDate: string;
+  reason?: string;
+}
+
+export interface LeaveRequest {
+  id: string;
+  type: string;
+  startDate: string;
+  endDate: string;
+  days: number;
+  reason?: string;
+  status: string;
+  user?: User;
+}
+
+export interface PayrollPeriod {
+  id: string;
+  year: number;
+  month: number;
+  status: string;
+  expectedDays: number;
+  _count?: { payslips: number };
+}
+
+export interface Payslip {
+  id: string;
+  workedDays: number;
+  overtimeHours: string | number;
+  bonuses: string | number;
+  deductions: string | number;
+  cnssEmployee: string | number;
+  iprf: string | number;
+  grossPay: string | number;
+  netPay: string | number;
+  baseSalary: string | number;
+  status: string;
+  user?: User;
+  employee?: { matricule: string; jobTitle: string };
+}
+
+export interface ConsigneMovement {
+  id: string;
+  productFormat: string;
+  qtyIn: number;
+  qtyOut: number;
+  balanceAfter: number;
+  createdAt: string;
+  client?: { name: string; code: string };
 }
 
 export interface DashboardOverview {
