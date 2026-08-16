@@ -116,7 +116,7 @@ export class PortalService {
       [UserRole.COMMERCIAL, UserRole.CHEF_EXPLOITATION, UserRole.ADMIN],
       {
         title: 'Commande portail',
-        message: `${client.name} a passé ${order.orderNumber} (${Number(total).toLocaleString('fr-FR')} CDF).`,
+        message: `${client.name} a passé ${order.orderNumber} (${Math.round(Number(total))} CDF).`,
         type: NotificationType.INFO,
         category: NotificationCategory.PORTAIL,
         link: '/orders',

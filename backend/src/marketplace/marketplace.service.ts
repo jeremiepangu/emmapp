@@ -122,7 +122,7 @@ export class MarketplaceService {
       [UserRole.CHEF_EXPLOITATION, UserRole.ADMIN],
       {
         title: 'Cotation convertie',
-        message: `${quote.reference} → ${order.orderNumber}`,
+        message: `${quote.reference} -> ${order.orderNumber}`,
         type: NotificationType.SUCCESS,
         category: NotificationCategory.COMMANDE,
         link: '/orders',
