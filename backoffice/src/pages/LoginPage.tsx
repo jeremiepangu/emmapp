@@ -37,7 +37,7 @@ export default function LoginPage() {
     setError('');
     try {
       await login(email, password, mfaCode || undefined);
-      navigate('/');
+      navigate('/app');
     } catch (err) {
       const msg = err instanceof Error ? err.message : '';
       const lower = msg.toLowerCase();
@@ -65,6 +65,8 @@ export default function LoginPage() {
     <LoginShell
       extras={(
         <div className="es-login-extras">
+          <Link to="/">Site Emmanuel Services</Link>
+          {' · '}
           <Link to="/mobile">Interface livreur</Link>
           <div className="es-login-demos">
             {DEMO_ACCOUNTS.map((a) => (

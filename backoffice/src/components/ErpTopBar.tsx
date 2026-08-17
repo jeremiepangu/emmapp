@@ -72,7 +72,7 @@ export default function ErpTopBar({ onMenuToggle, onLogout, userName, showNotifi
         >
           {theme === 'sombre' ? '☀' : '☾'}
         </TooltipBtn>
-        <TooltipBtn tooltip="Tableau de bord" to="/">▣</TooltipBtn>
+        <TooltipBtn tooltip="Tableau de bord" to="/app">▣</TooltipBtn>
         <TooltipBtn tooltip="Notifications" to="/notifications">✉</TooltipBtn>
         <TooltipBtn tooltip="Synchronisation">☁</TooltipBtn>
         {showNotifications && <NotificationBell />}

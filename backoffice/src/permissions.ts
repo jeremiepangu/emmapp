@@ -173,7 +173,7 @@ export interface MenuItem {
 }
 
 export const MENU_ITEMS: MenuItem[] = [
-  { path: '/', label: 'Tableau de bord', resource: 'dashboard', section: 'ANALYSE' },
+  { path: '/app', label: 'Tableau de bord', resource: 'dashboard', section: 'ANALYSE' },
   { path: '/observability', label: 'Supervision', resource: 'observability', section: 'ANALYSE' },
   { path: '/ai', label: 'IA prédictive', resource: 'ai', section: 'INTELLIGENCE' },
   { path: '/assistant', label: 'Assistant', resource: 'assistant', section: 'INTELLIGENCE' },

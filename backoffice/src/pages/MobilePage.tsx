@@ -198,7 +198,7 @@ export default function MobilePage() {
           <p>Cette interface est réservée aux chargés de livraison</p>
         </div>
         <div className="erp-mobile-card">
-          <Link to="/">Retour au back-office</Link>
+          <Link to="/app">Retour au back-office</Link>
         </div>
       </div>
     );
@@ -270,7 +270,7 @@ export default function MobilePage() {
         <p>{user.firstName} {user.lastName}</p>
         <div className="erp-mobile-header-actions">
           {notifCount > 0 && <span className="erp-mobile-notif-badge">{notifCount} alerte{notifCount > 1 ? 's' : ''}</span>}
-          {user.role === 'ADMIN' && <Link to="/" className="erp-mobile-header-link">Admin</Link>}
+          {user.role === 'ADMIN' && <Link to="/app" className="erp-mobile-header-link">Admin</Link>}
           <button type="button" className="btn btn-ghost" onClick={logout}>Déconnexion</button>
         </div>
       </div>

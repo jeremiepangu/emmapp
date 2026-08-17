@@ -5,7 +5,7 @@ import { usePermissions } from '../hooks/usePermissions';
 import { MenuItem } from '../permissions';
 
 const ICONS: Record<string, string> = {
-  '/': '▣',
+  '/app': '▣',
   '/clients': '☰',
   '/orders': '☷',
   '/products': '▤',
@@ -102,7 +102,7 @@ export default function ErpSidebar({ onNavigate }: Props) {
           <div key={group.section} className="erp-nav-group">
             <div className="erp-nav-section">{group.section}</div>
             {group.items.map((item) => (
-              <NavLink key={item.path} to={item.path} end={item.path === '/'} className="erp-nav-link">
+              <NavLink key={item.path} to={item.path} end={item.path === '/app'} className="erp-nav-link">
                 <span className="erp-nav-icon" aria-hidden>{ICONS[item.path] ?? '•'}</span>
                 <span className="erp-nav-label">{item.label}</span>
                 <span className="erp-nav-chevron" aria-hidden>›</span>

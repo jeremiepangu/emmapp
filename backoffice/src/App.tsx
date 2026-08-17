@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './AuthContext';
 import { ThemeProvider } from './ThemeContext';
 import { PortalProvider, usePortal } from './PortalContext';
@@ -38,6 +38,13 @@ import MarketplacePage from './pages/MarketplacePage';
 import IntegrationsPage from './pages/IntegrationsPage';
 import PortalAccountsPage from './pages/PortalAccountsPage';
 import PortalLoginPage from './pages/portal/PortalLoginPage';
+import WebsiteLayout from './website/WebsiteLayout';
+import WebsiteHomePage from './website/pages/WebsiteHomePage';
+import WebsiteWaterPage from './website/pages/WebsiteWaterPage';
+import WebsiteOriginPage from './website/pages/WebsiteOriginPage';
+import WebsiteProductsPage from './website/pages/WebsiteProductsPage';
+import WebsiteCommitmentPage from './website/pages/WebsiteCommitmentPage';
+import WebsiteContactPage from './website/pages/WebsiteContactPage';
 import {
   PortalLayout,
   PortalHomePage,
@@ -93,13 +100,23 @@ function PortalGate({ children }: { children: JSX.Element }) {
 
 function AppRoutes() {
   const { user, isLoading } = useAuth();
+  const { pathname } = useLocation();
+  const isPublicSite = ['/', '/eau', '/origine', '/produits', '/engagement', '/contact'].includes(pathname);
 
-  if (isLoading) return <div className="loading-screen">Chargement...</div>;
+  if (isLoading && !isPublicSite) return <div className="loading-screen">Chargement...</div>;
 
-  const home = '/';
+  const home = '/app';
 
   return (
     <Routes>
+      <Route element={<WebsiteLayout />}>
+        <Route path="/" element={<WebsiteHomePage />} />
+        <Route path="/eau" element={<WebsiteWaterPage />} />
+        <Route path="/origine" element={<WebsiteOriginPage />} />
+        <Route path="/produits" element={<WebsiteProductsPage />} />
+        <Route path="/engagement" element={<WebsiteCommitmentPage />} />
+        <Route path="/contact" element={<WebsiteContactPage />} />
+      </Route>
       <Route path="/login" element={user ? <Navigate to={home} /> : <LoginPage />} />
       <Route path="/mobile" element={<MobilePage />} />
       <Route path="/portail/connexion" element={<PortalLoginPage />} />
@@ -121,7 +138,7 @@ function AppRoutes() {
         <Route path="assistant" element={<PortalAssistantPage />} />
       </Route>
       <Route element={<ProtectedLayout />}>
-        <Route path="/" element={<GuardedRoute resource="dashboard" element={<DashboardPage />} />} />
+        <Route path="/app" element={<GuardedRoute resource="dashboard" element={<DashboardPage />} />} />
         <Route path="/clients" element={<GuardedRoute resource="clients" element={<ClientsPage />} />} />
         <Route path="/orders" element={<GuardedRoute resource="orders" element={<OrdersPage />} />} />
         <Route path="/products" element={<GuardedRoute resource="products" element={<ProductsPage />} />} />
