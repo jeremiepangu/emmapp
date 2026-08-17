@@ -40,11 +40,6 @@ import PortalAccountsPage from './pages/PortalAccountsPage';
 import PortalLoginPage from './pages/portal/PortalLoginPage';
 import WebsiteLayout from './website/WebsiteLayout';
 import WebsiteHomePage from './website/pages/WebsiteHomePage';
-import WebsiteWaterPage from './website/pages/WebsiteWaterPage';
-import WebsiteOriginPage from './website/pages/WebsiteOriginPage';
-import WebsiteProductsPage from './website/pages/WebsiteProductsPage';
-import WebsiteCommitmentPage from './website/pages/WebsiteCommitmentPage';
-import WebsiteContactPage from './website/pages/WebsiteContactPage';
 import {
   PortalLayout,
   PortalHomePage,
@@ -101,7 +96,7 @@ function PortalGate({ children }: { children: JSX.Element }) {
 function AppRoutes() {
   const { user, isLoading } = useAuth();
   const { pathname } = useLocation();
-  const isPublicSite = ['/', '/eau', '/origine', '/produits', '/engagement', '/contact'].includes(pathname);
+  const isPublicSite = pathname === '/' || ['/eau', '/origine', '/produits', '/engagement', '/contact'].includes(pathname);
 
   if (isLoading && !isPublicSite) return <div className="loading-screen">Chargement...</div>;
 
@@ -111,11 +106,11 @@ function AppRoutes() {
     <Routes>
       <Route element={<WebsiteLayout />}>
         <Route path="/" element={<WebsiteHomePage />} />
-        <Route path="/eau" element={<WebsiteWaterPage />} />
-        <Route path="/origine" element={<WebsiteOriginPage />} />
-        <Route path="/produits" element={<WebsiteProductsPage />} />
-        <Route path="/engagement" element={<WebsiteCommitmentPage />} />
-        <Route path="/contact" element={<WebsiteContactPage />} />
+        <Route path="/eau" element={<Navigate to="/#eau" replace />} />
+        <Route path="/origine" element={<Navigate to="/#origine" replace />} />
+        <Route path="/produits" element={<Navigate to="/#produits" replace />} />
+        <Route path="/engagement" element={<Navigate to="/#engagement" replace />} />
+        <Route path="/contact" element={<Navigate to="/#contact" replace />} />
       </Route>
       <Route path="/login" element={user ? <Navigate to={home} /> : <LoginPage />} />
       <Route path="/mobile" element={<MobilePage />} />

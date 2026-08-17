@@ -1,55 +1,106 @@
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import './website.css';
 
 const LOGO = '/logo-emmanuel-services.png';
 
 const NAV = [
-  { to: '/', label: 'Accueil', end: true },
-  { to: '/eau', label: 'Notre eau' },
-  { to: '/origine', label: 'Origine' },
-  { to: '/produits', label: 'Produits' },
-  { to: '/engagement', label: 'Engagement' },
-  { to: '/contact', label: 'Contact' },
+  { id: 'accueil', label: 'Accueil' },
+  { id: 'eau', label: 'Notre eau' },
+  { id: 'origine', label: 'Origine' },
+  { id: 'produits', label: 'Produits' },
+  { id: 'engagement', label: 'Engagement' },
+  { id: 'contact', label: 'Contact' },
 ];
 
-const TITLES: Record<string, string> = {
-  '/': 'EMMANUEL SERVICES SARLU — Eau potable Kinshasa',
-  '/eau': 'Caractéristiques de l\'eau — EMMANUEL SERVICES SARLU',
-  '/origine': 'Origine et traitement — EMMANUEL SERVICES SARLU',
-  '/produits': 'Nos formats — EMMANUEL SERVICES SARLU',
-  '/engagement': 'Notre engagement — EMMANUEL SERVICES SARLU',
-  '/contact': 'Contact — EMMANUEL SERVICES SARLU',
-};
-
 export default function WebsiteLayout() {
-  const { pathname } = useLocation();
+  const { hash, pathname } = useLocation();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const [active, setActive] = useState('accueil');
 
   useEffect(() => {
-    document.title = TITLES[pathname] ?? 'EMMANUEL SERVICES SARLU';
-    window.scrollTo(0, 0);
-  }, [pathname]);
+    document.title = 'EMMANUEL SERVICES SARLU — Eau potable Kinshasa';
+    setMenuOpen(false);
+  }, [pathname, hash]);
+
+  useEffect(() => {
+    const id = hash.replace('#', '');
+    if (!id) return;
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [hash]);
+
+  useEffect(() => {
+    const onScroll = () => {
+      const root = document.documentElement;
+      const max = root.scrollHeight - root.clientHeight;
+      root.style.setProperty('--ws-scroll', max > 0 ? String(root.scrollTop / max) : '0');
+      setScrolled(root.scrollTop > 12);
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  useEffect(() => {
+    let io: IntersectionObserver | undefined;
+    const timer = window.setTimeout(() => {
+      const nodes = NAV.map((n) => document.getElementById(n.id)).filter(Boolean) as HTMLElement[];
+      if (!nodes.length) return;
+      io = new IntersectionObserver(
+        (entries) => {
+          const visible = entries
+            .filter((e) => e.isIntersecting)
+            .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+          if (visible?.target.id) setActive(visible.target.id);
+        },
+        { rootMargin: '-28% 0px -55% 0px', threshold: [0.1, 0.25, 0.5] },
+      );
+      nodes.forEach((n) => io?.observe(n));
+    }, 50);
+    return () => {
+      window.clearTimeout(timer);
+      io?.disconnect();
+    };
+  }, []);
 
   return (
     <div className="ws">
-      <header className="ws-header">
-        <Link to="/" className="ws-brand">
+      <div className="ws-progress" aria-hidden />
+      <header className={`ws-header${scrolled ? ' is-scrolled' : ''}`}>
+        <a href="#accueil" className="ws-brand" onClick={() => setMenuOpen(false)}>
           <img src={LOGO} alt="Emmanuel Services" />
           <span>
-            <strong>EMMANUEL SERVICES SARLU</strong>
-            <small>Eau potable · Kinshasa</small>
+            <strong>EMMANUEL SERVICES</strong>
+            <small>SARLU · Kinshasa</small>
           </span>
-        </Link>
-        <nav className="ws-nav" aria-label="Site">
+        </a>
+        <nav className={`ws-nav${menuOpen ? ' is-open' : ''}`} aria-label="Site">
           {NAV.map((item) => (
-            <NavLink key={item.to} to={item.to} end={item.end} className="ws-nav-link">
+            <a
+              key={item.id}
+              href={`#${item.id}`}
+              className={`ws-nav-link${active === item.id ? ' active' : ''}`}
+              onClick={() => setMenuOpen(false)}
+            >
               {item.label}
-            </NavLink>
+            </a>
           ))}
         </nav>
         <div className="ws-header-actions">
           <Link to="/portail/connexion" className="ws-btn ws-btn--ghost">Commander</Link>
           <Link to="/login" className="ws-btn">Espace pro</Link>
+          <button
+            type="button"
+            className="ws-menu-btn"
+            aria-expanded={menuOpen}
+            aria-label="Menu"
+            onClick={() => setMenuOpen((v) => !v)}
+          >
+            <span />
+            <span />
+          </button>
         </div>
       </header>
       <Outlet />
@@ -61,18 +112,18 @@ export default function WebsiteLayout() {
             <p className="ws-muted">Proverbe 16:3</p>
           </div>
           <div>
-            <h4>Découvrir</h4>
-            <Link to="/eau">Caractéristiques</Link>
-            <Link to="/origine">Traitement</Link>
-            <Link to="/produits">Formats</Link>
-            <Link to="/engagement">Durabilité</Link>
+            <h4>Page</h4>
+            <a href="#eau">Notre eau</a>
+            <a href="#origine">Traitement</a>
+            <a href="#produits">Formats</a>
+            <a href="#engagement">Durabilité</a>
           </div>
           <div>
             <h4>Services</h4>
             <Link to="/portail/connexion">Portail client</Link>
             <Link to="/login">ERP interne</Link>
             <Link to="/mobile">Application livreur</Link>
-            <Link to="/contact">Nous écrire</Link>
+            <a href="#contact">Nous écrire</a>
           </div>
           <div>
             <h4>Kinshasa</h4>
