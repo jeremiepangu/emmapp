@@ -32,7 +32,7 @@ export default function ProductsPage() {
     <div className="erp-page">
       <ErpPageHeader
         title="Produits"
-        subtitle="Catalogue bidons et bonbonnes — formats étiquetés EMMAS"
+        subtitle="Catalogue bidons et bonbonnes — formats étiquetés EMMANUEL SERVICES SARLU"
         actions={
           <>
             <DocButton label="Catalogue" onClick={() => printProductsCatalog(products)} />

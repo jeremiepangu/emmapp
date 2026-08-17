@@ -1,4 +1,6 @@
-/** Logo EMMAS — goutte d'eau + typographie étiquette */
+const LOGO = '/logo-emmanuel-services.png';
+
+/** Logo Emmanuel Services — emblème circulaire officiel */
 export default function EmmaLogo({ size = 'md', variant = 'light' }: { size?: 'sm' | 'md' | 'lg'; variant?: 'light' | 'dark' }) {
   const cls = [
     'emma-logo',
@@ -7,23 +9,10 @@ export default function EmmaLogo({ size = 'md', variant = 'light' }: { size?: 's
   ].filter(Boolean).join(' ');
   return (
     <div className={cls}>
-      <svg className="emma-logo-icon" viewBox="0 0 64 80" aria-hidden="true">
-        <defs>
-          <linearGradient id="emmaDrop" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#4db8ff" />
-            <stop offset="45%" stopColor="#00a3ff" />
-            <stop offset="100%" stopColor="#2c3e50" />
-          </linearGradient>
-        </defs>
-        <path
-          fill="url(#emmaDrop)"
-          d="M32 4C32 4 8 36 8 52a24 24 0 0 0 48 0C56 36 32 4 32 4zm0 68a12 12 0 1 1 0-24 12 12 0 0 1 0 24z"
-        />
-        <ellipse cx="26" cy="44" rx="6" ry="10" fill="rgba(255,255,255,0.35)" />
-      </svg>
+      <img className="emma-logo-icon emma-logo-img" src={LOGO} alt="Emmanuel Services" />
       <div className="emma-logo-text">
-        <span className="emma-logo-name">EMMAS</span>
-        <span className="emma-logo-sub">Eau potable</span>
+        <span className="emma-logo-name">Emmanuel Services</span>
+        <span className="emma-logo-sub">SARLU · Eau potable</span>
       </div>
     </div>
   );
@@ -41,12 +30,12 @@ export function EmmaWaveBg() {
     <div className="emma-wave-bg" aria-hidden="true">
       <svg viewBox="0 0 1440 320" preserveAspectRatio="none">
         <path
-          fill="rgba(255,255,255,0.08)"
-          d="M0,192L48,197.3C96,203,192,213,288,229.3C384,245,480,267,576,250.7C672,235,768,181,864,181.3C960,181,1056,235,1152,234.7C1248,235,1344,181,1392,154.7L1440,128L1440,320L0,320Z"
+          fill="rgba(64, 191, 255, 0.12)"
+          d="M0,192L48,197.3C96,203,192,213,288,229.3C384,245,480,267,576,250.7C672,235,768,181,864,181.3C960,181,1056,235,1152,234.7C1248,235,1334,181,1392,154.7L1440,128L1440,320L0,320Z"
         />
         <path
-          fill="rgba(255,255,255,0.12)"
-          d="M0,256L48,245.3C96,235,192,213,288,208C384,203,480,213,576,224C672,235,768,245,864,234.7C960,224,1056,192,1152,186.7C1248,181,1344,203,1392,213.3L1440,224L1440,320L0,320Z"
+          fill="rgba(64, 191, 255, 0.18)"
+          d="M0,256L48,245.3C96,235,192,213,288,208C384,203,480,213,576,224C672,235,768,245,864,234.7C960,224,1056,192,1152,186.7C1248,181,1334,203,1392,213.3L1440,224L1440,320L0,320Z"
         />
       </svg>
     </div>
@@ -67,7 +56,7 @@ export function EmmaLabelPanel() {
           </p>
           <div className="emma-label-strip">
             <span>Kinshasa · Bandalungwa</span>
-            <span>www.emmas.cd</span>
+            <span>EMMANUEL SERVICES SARLU</span>
           </div>
         </div>
       </div>

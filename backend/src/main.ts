@@ -25,7 +25,7 @@ async function bootstrap() {
   app.setGlobalPrefix('api/v1');
 
   const config = new DocumentBuilder()
-    .setTitle('EMMAPP Mobile API')
+    .setTitle('EMMANUEL SERVICES SARLU API')
     .setDescription('ERP/CRM pour production et distribution d\'eau potable')
     .setVersion('1.0')
     .addBearerAuth()

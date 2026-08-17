@@ -1,6 +1,7 @@
 const COMPANY = {
-  brand: 'EMMAS',
-  name: 'EMMAPURE',
+  brand: 'EMMANUEL SERVICES',
+  name: 'EMMANUEL SERVICES SARLU',
+  logo: '/logo-emmanuel-services.png',
   tagline: 'Production et distribution d\'eau potable',
   address: 'Kinshasa, Bandalungwa, RDC',
   phone: '+243 813 170 215',
@@ -80,7 +81,7 @@ export function setDocumentOutput(mode: 'print' | 'pdf'): void {
 
 export function buildDocumentHtml(spec: DocSpec, autoPdf = false): string {
   const issued = formatDate(spec.date);
-  const signatures = spec.signatures?.length ? spec.signatures : ['Pour EMMAPURE', 'Pour le destinataire'];
+  const signatures = spec.signatures?.length ? spec.signatures : ['Pour EMMANUEL SERVICES SARLU', 'Pour le destinataire'];
   const fileName = `${spec.kind}${spec.reference ? `-${spec.reference}` : ''}`.replace(/[^\wÀ-ÿ.-]+/g, '_');
   return `<!DOCTYPE html>
 <html lang="fr">
@@ -93,15 +94,15 @@ export function buildDocumentHtml(spec: DocSpec, autoPdf = false): string {
     body { font-family: "Open Sans", "Roboto", "Segoe UI", Arial, sans-serif; color: #333333; margin: 0; background: #f4f7f9; }
     .toolbar { position: sticky; top: 0; display: flex; gap: 8px; padding: 10px 16px; background: #2c3e50; color: #fff; z-index: 2; }
     .toolbar button { border: 0; border-radius: 4px; padding: 8px 12px; cursor: pointer; font-weight: 600; }
-    .toolbar .print { background: #00a3ff; color: #fff; }
+    .toolbar .print { background: #40bfff; color: #fff; }
     .toolbar .pdf { background: #1abc9c; color: #fff; }
     .sheet { max-width: 900px; margin: 16px auto; background: #fff; padding: 24px; }
-    .head { display: flex; justify-content: space-between; gap: 16px; border-bottom: 3px solid #00a3ff; padding: 0 0 12px; }
+    .head { display: flex; justify-content: space-between; gap: 16px; border-bottom: 3px solid #40bfff; padding: 0 0 12px; }
     .brand { font-size: 28px; font-weight: 700; letter-spacing: 0.04em; color: #2c3e50; }
     .name { font-size: 16px; font-weight: 600; }
     .muted { color: #7f8c8d; font-size: 12px; line-height: 1.45; }
     .doc { text-align: right; }
-    .kind { font-size: 18px; font-weight: 700; color: #00a3ff; text-transform: uppercase; letter-spacing: 0.06em; }
+    .kind { font-size: 18px; font-weight: 700; color: #40bfff; text-transform: uppercase; letter-spacing: 0.06em; }
     .ref { font-size: 13px; font-weight: 700; }
     .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 18px; margin: 16px 0; }
     .meta span { display: block; font-size: 11px; color: #7f8c8d; text-transform: uppercase; letter-spacing: 0.06em; }
@@ -114,7 +115,7 @@ export function buildDocumentHtml(spec: DocSpec, autoPdf = false): string {
     .sign { display: flex; justify-content: space-between; gap: 40px; margin-top: 40px; }
     .sign div { flex: 1; border-top: 1px solid #cfd8dc; padding-top: 8px; font-size: 12px; }
     .foot { margin-top: 28px; border-top: 2px solid #2c3e50; padding-top: 8px; font-size: 11px; color: #7f8c8d; }
-    .party-logo { max-height: 72px; max-width: 120px; object-fit: contain; margin-bottom: 8px; }
+    .party-logo { max-height: 92px; max-width: 92px; object-fit: contain; margin-bottom: 8px; background: transparent; }
     @media print {
       body { background: #fff; }
       .toolbar { display: none !important; }
@@ -130,7 +131,7 @@ export function buildDocumentHtml(spec: DocSpec, autoPdf = false): string {
   <div class="sheet">
     <div class="head">
       <div>
-        ${logoHtml(spec.logoUrl)}
+        ${logoHtml(spec.logoUrl ?? (typeof window !== 'undefined' ? `${window.location.origin}${COMPANY.logo}` : COMPANY.logo))}
         <div class="brand">${esc(COMPANY.brand)}</div>
         <div class="name">${esc(COMPANY.name)}</div>
         <div class="muted">${esc(COMPANY.tagline)}<br/>${esc(COMPANY.address)}<br/>${esc(COMPANY.phone)} · ${esc(COMPANY.email)} · ${esc(COMPANY.web)}</div>
@@ -198,6 +199,6 @@ export function printList(kind: string, headers: string[], rows: string[][], ext
     notes: extra?.notes,
     fields: extra?.fields,
     subtitle: extra?.subtitle,
-    signatures: extra?.signatures ?? ['Pour EMMAPURE'],
+    signatures: extra?.signatures ?? ['Pour EMMANUEL SERVICES SARLU'],
   });
 }

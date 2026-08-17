@@ -17,7 +17,7 @@ export default function DocButton({
         type="button"
         className={cls}
         onClick={onClick}
-        title="Imprimer le document à en-tête EMMAS"
+        title="Imprimer le document à en-tête EMMANUEL SERVICES SARLU"
       >
         {label}
       </button>

@@ -65,7 +65,7 @@ export default function AssistantPage() {
                 headers: ['Auteur', 'Message'],
                 rows: (active.messages ?? []).map((m) => [m.author, m.content]),
               }],
-              signatures: ['Pour EMMAPURE'],
+              signatures: ['Pour EMMANUEL SERVICES SARLU'],
             })}
           />
         ) : undefined}

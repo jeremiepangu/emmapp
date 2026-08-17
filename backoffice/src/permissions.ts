@@ -39,7 +39,7 @@ const RUV: Action[] = ['read', 'update', 'validate'];
 const RCUV: Action[] = ['read', 'create', 'update', 'validate'];
 const FULL: Action[] = ['read', 'create', 'update', 'delete', 'validate'];
 
-/** Matrice CRUDVN par profil — alignée cahier EMMAPURE v3.0 « Smart » */
+/** Matrice CRUDVN par profil — alignée cahier EMMANUEL SERVICES SARLU v3.0 « Smart » */
 export const PERMISSIONS: Record<string, Partial<Record<Resource, Action[]>>> = {
   ADMIN: {
     dashboard: FULL, clients: FULL, orders: FULL, products: FULL, tours: FULL,

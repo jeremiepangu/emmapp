@@ -75,7 +75,7 @@ export function printClientSheet(c: Client): void {
       { label: 'Géolocalisation', value: c.latitude != null && c.longitude != null ? `${c.latitude}, ${c.longitude}` : '—' },
       { label: 'Consignes', value: `${c.consigneBalance} / ${c.consigneLimit}` },
     ],
-    signatures: ['Pour EMMAPURE', 'Pour le client'],
+    signatures: ['Pour EMMANUEL SERVICES SARLU', 'Pour le client'],
   });
 }
 
@@ -106,7 +106,7 @@ export function printProductSheet(p: Product): void {
       { label: 'Prix unitaire', value: formatMoney(p.unitPrice) },
       { label: 'Réutilisable', value: p.isReusable ? 'Oui (consigné)' : 'Non' },
     ],
-    signatures: ['Pour EMMAPURE'],
+    signatures: ['Pour EMMANUEL SERVICES SARLU'],
   });
 }
 
@@ -165,7 +165,7 @@ export function printOrder(o: Order): void {
     }],
     totals: [{ label: 'Total TTC', value: formatMoney(o.totalAmount) }],
     notes: 'Document généré depuis EMMAPP. Les consignes d\'emballages réutilisables restent dues jusqu\'au retour.',
-    signatures: ['Pour EMMAPURE', 'Pour le client'],
+    signatures: ['Pour EMMANUEL SERVICES SARLU', 'Pour le client'],
   });
 }
 
@@ -188,8 +188,8 @@ export function printPaymentReceipt(p: Payment): void {
       { label: 'Date', value: formatDate(p.createdAt) },
     ],
     totals: [{ label: 'Montant encaissé', value: formatMoney(p.amount) }],
-    notes: 'Reçu valable comme justificatif d\'encaissement EMMAPURE.',
-    signatures: ['Pour EMMAPURE', 'Pour le payeur'],
+    notes: 'Reçu valable comme justificatif d\'encaissement EMMANUEL SERVICES SARLU.',
+    signatures: ['Pour EMMANUEL SERVICES SARLU', 'Pour le payeur'],
   });
 }
 
@@ -202,7 +202,7 @@ export function printPaymentsList(payments: Payment[]): void {
       rows: payments.map((p) => [formatDate(p.createdAt), p.client?.name ?? '—', p.method, formatMoney(p.amount)]),
     }],
     totals: [{ label: 'Total encaissé', value: formatMoney(total) }],
-    signatures: ['Pour EMMAPURE'],
+    signatures: ['Pour EMMANUEL SERVICES SARLU'],
   });
 }
 
@@ -217,7 +217,7 @@ export function printDeliveryNote(d: Delivery): void {
       { label: 'Livré le', value: d.deliveredAt ? formatDate(d.deliveredAt) : 'En attente' },
     ],
     notes: 'À signer par le destinataire à réception. Toute réclamation doit être formulée au moment de la livraison.',
-    signatures: ['Pour EMMAPURE / livreur', 'Pour le client'],
+    signatures: ['Pour EMMANUEL SERVICES SARLU / livreur', 'Pour le client'],
   });
 }
 
@@ -246,7 +246,7 @@ export function printTourSheet(t: Tour): void {
       rows: t.orders.map((o) => [o.orderNumber, o.client?.name ?? '—', formatMoney(o.totalAmount), o.status]),
     }] : undefined,
     notes: 'À présenter en cas de contrôle. Le chauffeur confirme le chargement et les retours de consignes en fin de tournée.',
-    signatures: ['Pour EMMAPURE', 'Pour le chauffeur'],
+    signatures: ['Pour EMMANUEL SERVICES SARLU', 'Pour le chauffeur'],
   });
 }
 
@@ -266,7 +266,7 @@ export function printInventory(items: StockItem[]): void {
       rows: items.map((i) => [i.product.name, i.location.name, i.lotNumber ?? '—', String(i.quantity)]),
     }],
     notes: 'Inventaire généré depuis EMMAPP. Les lots bloqués ou en quarantaine restent exclus des expéditions.',
-    signatures: ['Pour EMMAPURE / magasin'],
+    signatures: ['Pour EMMANUEL SERVICES SARLU / magasin'],
   });
 }
 
@@ -306,7 +306,7 @@ export function printQualityReport(q: QualityCheck): void {
       { label: 'Microbiologie', value: q.microbiologyOk == null ? '—' : q.microbiologyOk ? 'Conforme' : 'Non conforme' },
       { label: 'Statut', value: q.status },
     ],
-    notes: 'Contrôle interne EMMAPURE. Un lot non conforme ne peut pas être libéré.',
+    notes: 'Contrôle interne EMMANUEL SERVICES SARLU. Un lot non conforme ne peut pas être libéré.',
     signatures: ['Laboratoire', 'Responsable qualité'],
   });
 }
@@ -330,7 +330,7 @@ export function printLoyaltySheet(c: LoyaltyClient): void {
       { label: 'Points', value: String(c.loyaltyPoints) },
       { label: 'Portefeuille', value: formatMoney(c.walletBalance) },
     ],
-    signatures: ['Pour EMMAPURE', 'Pour le client'],
+    signatures: ['Pour EMMANUEL SERVICES SARLU', 'Pour le client'],
   });
 }
 
@@ -354,7 +354,7 @@ export function printConsigneMovement(m: ConsigneMovement): void {
       { label: 'Sorties', value: String(m.qtyOut) },
       { label: 'Solde après', value: String(m.balanceAfter) },
     ],
-    signatures: ['Pour EMMAPURE', 'Pour le client'],
+    signatures: ['Pour EMMANUEL SERVICES SARLU', 'Pour le client'],
   });
 }
 
@@ -390,7 +390,7 @@ export function printEmployeeSheet(e: EmployeeProfile): void {
       { label: 'CNSS', value: e.cnssNumber ?? '—' },
       { label: 'Statut', value: e.status },
     ],
-    signatures: ['Pour EMMAPURE / RH', 'Pour l\'agent'],
+    signatures: ['Pour EMMANUEL SERVICES SARLU / RH', 'Pour l\'agent'],
   });
 }
 
@@ -399,8 +399,8 @@ export function printWorkCertificate(e: EmployeeProfile): void {
   printDocument({
     kind: 'Attestation de travail',
     reference: e.matricule,
-    notes: `Nous soussignés, EMMAPURE, attestons que ${name}, matricule ${e.matricule}, occupe le poste de ${e.jobTitle} au sein du service ${e.department} depuis le ${formatDate(e.hireDate)}, sous contrat ${e.contractType}. La présente attestation est délivrée pour servir et valoir ce que de droit.`,
-    signatures: ['Pour EMMAPURE / RH'],
+    notes: `Nous soussignés, EMMANUEL SERVICES SARLU, attestons que ${name}, matricule ${e.matricule}, occupe le poste de ${e.jobTitle} au sein du service ${e.department} depuis le ${formatDate(e.hireDate)}, sous contrat ${e.contractType}. La présente attestation est délivrée pour servir et valoir ce que de droit.`,
+    signatures: ['Pour EMMANUEL SERVICES SARLU / RH'],
   });
 }
 
@@ -416,7 +416,7 @@ export function printEmploymentCertificate(e: EmployeeProfile): void {
       { label: 'Service', value: e.department },
       { label: 'Statut', value: e.status },
     ],
-    signatures: ['Pour EMMAPURE / RH'],
+    signatures: ['Pour EMMANUEL SERVICES SARLU / RH'],
   });
 }
 
@@ -432,7 +432,7 @@ export function printLeaveCertificate(l: LeaveRequest): void {
       { label: 'Durée', value: `${l.days} jour(s)` },
       { label: 'Statut', value: l.status },
     ],
-    signatures: ['Pour EMMAPURE / RH'],
+    signatures: ['Pour EMMANUEL SERVICES SARLU / RH'],
   });
 }
 
@@ -474,7 +474,7 @@ export function printHrDashboard(d: HrDashboard): void {
       headers: ['Service', 'Effectif'],
       rows: Object.entries(d.effectifs.byDepartment).map(([k, v]) => [k, String(v)]),
     }],
-    signatures: ['Pour EMMAPURE / RH'],
+    signatures: ['Pour EMMANUEL SERVICES SARLU / RH'],
   });
 }
 
@@ -499,7 +499,7 @@ export function printLeaveRequest(l: LeaveRequest): void {
       { label: 'Motif', value: l.reason ?? '—' },
       { label: 'Statut', value: l.status },
     ],
-    signatures: ['Pour l\'agent', 'Pour EMMAPURE / RH'],
+    signatures: ['Pour l\'agent', 'Pour EMMANUEL SERVICES SARLU / RH'],
   });
 }
 
@@ -522,7 +522,7 @@ export function printShiftSheet(s: ShiftAssignment): void {
       { label: 'Poste', value: s.postLabel },
       { label: 'Validé', value: s.validated ? 'Oui' : 'Non' },
     ],
-    signatures: ['Pour EMMAPURE', 'Pour l\'agent'],
+    signatures: ['Pour EMMANUEL SERVICES SARLU', 'Pour l\'agent'],
   });
 }
 
@@ -564,7 +564,7 @@ export function printPayslip(s: Payslip, period?: PayrollPeriod): void {
     }],
     totals: [{ label: 'Net à payer', value: formatMoney(s.netPay) }],
     notes: 'Bulletin généré par EMMAPP. CNSS salarié 5 %. IPRF selon barème interne. Document confidentiel.',
-    signatures: ['Pour EMMAPURE / Paie', 'Pour l\'agent'],
+    signatures: ['Pour EMMANUEL SERVICES SARLU / Paie', 'Pour l\'agent'],
   });
 }
 
@@ -587,7 +587,7 @@ export function printPayrollRegister(payslips: Payslip[], period: PayrollPeriod)
       ]),
     }],
     totals: [{ label: 'Masse nette', value: formatMoney(total) }],
-    signatures: ['Pour EMMAPURE / Direction', 'Pour EMMAPURE / Paie'],
+    signatures: ['Pour EMMANUEL SERVICES SARLU / Direction', 'Pour EMMANUEL SERVICES SARLU / Paie'],
   });
 }
 
@@ -601,7 +601,7 @@ export function printUserSheet(u: User): void {
       { label: 'Rôle', value: u.role },
       { label: 'Actif', value: u.isActive === false ? 'Non' : 'Oui' },
     ],
-    signatures: ['Pour EMMAPURE / Administration'],
+    signatures: ['Pour EMMANUEL SERVICES SARLU / Administration'],
   });
 }
 
@@ -633,7 +633,7 @@ export function printQuote(q: QuoteRequest): void {
     }],
     totals: q.quotedAmount != null ? [{ label: 'Montant proposé', value: formatMoney(q.quotedAmount) }] : undefined,
     notes: q.message || 'Devis valable 15 jours. Les consignes d\'emballages réutilisables s\'ajoutent selon le contrat client.',
-    signatures: ['Pour EMMAPURE', 'Pour le prospect'],
+    signatures: ['Pour EMMANUEL SERVICES SARLU', 'Pour le prospect'],
   });
 }
 
@@ -660,7 +660,7 @@ export function printPortalInvoice(inv: PortalInvoice): void {
       { label: 'Payé', value: formatMoney(inv.paidAmount) },
       { label: 'Solde', value: formatMoney(inv.balance) },
     ],
-    signatures: ['Pour EMMAPURE', 'Pour le client'],
+    signatures: ['Pour EMMANUEL SERVICES SARLU', 'Pour le client'],
   });
 }
 
@@ -680,7 +680,7 @@ export function printDashboardReport(d: DashboardOverview): void {
       headers: ['Produit', 'Quantité'],
       rows: Object.entries(d.stockByProduct ?? {}).map(([k, v]) => [k, String(v)]),
     }],
-    signatures: ['Pour EMMAPURE / Direction'],
+    signatures: ['Pour EMMANUEL SERVICES SARLU / Direction'],
   });
 }
 
@@ -709,7 +709,7 @@ export function printNotifications(items: NotificationItem[]): void {
 }
 
 export function printGenericReport(kind: string, spec: Partial<DocSpec>): void {
-  printDocument({ kind, signatures: ['Pour EMMAPURE'], ...spec });
+  printDocument({ kind, signatures: ['Pour EMMANUEL SERVICES SARLU'], ...spec });
 }
 
 export function printEsgReport(dash: EsgDashboard, rows: EsgIndicator[]): void {
@@ -736,7 +736,7 @@ export function printEsgReport(dash: EsgDashboard, rows: EsgIndicator[]): void {
         rows: rows.map((r) => [r.scope, r.tour?.tourNumber ?? '—', r.co2Kg.toFixed(1), r.waterM3.toFixed(2), r.energyKwh.toFixed(1), `${Math.round(r.reusePct)} %`]),
       },
     ],
-    signatures: ['Pour EMMAPURE / QHSE'],
+    signatures: ['Pour EMMANUEL SERVICES SARLU / QHSE'],
   });
 }
 
@@ -764,7 +764,7 @@ export function printRouteSheet(route: OptimizedRoute): void {
       headers: ['#', 'Client', 'Priorité', 'Latitude', 'Longitude'],
       rows: route.stops.map((s) => [String(s.order), s.clientName, String(s.priority), s.latitude.toFixed(4), s.longitude.toFixed(4)]),
     }],
-    signatures: ['Pour EMMAPURE', 'Pour le chauffeur'],
+    signatures: ['Pour EMMANUEL SERVICES SARLU', 'Pour le chauffeur'],
   });
 }
 
@@ -790,7 +790,7 @@ export function printSecurityReport(summary: SecuritySummary | null, alerts: Sec
         rows: audit.slice(0, 40).map((e) => [e.action, e.entityType, e.user ? `${e.user.firstName} ${e.user.lastName}` : '—', e.ipAddress ?? '—', formatDate(e.createdAt)]),
       },
     ],
-    signatures: ['Pour EMMAPURE / Sécurité'],
+    signatures: ['Pour EMMANUEL SERVICES SARLU / Sécurité'],
   });
 }
 
@@ -816,7 +816,7 @@ export function printObservabilityReport(data: ObservabilityStatus): void {
       headers: ['Service', 'Statut'],
       rows: data.services.map((s) => [s.name, s.status]),
     }],
-    signatures: ['Pour EMMAPURE / Exploitation'],
+    signatures: ['Pour EMMANUEL SERVICES SARLU / Exploitation'],
   });
 }
 
@@ -849,7 +849,7 @@ export function printPortalLoyalty(loyalty: PortalLoyalty): void {
       headers: ['Libellé', 'Points', 'Date'],
       rows: loyalty.history.map((h) => [h.label, String(h.points), formatDate(h.at)]),
     }],
-    signatures: ['Pour EMMAPURE', 'Pour le client'],
+    signatures: ['Pour EMMANUEL SERVICES SARLU', 'Pour le client'],
   });
 }
 
@@ -877,7 +877,7 @@ export function printDeliveryTracking(t: DeliveryTracking): void {
       headers: ['Étape', 'Statut', 'Heure'],
       rows: t.timeline.map((x) => [x.label, x.done ? 'Fait' : 'En attente', x.at ? formatDate(x.at) : '—']),
     }],
-    signatures: ['Pour EMMAPURE'],
+    signatures: ['Pour EMMANUEL SERVICES SARLU'],
   });
 }
 

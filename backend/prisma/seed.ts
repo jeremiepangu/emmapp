@@ -30,12 +30,12 @@ async function main() {
 
   const admin = await prisma.user.upsert({
     where: { email: 'admin@emmapure.cd' },
-    update: { firstName: 'Admin', lastName: 'EMMAPURE', role: UserRole.ADMIN },
+    update: { firstName: 'Admin', lastName: 'Emmanuel', role: UserRole.ADMIN },
     create: {
       email: 'admin@emmapure.cd',
       passwordHash,
       firstName: 'Admin',
-      lastName: 'EMMAPURE',
+      lastName: 'Emmanuel',
       role: UserRole.ADMIN,
       phone: '+243900000001',
     },
@@ -49,7 +49,7 @@ async function main() {
       email: 'admin@emmapp.cd',
       passwordHash,
       firstName: 'Admin',
-      lastName: 'EMMAPURE',
+      lastName: 'Emmanuel',
       role: UserRole.ADMIN,
       phone: '+243900000001',
     },
@@ -830,7 +830,7 @@ async function main() {
     type: NotificationType;
     category: NotificationCategory;
   }> = [
-    { roles: [UserRole.ADMIN, UserRole.DG], title: 'Supervision système', message: 'Tous les services EMMAS sont opérationnels.', type: NotificationType.SUCCESS, category: NotificationCategory.SYSTEME },
+    { roles: [UserRole.ADMIN, UserRole.DG], title: 'Supervision système', message: 'Tous les services EMMANUEL SERVICES SARLU sont opérationnels.', type: NotificationType.SUCCESS, category: NotificationCategory.SYSTEME },
     { roles: [UserRole.CHEF_PRODUCTION, UserRole.ADMIN], title: 'OF en cours', message: 'Lot EMMA 5L — ligne L1 en production.', type: NotificationType.INFO, category: NotificationCategory.PRODUCTION },
     { roles: [UserRole.RESP_QUALITE, UserRole.ADMIN], title: 'Contrôle qualité en attente', message: 'Validation HACCP requise pour le lot du jour.', type: NotificationType.WARNING, category: NotificationCategory.QUALITE },
     { roles: [UserRole.CHEF_EXPLOITATION, UserRole.MAGASINIER], title: 'Tournée planifiée', message: 'Tournée Bandalungwa — chargement à prévoir.', type: NotificationType.INFO, category: NotificationCategory.TOURNEE },
@@ -868,7 +868,7 @@ async function main() {
     }
   }
 
-  console.log('Seed EMMAS / EMMAPURE v3.0 Smart terminé.');
+  console.log('Seed EMMANUEL SERVICES SARLU v3.0 Smart terminé.');
   console.log(`Comptes (${allUsers.length}) — mot de passe commun : password123`);
   for (const user of allUsers.sort((a, b) => a.email.localeCompare(b.email))) {
     console.log(`  ${user.email.padEnd(30)} ${user.role}`);

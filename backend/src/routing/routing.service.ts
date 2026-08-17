@@ -22,7 +22,7 @@ export interface RouteStop extends GeoPoint {
   priority: number;
 }
 
-/** Dépôt EMMAPURE, centre de Kinshasa : origine fixe de toute tournée. */
+/** Dépôt EMMANUEL SERVICES SARLU, centre de Kinshasa : origine fixe de toute tournée. */
 export const DEPOT: GeoPoint = { latitude: -4.325, longitude: 15.322 };
 
 const EARTH_RADIUS_KM = 6371;

@@ -70,10 +70,10 @@ export default function ErpSidebar({ onNavigate }: Props) {
   return (
     <div className="erp-sidebar-inner">
       <div className="erp-sidebar-brand">
-        <div className="erp-brand-mark" aria-hidden>E</div>
+        <img className="erp-brand-mark erp-brand-mark--img" src="/logo-emmanuel-services.png" alt="" />
         <div>
-          <div className="erp-brand-logo">EMMAS</div>
-          <div className="erp-brand-sub">ERP · Eau potable</div>
+          <div className="erp-brand-logo">Emmanuel Services</div>
+          <div className="erp-brand-sub">SARLU · Eau potable</div>
         </div>
       </div>
 

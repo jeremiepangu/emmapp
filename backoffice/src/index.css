@@ -1,6 +1,6 @@
 :root {
-  --primary: #00a3ff;
-  --primary-dark: #0086d1;
+  --primary: #40bfff;
+  --primary-dark: #2aa8e8;
   --secondary: #1abc9c;
   --secondary-light: #48c9b0;
   --accent: #2c3e50;
@@ -827,7 +827,7 @@ th {
   opacity: 0.7;
 }
 
-/* ── Charte graphique EMMAS (étiquette 5L) ── */
+/* ── Charte graphique Emmanuel Services ── */
 .emma-logo {
   display: flex;
   align-items: center;
@@ -835,13 +835,20 @@ th {
 }
 
 .emma-logo-icon {
-  width: 40px;
-  height: 50px;
+  width: 48px;
+  height: 48px;
   flex-shrink: 0;
 }
 
-.emma-logo--sm .emma-logo-icon { width: 32px; height: 40px; }
-.emma-logo--lg .emma-logo-icon { width: 56px; height: 70px; }
+.emma-logo-img {
+  border-radius: 0;
+  object-fit: contain;
+  border: 0;
+  background: transparent;
+}
+
+.emma-logo--sm .emma-logo-icon { width: 40px; height: 40px; }
+.emma-logo--lg .emma-logo-icon { width: 72px; height: 72px; }
 
 .emma-logo-name {
   display: block;

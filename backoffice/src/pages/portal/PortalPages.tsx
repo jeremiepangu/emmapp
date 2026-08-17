@@ -45,9 +45,9 @@ export function PortalLayout() {
     <div className="erp-layout portal-layout">
       <aside className="erp-sidebar">
         <div className="erp-sidebar-brand">
-          <div className="erp-brand-mark" aria-hidden>E</div>
+          <img className="erp-brand-mark erp-brand-mark--img" src="/logo-emmanuel-services.png" alt="" />
           <div>
-            <div className="erp-brand-logo">EMMAS</div>
+            <div className="erp-brand-logo">Emmanuel Services</div>
             <div className="erp-brand-sub">Portail client</div>
           </div>
         </div>
@@ -158,7 +158,7 @@ export function PortalCatalogPage() {
                   return [p.name, p.format, formatMoney(p.basePrice), formatMoney(priced.unit), `${priced.pct} %`];
                 }),
               }],
-              signatures: ['Pour EMMAPURE'],
+              signatures: ['Pour EMMANUEL SERVICES SARLU'],
             })}
           />
         }
@@ -300,7 +300,7 @@ export function PortalInvoicesPage() {
             headers: ['Commande', 'Total', 'Payé', 'Solde', 'Statut'],
             rows: invoices.map((i) => [i.orderNumber, formatMoney(i.totalAmount), formatMoney(i.paidAmount), formatMoney(i.balance), i.status]),
           }],
-          signatures: ['Pour EMMAPURE', 'Pour le client'],
+          signatures: ['Pour EMMANUEL SERVICES SARLU', 'Pour le client'],
         })} />}
       />
       <ErpPanel title="Factures">
