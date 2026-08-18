@@ -1118,6 +1118,16 @@ body {
   align-items: center;
 }
 
+.es-login-center--wide {
+  width: min(460px, 100%);
+}
+
+.es-login-center--wide .es-login-emblem {
+  width: 140px;
+  height: 140px;
+  margin-bottom: 10px;
+}
+
 .es-login-emblem {
   width: 220px;
   height: 220px;
@@ -1147,6 +1157,26 @@ body {
   box-shadow: 0 22px 50px rgba(8, 24, 80, 0.28);
 }
 
+.es-login-card--register {
+  max-height: min(70vh, 640px);
+  overflow-y: auto;
+}
+
+.es-login-title {
+  margin: 0;
+  color: #fff;
+  font-size: 18px;
+  text-align: center;
+  font-weight: 700;
+}
+
+.es-login-sub {
+  margin: -6px 0 4px;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 12px;
+  text-align: center;
+}
+
 .es-login-form {
   display: flex;
   flex-direction: column;
@@ -1164,11 +1194,24 @@ body {
   box-shadow: 0 1px 2px rgba(8, 24, 80, 0.08);
 }
 
+.es-login-form select {
+  width: 100%;
+  border: 0;
+  border-radius: 12px;
+  background: #fff;
+  padding: 14px 16px;
+  font-size: 14px;
+  color: #2a2a2a;
+  box-shadow: 0 1px 2px rgba(8, 24, 80, 0.08);
+  appearance: none;
+}
+
 .es-login-form input::placeholder {
   color: #9aa3ad;
 }
 
-.es-login-form input:focus {
+.es-login-form input:focus,
+.es-login-form select:focus {
   outline: 2px solid rgba(255, 255, 255, 0.7);
   background: #fff;
   box-shadow: none;
@@ -1258,6 +1301,10 @@ body {
   color: rgba(255, 255, 255, 0.88);
   font-size: 12px;
   text-decoration: underline;
+}
+
+.es-login-hint a {
+  color: inherit;
 }
 
 .es-login-hint {

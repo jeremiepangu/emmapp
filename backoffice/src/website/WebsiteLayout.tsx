@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import './website.css';
 
@@ -89,7 +89,7 @@ export default function WebsiteLayout() {
           ))}
         </nav>
         <div className="ws-header-actions">
-          <Link to="/portail/connexion" className="ws-btn ws-btn--ghost">Commander</Link>
+          <Link to="/portail/inscription" className="ws-btn ws-btn--ghost">Commander</Link>
           <Link to="/login" className="ws-btn">Espace pro</Link>
           <button
             type="button"
@@ -120,6 +120,7 @@ export default function WebsiteLayout() {
           </div>
           <div>
             <h4>Services</h4>
+            <Link to="/portail/inscription">Créer un compte</Link>
             <Link to="/portail/connexion">Portail client</Link>
             <Link to="/login">ERP interne</Link>
             <Link to="/mobile">Application livreur</Link>

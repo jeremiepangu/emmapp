@@ -82,6 +82,8 @@ export class PortalService {
   }
 
   async createOrder(clientId: string, body: { lines: Array<{ productId: string; quantity: number }>; notes?: string }) {
+    const lines = (body.lines ?? []).filter((line) => line.quantity > 0);
+    if (!lines.length) throw new BadRequestException('Ajoutez au moins un produit');
     const client = await this.prisma.client.findUnique({ where: { id: clientId } });
     if (!client) throw new NotFoundException();
     const count = await this.prisma.order.count();
@@ -89,7 +91,7 @@ export class PortalService {
     const orderNumber = `CMD-${date}-${String(count + 1).padStart(4, '0')}`;
     let total = new Prisma.Decimal(0);
     const linesData: Array<{ productId: string; quantity: number; unitPrice: Prisma.Decimal; discount: Prisma.Decimal }> = [];
-    for (const line of body.lines) {
+    for (const line of lines) {
       const product = await this.prisma.product.findUnique({ where: { id: line.productId } });
       if (!product) throw new NotFoundException(`Produit ${line.productId} introuvable`);
       const priced = await this.pricing.priceLine(this.pricing.ctxFromClient(client), product, line.quantity);
@@ -290,7 +292,7 @@ export class PortalService {
     const passwordHash = await bcrypt.hash(data.password, 10);
     return this.prisma.portalAccount.create({
       data: {
-        email: data.email,
+        email: data.email.trim().toLowerCase(),
         passwordHash,
         fullName: data.fullName,
         clientId: data.clientId,

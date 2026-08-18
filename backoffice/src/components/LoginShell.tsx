@@ -45,17 +45,25 @@ function WaterDrops() {
   );
 }
 
-export default function LoginShell({ children, extras }: { children: ReactNode; extras?: ReactNode }) {
+export default function LoginShell({
+  children,
+  extras,
+  wide,
+}: {
+  children: ReactNode;
+  extras?: ReactNode;
+  wide?: boolean;
+}) {
   return (
     <div className="es-login">
       <div className="es-login-vignette" aria-hidden />
       <div className="es-login-halftone" aria-hidden />
       <WaterDrops />
-      <main className="es-login-center">
+      <main className={`es-login-center${wide ? ' es-login-center--wide' : ''}`}>
         <div className="es-login-emblem">
           <img src={LOGO} alt="Emmanuel Services" />
         </div>
-        <div className="es-login-card">{children}</div>
+        <div className={`es-login-card${wide ? ' es-login-card--register' : ''}`}>{children}</div>
         {extras}
       </main>
     </div>

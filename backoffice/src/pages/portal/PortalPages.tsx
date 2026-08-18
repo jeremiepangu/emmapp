@@ -113,11 +113,14 @@ export function PortalHomePage() {
           <div className="erp-kpi-label">Consigne</div>
           <div className="erp-kpi-value">{me.consigneBalance} / {me.consigneLimit}</div>
         </div>
-        <div className="erp-kpi erp-kpi--red">
-          <div className="erp-kpi-label">Points fidélité</div>
-          <div className="erp-kpi-value">{me.client.loyaltyPoints}</div>
+          <div className="erp-kpi erp-kpi--red">
+            <div className="erp-kpi-label">Points fidélité</div>
+            <div className="erp-kpi-value">{me.client.loyaltyPoints}</div>
+          </div>
         </div>
-      </div>
+        <p style={{ marginTop: 20 }}>
+          <Link to="/portail/commander" className="erp-btn">Passer une commande</Link>
+        </p>
     </div>
   );
 }
@@ -135,10 +138,14 @@ export function PortalCatalogPage() {
     e.preventDefault();
     const lines = Object.entries(qty).filter(([, q]) => q > 0).map(([productId, quantity]) => ({ productId, quantity }));
     if (!lines.length) return;
-    await portalApi.createOrder({ lines });
-    setMessage('Commande enregistrée.');
-    await refresh();
-    navigate('/portail/commandes');
+    try {
+      await portalApi.createOrder({ lines });
+      setMessage('Commande enregistrée.');
+      await refresh();
+      navigate('/portail/commandes');
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : 'Commande impossible');
+    }
   };
 
   return (

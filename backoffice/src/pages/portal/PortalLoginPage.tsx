@@ -1,5 +1,5 @@
 import { FormEvent, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { usePortal } from '../../PortalContext';
 import LoginShell from '../../components/LoginShell';
 
@@ -13,8 +13,11 @@ export default function PortalLoginPage() {
       : '',
   );
   const [loading, setLoading] = useState(false);
-  const { login } = usePortal();
+  const { account, isLoading, login } = usePortal();
   const navigate = useNavigate();
+
+  if (isLoading) return <div className="loading-screen">Chargement...</div>;
+  if (account) return <Navigate to="/portail/commander" replace />;
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -22,7 +25,7 @@ export default function PortalLoginPage() {
     setError('');
     try {
       await login(email, password);
-      navigate('/portail');
+      navigate('/portail/commander');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Identifiants invalides');
     } finally {
@@ -31,7 +34,12 @@ export default function PortalLoginPage() {
   };
 
   return (
-    <LoginShell extras={<p className="es-login-hint">Compte démo : client@boutique-kintambo.cd / password123</p>}>
+    <LoginShell extras={(
+      <>
+        <p className="es-login-hint">Compte démo : client@boutique-kintambo.cd / password123</p>
+        <p className="es-login-hint"><Link to="/portail/inscription">Nouveau client ? Créer un compte</Link></p>
+      </>
+    )}>
       <form className="es-login-form" onSubmit={submit}>
         <input
           type="email"
@@ -78,7 +86,7 @@ export default function PortalLoginPage() {
         </button>
         <div className="es-login-foot">
           <a href="mailto:contact@emmas.cd?subject=Mot%20de%20passe%20oubli%C3%A9">Mot de passe oublié ?</a>
-          <Link to="/login">S&apos;inscrire</Link>
+          <Link to="/portail/inscription">Créer un compte</Link>
         </div>
       </form>
     </LoginShell>

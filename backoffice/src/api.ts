@@ -531,6 +531,17 @@ export const api = {
 
 const PORTAL_TOKEN_KEY = 'portalToken';
 
+function parsePortalError(text: string, status: number): string {
+  try {
+    const json = JSON.parse(text) as { message?: string | string[] };
+    if (Array.isArray(json.message)) return json.message.join(' ');
+    if (typeof json.message === 'string' && json.message.trim()) return json.message;
+  } catch {
+    /* texte brut */
+  }
+  return text || `Erreur API (${status})`;
+}
+
 async function portalRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = localStorage.getItem(PORTAL_TOKEN_KEY);
   const headers: Record<string, string> = {
@@ -542,15 +553,19 @@ async function portalRequest<T>(path: string, options: RequestInit = {}): Promis
   const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
   if (!response.ok) {
     const text = await response.text().catch(() => '');
-    if (response.status === 401 && !path.includes('/auth/login')) {
+    const publicAuth = path.includes('/auth/login') || path.includes('/auth/register');
+    if (response.status === 401 && !publicAuth) {
       localStorage.removeItem(PORTAL_TOKEN_KEY);
       localStorage.removeItem('portalAccount');
-      if (!window.location.pathname.startsWith('/portail/connexion')) {
+      if (
+        !window.location.pathname.startsWith('/portail/connexion')
+        && !window.location.pathname.startsWith('/portail/inscription')
+      ) {
         window.location.replace('/portail/connexion?expired=1');
       }
       throw new Error('Session expirée — veuillez vous reconnecter.');
     }
-    throw new Error(text || `Erreur API (${response.status})`);
+    throw new Error(parsePortalError(text, response.status));
   }
   if (response.status === 204) return undefined as T;
   return response.json();
@@ -561,6 +576,11 @@ export const portalApi = {
     portalRequest<{ accessToken: string; account: PortalAccount }>('/portal/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
+    }),
+  register: (data: RegisterPortalInput) =>
+    portalRequest<{ accessToken: string; account: PortalAccount }>('/portal/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
     }),
   me: () => portalRequest<PortalMe>('/portal/me'),
   getCatalog: () => portalRequest<PortalCatalogItem[]>('/portal/catalog'),
@@ -1523,6 +1543,19 @@ export interface CreatePortalAccountInput {
   password: string;
   fullName: string;
   clientId: string;
+}
+
+export interface RegisterPortalInput {
+  email: string;
+  password: string;
+  fullName: string;
+  phone: string;
+  commune: string;
+  avenue?: string;
+  quartier?: string;
+  district?: string;
+  companyName?: string;
+  segment?: ClientSegment;
 }
 
 export interface PortalMe {

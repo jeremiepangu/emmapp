@@ -67,7 +67,7 @@ export default function WebsiteHomePage() {
           </p>
           <div className="ws-hero-cta">
             <a href="#eau" className="ws-btn ws-btn--light">Voir notre eau</a>
-            <Link to="/portail/connexion" className="ws-btn">Commander</Link>
+            <Link to="/portail/inscription" className="ws-btn">Commander</Link>
           </div>
           <dl className="ws-hud">
             <div><dt>pH</dt><dd>{ph}</dd></div>
@@ -186,8 +186,11 @@ export default function WebsiteHomePage() {
         <div className="ws-band ws-band--in">
           <div>
             <h2>Commandez en autonomie.</h2>
-            <p>Portail client, suivi de tournée, consignes et fidélité.</p>
-            <Link to="/portail/connexion" className="ws-btn ws-btn--light">Ouvrir le portail</Link>
+            <p>Créez un compte, choisissez vos formats, suivez la tournée et les consignes.</p>
+            <div className="ws-hero-cta">
+              <Link to="/portail/inscription" className="ws-btn ws-btn--light">Créer un compte</Link>
+              <Link to="/portail/connexion" className="ws-btn">J&apos;ai déjà un compte</Link>
+            </div>
           </div>
         </div>
       </section>
@@ -233,6 +236,9 @@ export default function WebsiteHomePage() {
             <h3>Identifiants</h3>
             <p>RCCM KNG/RCCM/24-B-02180<br />IMPOT A2425053J<br />ID NAT 01-F4300-N64238H</p>
           </article>
+        </div>
+        <div className="ws-hero-cta" style={{ marginTop: 28 }}>
+          <Link to="/portail/inscription" className="ws-btn">Créer un compte et commander</Link>
         </div>
       </section>
     </main>

@@ -5,6 +5,7 @@ import { Public } from '../common/decorators/roles.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AssistantService } from '../assistant/assistant.service';
+import { RegisterPortalDto } from './dto/register-portal.dto';
 import { PortalAuthGuard } from './portal-auth.guard';
 import { PortalAuthService } from './portal-auth.service';
 import { PortalService } from './portal.service';
@@ -23,6 +24,12 @@ export class PortalController {
   @Post('auth/login')
   login(@Body() body: { email: string; password: string }) {
     return this.auth.login(body.email, body.password);
+  }
+
+  @Public()
+  @Post('auth/register')
+  register(@Body() body: RegisterPortalDto) {
+    return this.auth.register(body);
   }
 
   @UseGuards(PortalAuthGuard)

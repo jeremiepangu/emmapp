@@ -134,7 +134,7 @@ export default function LoginPage() {
         </button>
         <div className="es-login-foot">
           <a href="mailto:contact@emmas.cd?subject=Mot%20de%20passe%20oubli%C3%A9">Mot de passe oublié ?</a>
-          <Link to="/portail/connexion">S&apos;inscrire</Link>
+          <Link to="/portail/inscription">S&apos;inscrire</Link>
         </div>
       </form>
     </LoginShell>

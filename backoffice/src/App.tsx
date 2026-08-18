@@ -38,6 +38,7 @@ import MarketplacePage from './pages/MarketplacePage';
 import IntegrationsPage from './pages/IntegrationsPage';
 import PortalAccountsPage from './pages/PortalAccountsPage';
 import PortalLoginPage from './pages/portal/PortalLoginPage';
+import PortalRegisterPage from './pages/portal/PortalRegisterPage';
 import WebsiteLayout from './website/WebsiteLayout';
 import WebsiteHomePage from './website/pages/WebsiteHomePage';
 import {
@@ -96,7 +97,9 @@ function PortalGate({ children }: { children: JSX.Element }) {
 function AppRoutes() {
   const { user, isLoading } = useAuth();
   const { pathname } = useLocation();
-  const isPublicSite = pathname === '/' || ['/eau', '/origine', '/produits', '/engagement', '/contact'].includes(pathname);
+  const isPublicSite =
+    pathname === '/'
+    || ['/eau', '/origine', '/produits', '/engagement', '/contact', '/portail/connexion', '/portail/inscription'].includes(pathname);
 
   if (isLoading && !isPublicSite) return <div className="loading-screen">Chargement...</div>;
 
@@ -115,6 +118,7 @@ function AppRoutes() {
       <Route path="/login" element={user ? <Navigate to={home} /> : <LoginPage />} />
       <Route path="/mobile" element={<MobilePage />} />
       <Route path="/portail/connexion" element={<PortalLoginPage />} />
+      <Route path="/portail/inscription" element={<PortalRegisterPage />} />
       <Route
         path="/portail"
         element={(
