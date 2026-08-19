@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { PaymentMethod, ProductFormat, SyncStatus } from '@prisma/client';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { ProductFormat } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.module';
 
 @Injectable()
@@ -55,7 +55,49 @@ export class ConsignesService {
     });
   }
 
+  async update(
+    id: string,
+    data: { productFormat?: ProductFormat; qtyIn?: number; qtyOut?: number; notes?: string },
+  ) {
+    const movement = await this.prisma.consigneMovement.findUnique({ where: { id } });
+    if (!movement) throw new NotFoundException('Mouvement introuvable');
+
+    const qtyIn = data.qtyIn ?? movement.qtyIn;
+    const qtyOut = data.qtyOut ?? movement.qtyOut;
+    const client = await this.prisma.client.findUnique({ where: { id: movement.clientId } });
+    if (!client) throw new NotFoundException('Client introuvable');
+
+    const reverted = client.consigneBalance - movement.qtyOut + movement.qtyIn;
+    const balanceAfter = reverted + qtyOut - qtyIn;
+
+    await this.prisma.client.update({
+      where: { id: movement.clientId },
+      data: { consigneBalance: balanceAfter },
+    });
+
+    return this.prisma.consigneMovement.update({
+      where: { id },
+      data: {
+        productFormat: data.productFormat,
+        qtyIn,
+        qtyOut,
+        notes: data.notes,
+        balanceAfter,
+      },
+      include: { client: { select: { name: true, code: true } } },
+    });
+  }
+
   async remove(id: string) {
+    const movement = await this.prisma.consigneMovement.findUnique({ where: { id } });
+    if (!movement) throw new NotFoundException('Mouvement introuvable');
+    const client = await this.prisma.client.findUnique({ where: { id: movement.clientId } });
+    if (client) {
+      await this.prisma.client.update({
+        where: { id: movement.clientId },
+        data: { consigneBalance: client.consigneBalance - movement.qtyOut + movement.qtyIn },
+      });
+    }
     return this.prisma.consigneMovement.delete({ where: { id } });
   }
 }

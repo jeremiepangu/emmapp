@@ -30,6 +30,7 @@ export default function IotPage() {
   const [readings, setReadings] = useState<SensorReading[]>([]);
   const [selected, setSelected] = useState<string>('');
   const [form, setForm] = useState<CreateSensorInput>(EMPTY);
+  const [editing, setEditing] = useState<IotSensor | null>(null);
   const [manualValue, setManualValue] = useState('');
   const [error, setError] = useState('');
 
@@ -48,8 +49,10 @@ export default function IotPage() {
 
   const create = async (e: FormEvent) => {
     e.preventDefault();
-    await api.createSensor(form);
+    if (editing) await api.updateSensor(editing.id, form);
+    else await api.createSensor(form);
     setForm(EMPTY);
+    setEditing(null);
     load();
   };
 
@@ -62,8 +65,8 @@ export default function IotPage() {
       />
       {error && <p className="error-msg">{error}</p>}
 
-      {can('iot', 'create') && (
-        <ErpPanel title="Enregistrer un capteur" padded>
+      {(can('iot', 'create') || editing) && (
+        <ErpPanel title={editing ? 'Modifier le capteur' : 'Enregistrer un capteur'} padded>
           <form onSubmit={create} className="form-row">
             <div className="form-group"><label>Code</label><input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} required /></div>
             <div className="form-group"><label>Libellé</label><input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} required /></div>
@@ -77,7 +80,12 @@ export default function IotPage() {
             </div>
             <div className="form-group"><label>Métrique</label><input value={form.metric} onChange={(e) => setForm({ ...form, metric: e.target.value })} required /></div>
             <div className="form-group"><label>Unité</label><input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} required /></div>
-            <div className="form-group" style={{ alignSelf: 'end' }}><button type="submit" className="erp-btn">Créer</button></div>
+            <div className="form-group" style={{ alignSelf: 'end' }}>
+              <button type="submit" className="erp-btn">{editing ? 'Mettre à jour' : 'Créer'}</button>
+              {editing && (
+                <button type="button" className="erp-btn erp-btn--ghost" onClick={() => { setEditing(null); setForm(EMPTY); }}>Annuler</button>
+              )}
+            </div>
           </form>
         </ErpPanel>
       )}
@@ -102,6 +110,26 @@ export default function IotPage() {
                   <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => openReadings(s.id)}>Relevés</button>
                   {can('iot', 'delete') && (
                     <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => api.deleteSensor(s.id).then(load)}>Retirer</button>
+                  )}
+                  {can('iot', 'update') && (
+                    <button
+                      type="button"
+                      className="erp-btn erp-btn--sm erp-btn--ghost"
+                      onClick={() => {
+                        setEditing(s);
+                        setForm({
+                          code: s.code,
+                          label: s.label,
+                          kind: s.kind,
+                          metric: s.metric,
+                          unit: s.unit,
+                          minValue: s.minValue,
+                          maxValue: s.maxValue,
+                        });
+                      }}
+                    >
+                      Modifier
+                    </button>
                   )}
                 </td>
               </tr>

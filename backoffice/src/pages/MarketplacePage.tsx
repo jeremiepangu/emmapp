@@ -111,6 +111,9 @@ export default function MarketplacePage() {
                   {can('marketplace', 'validate') && q.status === 'ACCEPTEE' && (
                     <button type="button" className="erp-btn erp-btn--sm" onClick={() => api.convertQuoteRequest(q.id).then(load)}>Convertir en commande</button>
                   )}
+                  {can('marketplace', 'delete') && (q.status === 'NOUVELLE' || q.status === 'REFUSEE') && (
+                    <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => api.deleteQuoteRequest(q.id).then(load)}>Supprimer</button>
+                  )}
                 </td>
               </tr>
             ))}

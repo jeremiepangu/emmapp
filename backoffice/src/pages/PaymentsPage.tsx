@@ -18,6 +18,7 @@ export default function PaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<Payment | null>(null);
   const [form, setForm] = useState({ clientId: '', amount: 0, method: 'ESPECES' as PaymentMethod, reference: '' });
 
   const load = () => api.getPayments().then(setPayments);
@@ -27,8 +28,11 @@ export default function PaymentsPage() {
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    await api.createPayment({ clientId: form.clientId || undefined, amount: Number(form.amount), method: form.method, reference: form.reference || undefined });
+    const payload = { amount: Number(form.amount), method: form.method, reference: form.reference || undefined };
+    if (editing) await api.updatePayment(editing.id, payload);
+    else await api.createPayment({ clientId: form.clientId || undefined, ...payload });
     setShowForm(false);
+    setEditing(null);
     await load();
   };
 
@@ -40,7 +44,7 @@ export default function PaymentsPage() {
         actions={
           <>
             <DocButton label="Imprimer le registre" onClick={() => printPaymentsList(payments)} />
-            {can('payments', 'create') && <button type="button" className="erp-btn" onClick={() => setShowForm(true)}>+ Encaissement</button>}
+            {can('payments', 'create') && <button type="button" className="erp-btn" onClick={() => { setEditing(null); setForm({ clientId: '', amount: 0, method: 'ESPECES', reference: '' }); setShowForm(true); }}>+ Encaissement</button>}
           </>
         }
       />
@@ -58,6 +62,24 @@ export default function PaymentsPage() {
                 <td><StatusPill status="VALIDEE" label={methodLabel[p.method] ?? p.method} /></td>
                 <td className="erp-row-actions">
                   <DocButton label="Reçu" onClick={() => printPaymentReceipt(p)} />
+                  {can('payments', 'update') && (
+                    <button
+                      type="button"
+                      className="erp-btn erp-btn--sm erp-btn--ghost"
+                      onClick={() => {
+                        setEditing(p);
+                        setForm({
+                          clientId: p.clientId ?? '',
+                          amount: Number(p.amount),
+                          method: p.method as PaymentMethod,
+                          reference: p.reference ?? '',
+                        });
+                        setShowForm(true);
+                      }}
+                    >
+                      Modifier
+                    </button>
+                  )}
                   {can('payments', 'delete') && (
                     <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => api.deletePayment(p.id).then(load)}>Supprimer</button>
                   )}
@@ -67,7 +89,7 @@ export default function PaymentsPage() {
           </tbody>
         </table>
       </ErpPanel>
-      <Modal title="Nouvel encaissement" open={showForm} onClose={() => setShowForm(false)}>
+      <Modal title={editing ? 'Modifier l’encaissement' : 'Nouvel encaissement'} open={showForm} onClose={() => setShowForm(false)}>
         <form className="form-stack" onSubmit={submit}>
           <div className="form-group">
             <label>Client</label>
@@ -84,7 +106,7 @@ export default function PaymentsPage() {
             </select>
           </div>
           <div className="form-group"><label>Référence</label><input value={form.reference} onChange={(e) => setForm({ ...form, reference: e.target.value })} /></div>
-          <button type="submit" className="erp-btn">Enregistrer</button>
+          <button type="submit" className="erp-btn">{editing ? 'Mettre à jour' : 'Enregistrer'}</button>
         </form>
       </Modal>
     </div>

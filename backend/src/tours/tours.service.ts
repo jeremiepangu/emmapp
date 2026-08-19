@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { TourStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.module';
-import { CreateTourDto } from './dto/tour.dto';
+import { CreateTourDto, UpdateTourDto } from './dto/tour.dto';
 
 /** Champs du livreur exposables par l'API : exclut l'empreinte du mot de passe. */
 const DRIVER_SELECT = {
@@ -148,5 +148,45 @@ export class ToursService {
       where: { id },
       data: { status: TourStatus.ANNULEE },
     });
+  }
+
+  async update(id: string, dto: UpdateTourDto) {
+    const tour = await this.findOne(id);
+    if (tour.status !== TourStatus.PLANIFIEE) {
+      throw new BadRequestException('Seule une tournée planifiée peut être modifiée');
+    }
+    return this.prisma.tour.update({
+      where: { id },
+      data: {
+        zone: dto.zone,
+        date: dto.date ? new Date(dto.date) : undefined,
+        driverId: dto.driverId,
+        vehicleId: dto.vehicleId,
+        orders: dto.orderIds ? { set: dto.orderIds.map((orderId) => ({ id: orderId })) } : undefined,
+      },
+      include: {
+        driver: { select: DRIVER_SELECT },
+        vehicle: true,
+        orders: { include: { client: true, lines: { include: { product: true } } } },
+      },
+    });
+  }
+
+  async remove(id: string) {
+    const tour = await this.findOne(id);
+    if (tour.status !== TourStatus.PLANIFIEE) {
+      throw new BadRequestException('Seule une tournée planifiée peut être supprimée');
+    }
+    if (tour.deliveries.length > 0) {
+      throw new BadRequestException('Impossible de supprimer : des livraisons sont rattachées');
+    }
+    await this.prisma.$transaction([
+      this.prisma.loadSheet.deleteMany({ where: { tourId: id } }),
+      this.prisma.optimizedRoute.deleteMany({ where: { tourId: id } }),
+      this.prisma.esgIndicator.deleteMany({ where: { tourId: id } }),
+      this.prisma.tour.update({ where: { id }, data: { orders: { set: [] } } }),
+      this.prisma.tour.delete({ where: { id } }),
+    ]);
+    return { id };
   }
 }

@@ -75,8 +75,34 @@ export default function ConsignesPage() {
                 <td>{new Date(m.createdAt).toLocaleString('fr-FR')}</td>
                 <td>{m.client?.name ?? '—'}</td>
                 <td>{m.productFormat}</td>
-                <td>{m.qtyIn}</td>
-                <td>{m.qtyOut}</td>
+                <td>
+                  {can('consignes', 'update') ? (
+                    <input
+                      type="number"
+                      min={0}
+                      defaultValue={m.qtyIn}
+                      style={{ width: 60 }}
+                      onBlur={(e) => {
+                        const value = Number(e.target.value);
+                        if (value !== m.qtyIn) api.updateConsigneMovement(m.id, { qtyIn: value }).then(load);
+                      }}
+                    />
+                  ) : m.qtyIn}
+                </td>
+                <td>
+                  {can('consignes', 'update') ? (
+                    <input
+                      type="number"
+                      min={0}
+                      defaultValue={m.qtyOut}
+                      style={{ width: 60 }}
+                      onBlur={(e) => {
+                        const value = Number(e.target.value);
+                        if (value !== m.qtyOut) api.updateConsigneMovement(m.id, { qtyOut: value }).then(load);
+                      }}
+                    />
+                  ) : m.qtyOut}
+                </td>
                 <td>{m.balanceAfter}</td>
                 <td className="erp-row-actions">
                   <DocButton onClick={() => printConsigneMovement(m)} />
@@ -106,8 +132,32 @@ export default function ConsignesPage() {
                 <tr key={p.id}>
                   <td><code>{p.barcode}</code></td>
                   <td>{p.productFormat}</td>
-                  <td>{p.rotationCount}</td>
-                  <td>{p.maxRotations}</td>
+                  <td>
+                    {can('consignes', 'update') ? (
+                      <input
+                        type="number"
+                        defaultValue={p.rotationCount}
+                        style={{ width: 70 }}
+                        onBlur={(e) => {
+                          const value = Number(e.target.value);
+                          if (value !== p.rotationCount) api.updatePackagingUnit(p.id, { rotationCount: value }).then(load);
+                        }}
+                      />
+                    ) : p.rotationCount}
+                  </td>
+                  <td>
+                    {can('consignes', 'update') ? (
+                      <input
+                        type="number"
+                        defaultValue={p.maxRotations}
+                        style={{ width: 70 }}
+                        onBlur={(e) => {
+                          const value = Number(e.target.value);
+                          if (value !== p.maxRotations) api.updatePackagingUnit(p.id, { maxRotations: value }).then(load);
+                        }}
+                      />
+                    ) : p.maxRotations}
+                  </td>
                   <td><StatusPill status={p.rotationCount >= p.maxRotations * 0.9 ? 'ALERTE' : p.status} label={p.status} /></td>
                   <td>{can('consignes', 'delete') && <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => api.deletePackagingUnit(p.id).then(load)}>Retirer</button>}</td>
                 </tr>
@@ -134,8 +184,26 @@ export default function ConsignesPage() {
               {fountains.map((f) => (
                 <tr key={f.id}>
                   <td><strong>{f.serialNumber}</strong></td>
-                  <td>{f.model ?? '—'}</td>
-                  <td>{f.contractType ?? '—'}</td>
+                  <td>
+                    {can('consignes', 'update') ? (
+                      <input
+                        defaultValue={f.model ?? ''}
+                        onBlur={(e) => {
+                          if (e.target.value !== (f.model ?? '')) api.updateFountain(f.id, { model: e.target.value }).then(load);
+                        }}
+                      />
+                    ) : (f.model ?? '—')}
+                  </td>
+                  <td>
+                    {can('consignes', 'update') ? (
+                      <input
+                        defaultValue={f.contractType ?? ''}
+                        onBlur={(e) => {
+                          if (e.target.value !== (f.contractType ?? '')) api.updateFountain(f.id, { contractType: e.target.value }).then(load);
+                        }}
+                      />
+                    ) : (f.contractType ?? '—')}
+                  </td>
                   <td>{f.nextService ? new Date(f.nextService).toLocaleDateString('fr-FR') : '—'}</td>
                   <td>{can('consignes', 'delete') && <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => api.deleteFountain(f.id).then(load)}>Retirer</button>}</td>
                 </tr>

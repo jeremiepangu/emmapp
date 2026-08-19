@@ -10,11 +10,37 @@ export interface User {
   isActive?: boolean;
 }
 
+export type AclAction = 'read' | 'create' | 'update' | 'delete' | 'validate';
+
+export interface AuthorizationCatalog {
+  actions: Array<{ id: AclAction; label: string; short: string }>;
+  resources: Array<{ id: string; label: string; section: string; path?: string; description: string }>;
+  roles: Array<{ id: string; label: string }>;
+}
+
+export interface UserAuthorizationDetail {
+  user: { id: string; firstName: string; lastName: string; email: string; role: string };
+  overrides: Array<{ id: string; resource: string; action: string; effect: string }>;
+  effective: Record<string, AclAction[]>;
+}
+
 export interface Vehicle {
   id: string;
   plate: string;
   name: string;
   capacity: number;
+  fuelType?: string;
+  co2FactorKgPerKm?: number;
+  isActive?: boolean;
+}
+
+export interface CreateVehicleInput {
+  plate: string;
+  name: string;
+  capacity?: number;
+  fuelType?: string;
+  co2FactorKgPerKm?: number;
+  isActive?: boolean;
 }
 
 export type PaymentMethod =
@@ -66,7 +92,16 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     if (response.status === 403) {
       throw new Error("Votre profil n'a pas accès à cette ressource.");
     }
-    throw new Error(text || `Erreur API (${response.status})`);
+    let message = text || `Erreur API (${response.status})`;
+    try {
+      const parsed = JSON.parse(text) as { message?: string | string[] };
+      if (parsed?.message) {
+        message = Array.isArray(parsed.message) ? parsed.message.join(', ') : parsed.message;
+      }
+    } catch {
+      /* keep raw text */
+    }
+    throw new Error(message);
   }
   if (response.status === 204) return undefined as T;
   return response.json();
@@ -74,9 +109,34 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 export const api = {
   login: (email: string, password: string, mfaCode?: string) =>
-    request<{ accessToken: string; user: User; mfaRequired?: boolean }>('/auth/login', {
+    request<{ accessToken: string; user: User; mfaRequired?: boolean; permissions?: Partial<Record<string, string[]>> }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password, ...(mfaCode ? { mfaCode } : {}) }),
+    }),
+  getMyAuthorizations: () =>
+    request<{ role: string; matrix: Partial<Record<string, Array<'read' | 'create' | 'update' | 'delete' | 'validate'>>> }>('/authorizations/me'),
+  getAuthorizationCatalog: () =>
+    request<AuthorizationCatalog>('/authorizations/catalog'),
+  getAuthorizationMatrix: () =>
+    request<Record<string, Record<string, Array<'read' | 'create' | 'update' | 'delete' | 'validate'>>>>('/authorizations/matrix'),
+  saveRoleAuthorizations: (role: string, matrix: Record<string, string[]>) =>
+    request<{ role: string; matrix: Record<string, string[]> }>(`/authorizations/roles/${role}`, {
+      method: 'PUT',
+      body: JSON.stringify({ matrix }),
+    }),
+  resetRoleAuthorizations: (role: string) =>
+    request<{ role: string; matrix: Record<string, string[]> }>(`/authorizations/roles/${role}/reset`, { method: 'POST' }),
+  resetAllAuthorizations: () =>
+    request<Record<string, Record<string, string[]>>>('/authorizations/reset', { method: 'POST' }),
+  getUserAuthorizations: (userId: string) =>
+    request<UserAuthorizationDetail>(`/authorizations/users/${userId}`),
+  saveUserAuthorizations: (
+    userId: string,
+    overrides: Array<{ resource: string; action: string; effect: 'GRANT' | 'DENY' }>,
+  ) =>
+    request<UserAuthorizationDetail>(`/authorizations/users/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ overrides }),
     }),
 
   getDashboard: () => request<DashboardOverview>('/dashboard/overview'),
@@ -111,6 +171,11 @@ export const api = {
   getUsersByRole: (role: string) => request<User[]>(`/users/by-role?role=${role}`),
 
   getVehicles: () => request<Vehicle[]>('/vehicles'),
+  createVehicle: (data: CreateVehicleInput) =>
+    request<Vehicle>('/vehicles', { method: 'POST', body: JSON.stringify(data) }),
+  updateVehicle: (id: string, data: Partial<CreateVehicleInput>) =>
+    request<Vehicle>(`/vehicles/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteVehicle: (id: string) => request<Vehicle>(`/vehicles/${id}`, { method: 'DELETE' }),
 
   getTours: (params?: { driverId?: string; status?: string }) => {
     const q = new URLSearchParams();
@@ -121,6 +186,9 @@ export const api = {
   },
   createTour: (data: CreateTourInput) =>
     request<Tour>('/tours', { method: 'POST', body: JSON.stringify(data) }),
+  updateTour: (id: string, data: Partial<CreateTourInput>) =>
+    request<Tour>(`/tours/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteTour: (id: string) => request<void>(`/tours/${id}`, { method: 'DELETE' }),
   startTour: (id: string) => request<Tour>(`/tours/${id}/start`, { method: 'PATCH' }),
   completeTour: (id: string) => request<Tour>(`/tours/${id}/complete`, { method: 'PATCH' }),
   cancelTour: (id: string) => request<Tour>(`/tours/${id}/cancel`, { method: 'PATCH' }),
@@ -137,12 +205,43 @@ export const api = {
   deleteOrder: (id: string) => request<void>(`/orders/${id}`, { method: 'DELETE' }),
 
   getStock: () => request<StockItem[]>('/stock'),
-  getStockLocations: () => request<Array<{ id: string; name: string; code: string }>>('/stock/locations'),
+  getStockLocations: () => request<StockLocation[]>('/stock/locations'),
+  createStockLocation: (data: CreateStockLocationInput) =>
+    request<StockLocation>('/stock/locations', { method: 'POST', body: JSON.stringify(data) }),
+  updateStockLocation: (id: string, data: Partial<CreateStockLocationInput>) =>
+    request<StockLocation>(`/stock/locations/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteStockLocation: (id: string) => request<void>(`/stock/locations/${id}`, { method: 'DELETE' }),
   adjustStock: (data: { productId: string; locationId: string; quantity: number; lotNumber?: string }) =>
     request<StockItem>('/stock/adjust', { method: 'POST', body: JSON.stringify(data) }),
   updateStockQuantity: (id: string, quantity: number) =>
     request<StockItem>(`/stock/${id}`, { method: 'PATCH', body: JSON.stringify({ quantity }) }),
   deleteStockItem: (id: string) => request<void>(`/stock/${id}`, { method: 'DELETE' }),
+
+  getPackagingSkus: (kind?: string) => {
+    const q = kind ? `?kind=${kind}` : '';
+    return request<PackagingSku[]>(`/packaging${q}`);
+  },
+  getPackagingSummary: () => request<PackagingSummary>('/packaging/summary'),
+  getPackagingMovements: (params?: { kind?: string; type?: string; skuId?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.kind) q.set('kind', params.kind);
+    if (params?.type) q.set('type', params.type);
+    if (params?.skuId) q.set('skuId', params.skuId);
+    const qs = q.toString();
+    return request<PackagingMovement[]>(`/packaging/movements${qs ? `?${qs}` : ''}`);
+  },
+  createPackagingMovement: (data: CreatePackagingMovementInput) =>
+    request<PackagingMovement>('/packaging/movements', { method: 'POST', body: JSON.stringify(data) }),
+  updatePackagingMovement: (id: string, data: Partial<CreatePackagingMovementInput>) =>
+    request<PackagingMovement>(`/packaging/movements/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deletePackagingMovement: (id: string) =>
+    request<void>(`/packaging/movements/${id}`, { method: 'DELETE' }),
+  createPackagingSku: (data: CreatePackagingSkuInput) =>
+    request<PackagingSku>('/packaging/skus', { method: 'POST', body: JSON.stringify(data) }),
+  updatePackagingSku: (id: string, data: Partial<CreatePackagingSkuInput> & { isActive?: boolean }) =>
+    request<PackagingSku>(`/packaging/skus/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deletePackagingSku: (id: string) =>
+    request<PackagingSku>(`/packaging/skus/${id}`, { method: 'DELETE' }),
 
   getDeliveries: () => request<Delivery[]>('/deliveries'),
   createDelivery: (data: CreateDeliveryInput) =>
@@ -177,6 +276,8 @@ export const api = {
       body: JSON.stringify({ conform }),
     }),
   deleteQualityCheck: (id: string) => request<void>(`/emmapure/quality/${id}`, { method: 'DELETE' }),
+  updateQualityCheck: (id: string, data: Partial<CreateQualityCheckInput>) =>
+    request<QualityCheck>(`/emmapure/quality/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
 
   getLoyaltyClients: () => request<LoyaltyClient[]>('/emmapure/loyalty'),
   creditLoyalty: (clientId: string, points: number) =>
@@ -184,6 +285,10 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ points }),
     }),
+  updateLoyalty: (clientId: string, data: { loyaltyPoints?: number; walletBalance?: number }) =>
+    request<LoyaltyClient>(`/emmapure/loyalty/${clientId}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  resetLoyalty: (clientId: string) =>
+    request<LoyaltyClient>(`/emmapure/loyalty/${clientId}/reset`, { method: 'POST' }),
 
   getShiftAssignments: (date?: string) => {
     const qs = date ? `?date=${date}` : '';
@@ -344,6 +449,8 @@ export const api = {
   getConsigneMovements: () => request<ConsigneMovement[]>('/consignes'),
   createConsigneMovement: (data: { clientId: string; productFormat: string; qtyIn: number; qtyOut: number; notes?: string }) =>
     request<ConsigneMovement>('/consignes', { method: 'POST', body: JSON.stringify(data) }),
+  updateConsigneMovement: (id: string, data: { productFormat?: string; qtyIn?: number; qtyOut?: number; notes?: string }) =>
+    request<ConsigneMovement>(`/consignes/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteConsigneMovement: (id: string) => request<void>(`/consignes/${id}`, { method: 'DELETE' }),
 
   getNotifications: (unreadOnly?: boolean) =>
@@ -489,6 +596,8 @@ export const api = {
     }),
   convertQuoteRequest: (id: string) =>
     request<Order>(`/marketplace/quote-requests/${id}/convert`, { method: 'POST' }),
+  deleteQuoteRequest: (id: string) =>
+    request<void>(`/marketplace/quote-requests/${id}`, { method: 'DELETE' }),
 
   // ------------------------------------------------ API publique & webhooks
   getApiKeys: () => request<ApiKeyInfo[]>('/integrations/api-keys'),
@@ -1099,8 +1208,8 @@ export interface Tour {
   status: string;
   date: string;
   driverId?: string;
-  driver?: { firstName: string; lastName: string };
-  vehicle?: { plate: string; name: string };
+  driver?: { id: string; firstName: string; lastName: string };
+  vehicle?: { id: string; plate: string; name: string };
   orders?: Order[];
 }
 
@@ -1128,6 +1237,88 @@ export interface StockItem {
   location: { name: string; code: string };
 }
 
+export type StockLocationType =
+  | 'MATIERES_PREMIERES'
+  | 'PRODUCTION'
+  | 'BIDONS_A_TRIER'
+  | 'BIDONS_LAVAGE'
+  | 'BIDONS_LIBERES'
+  | 'PRODUITS_FINIS'
+  | 'VEHICULE'
+  | 'QUARANTAINE'
+  | 'RETRAITEMENT'
+  | 'REPARATION'
+  | 'REBUT';
+
+export interface StockLocation {
+  id: string;
+  code: string;
+  name: string;
+  type: StockLocationType;
+  vehicleId?: string | null;
+  vehicle?: { id: string; plate: string; name: string } | null;
+}
+
+export interface CreateStockLocationInput {
+  code: string;
+  name: string;
+  type: StockLocationType;
+  vehicleId?: string;
+}
+
+export type PackagingKind = 'EMBALLAGE' | 'ETIQUETTE' | 'BOUCHON';
+export type PackagingPackFormat = 'BIDON_5L' | 'BIDON_10L' | 'BIDON_25L' | 'BONBONNE_5G';
+export type PackagingMovementType = 'ACHAT' | 'UTILISATION' | 'VENTE' | 'DECLASSEMENT';
+
+export interface PackagingSku {
+  id: string;
+  code: string;
+  name: string;
+  kind: PackagingKind;
+  format: PackagingPackFormat;
+  minStock: number;
+  isActive: boolean;
+  stock?: { id: string; quantity: number } | null;
+}
+
+export interface PackagingSummary {
+  EMBALLAGE: { kind: PackagingKind; quantity: number; skuCount: number; lowStock: number };
+  ETIQUETTE: { kind: PackagingKind; quantity: number; skuCount: number; lowStock: number };
+  BOUCHON: { kind: PackagingKind; quantity: number; skuCount: number; lowStock: number };
+}
+
+export interface PackagingMovement {
+  id: string;
+  skuId: string;
+  type: PackagingMovementType;
+  quantity: number;
+  unitCost?: string | number | null;
+  supplier?: string | null;
+  reference?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  sku: PackagingSku;
+  createdBy?: { firstName: string; lastName: string } | null;
+}
+
+export interface CreatePackagingSkuInput {
+  code: string;
+  name: string;
+  kind: PackagingKind;
+  format: PackagingPackFormat;
+  minStock?: number;
+}
+
+export interface CreatePackagingMovementInput {
+  skuId: string;
+  type: PackagingMovementType;
+  quantity: number;
+  unitCost?: number;
+  supplier?: string;
+  reference?: string;
+  notes?: string;
+}
+
 export interface Delivery {
   id: string;
   deliveryNumber: string;
@@ -1140,7 +1331,9 @@ export interface Payment {
   id: string;
   amount: string | number;
   method: string;
+  reference?: string;
   createdAt: string;
+  clientId?: string;
   client?: { name: string };
 }
 
@@ -1160,7 +1353,9 @@ export interface QualityCheck {
   id: string;
   lotNumber: string;
   ph?: number;
+  chlorineFree?: number;
   tds?: number;
+  turbidity?: number;
   microbiologyOk?: boolean;
   status: string;
 }

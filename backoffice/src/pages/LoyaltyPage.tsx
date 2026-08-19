@@ -39,9 +39,37 @@ export default function LoyaltyPage() {
               <tr key={c.id}>
                 <td><strong>{c.name}</strong></td>
                 <td>{c.segment}</td>
-                <td>{c.loyaltyPoints}</td>
+                <td>
+                  {can('loyalty', 'update') ? (
+                    <input
+                      type="number"
+                      defaultValue={c.loyaltyPoints}
+                      style={{ width: 80 }}
+                      onBlur={(e) => {
+                        const value = Number(e.target.value);
+                        if (value !== c.loyaltyPoints) api.updateLoyalty(c.id, { loyaltyPoints: value }).then(load);
+                      }}
+                    />
+                  ) : (
+                    c.loyaltyPoints
+                  )}
+                </td>
                 <td><StatusPill status="VALIDEE" label={tierLabel[c.loyaltyTier] ?? c.loyaltyTier} /></td>
-                <td>{Number(c.walletBalance).toLocaleString('fr-FR')}</td>
+                <td>
+                  {can('loyalty', 'update') ? (
+                    <input
+                      type="number"
+                      defaultValue={Number(c.walletBalance)}
+                      style={{ width: 110 }}
+                      onBlur={(e) => {
+                        const value = Number(e.target.value);
+                        if (value !== Number(c.walletBalance)) api.updateLoyalty(c.id, { walletBalance: value }).then(load);
+                      }}
+                    />
+                  ) : (
+                    Number(c.walletBalance).toLocaleString('fr-FR')
+                  )}
+                </td>
                 <td>
                   <div className="erp-row-actions">
                     <DocButton onClick={() => printLoyaltySheet(c)} />
@@ -50,6 +78,9 @@ export default function LoyaltyPage() {
                         <input type="number" style={{ width: 80 }} value={points[c.id] ?? 0} onChange={(e) => setPoints({ ...points, [c.id]: Number(e.target.value) })} />
                         <button type="submit" className="erp-btn erp-btn--sm">Créditer</button>
                       </form>
+                    )}
+                    {can('loyalty', 'delete') && c.loyaltyPoints > 0 && (
+                      <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => api.resetLoyalty(c.id).then(load)}>Réinitialiser</button>
                     )}
                   </div>
                 </td>

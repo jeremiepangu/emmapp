@@ -154,7 +154,21 @@ export default function ProductionPage() {
 
                 <td>{o.plannedQty}</td>
 
-                <td>{o.producedQty}</td>
+                <td>
+                  {can('production', 'update') && o.lotStatus !== 'LIBERE' ? (
+                    <input
+                      type="number"
+                      defaultValue={o.producedQty}
+                      style={{ width: 80 }}
+                      onBlur={(e) => {
+                        const qty = Number(e.target.value);
+                        if (qty !== o.producedQty) api.updateProductionOrder(o.id, { producedQty: qty }).then(load);
+                      }}
+                    />
+                  ) : (
+                    o.producedQty
+                  )}
+                </td>
 
                 <td><StatusPill status={o.lotStatus} /></td>
 

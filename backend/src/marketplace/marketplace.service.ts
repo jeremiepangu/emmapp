@@ -140,4 +140,13 @@ export class MarketplaceService {
     );
     return order;
   }
+
+  async remove(id: string) {
+    const quote = await this.prisma.quoteRequest.findUnique({ where: { id } });
+    if (!quote) throw new NotFoundException('Demande introuvable');
+    if (quote.status !== QuoteRequestStatus.NOUVELLE && quote.status !== QuoteRequestStatus.REFUSEE) {
+      throw new BadRequestException('Seules les demandes nouvelles ou refusées peuvent être supprimées');
+    }
+    return this.prisma.quoteRequest.delete({ where: { id } });
+  }
 }

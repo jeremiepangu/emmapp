@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -11,7 +12,7 @@ import {
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { TourStatus, UserRole } from '@prisma/client';
 import { ToursService } from './tours.service';
-import { CreateTourDto } from './dto/tour.dto';
+import { CreateTourDto, UpdateTourDto } from './dto/tour.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
@@ -76,5 +77,17 @@ export class ToursController {
   @Patch(':id/cancel')
   cancel(@Param('id') id: string) {
     return this.toursService.cancelTour(id);
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.MAGASINIER, UserRole.SUPERVISEUR, UserRole.CHEF_EXPLOITATION)
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() dto: UpdateTourDto) {
+    return this.toursService.update(id, dto);
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.CHEF_EXPLOITATION)
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.toursService.remove(id);
   }
 }

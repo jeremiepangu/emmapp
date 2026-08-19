@@ -64,6 +64,21 @@ export class EmmapureController {
     return this.emmapureService.creditLoyalty(clientId, body.points);
   }
 
+  @Roles(UserRole.ADMIN, UserRole.COMMERCIAL)
+  @Patch('loyalty/:clientId')
+  updateLoyalty(
+    @Param('clientId') clientId: string,
+    @Body() body: { loyaltyPoints?: number; walletBalance?: number },
+  ) {
+    return this.emmapureService.updateLoyalty(clientId, body);
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.COMMERCIAL)
+  @Post('loyalty/:clientId/reset')
+  resetLoyalty(@Param('clientId') clientId: string) {
+    return this.emmapureService.resetLoyalty(clientId);
+  }
+
   @Roles(UserRole.ADMIN, UserRole.RH, UserRole.SUPERVISEUR, UserRole.DG)
   @Get('shifts')
   getShifts(@Query('date') date?: string) {
@@ -110,6 +125,24 @@ export class EmmapureController {
   @Delete('production/:id')
   deleteProduction(@Param('id') id: string) {
     return this.emmapureService.deleteProduction(id);
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.RESP_QUALITE)
+  @Patch('quality/:id')
+  updateQuality(
+    @Param('id') id: string,
+    @Body()
+    body: {
+      lotNumber?: string;
+      ph?: number;
+      chlorineFree?: number;
+      tds?: number;
+      turbidity?: number;
+      microbiologyOk?: boolean;
+      notes?: string;
+    },
+  ) {
+    return this.emmapureService.updateQuality(id, body);
   }
 
   @Roles(UserRole.ADMIN, UserRole.RESP_QUALITE)

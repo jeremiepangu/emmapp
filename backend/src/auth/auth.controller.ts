@@ -4,11 +4,16 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { Public } from '../common/decorators/roles.decorator';
+import { AuthorizationsService } from '../authorizations/authorizations.service';
+import { UserRole } from '@prisma/client';
 
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private authorizations: AuthorizationsService,
+  ) {}
 
   @Public()
   @Post('login')
@@ -21,7 +26,8 @@ export class AuthController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Get('me')
-  me(@Request() req: { user: unknown }) {
-    return req.user;
+  async me(@Request() req: { user: { id: string; role: UserRole; email: string; firstName: string; lastName: string } }) {
+    const acl = await this.authorizations.mine(req.user.id, req.user.role);
+    return { ...req.user, permissions: acl.matrix };
   }
 }

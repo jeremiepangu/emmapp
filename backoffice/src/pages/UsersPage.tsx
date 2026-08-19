@@ -14,6 +14,7 @@ export default function UsersPage() {
   const { can } = usePermissions();
   const [users, setUsers] = useState<User[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<User | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     email: '',
@@ -32,8 +33,19 @@ export default function UsersPage() {
     e.preventDefault();
     setSaving(true);
     try {
-      await api.createUser(form);
+      if (editing) {
+        await api.updateUser(editing.id, {
+          firstName: form.firstName,
+          lastName: form.lastName,
+          phone: form.phone,
+          role: form.role,
+          password: form.password || undefined,
+        });
+      } else {
+        await api.createUser(form);
+      }
       setShowForm(false);
+      setEditing(null);
       setForm({ email: '', password: 'password123', firstName: '', lastName: '', phone: '', role: 'COMMERCIAL' });
       await load();
     } finally {
@@ -55,7 +67,7 @@ export default function UsersPage() {
           <>
             <DocButton label="Imprimer la liste" onClick={() => printUsersList(users)} />
             {can('users', 'create') && (
-              <button type="button" className="erp-btn" onClick={() => setShowForm(true)}>+ Nouvel utilisateur</button>
+              <button type="button" className="erp-btn" onClick={() => { setEditing(null); setForm({ email: '', password: 'password123', firstName: '', lastName: '', phone: '', role: 'COMMERCIAL' }); setShowForm(true); }}>+ Nouvel utilisateur</button>
             )}
           </>
         }
@@ -76,9 +88,29 @@ export default function UsersPage() {
                 <td className="erp-row-actions">
                   <DocButton onClick={() => printUserSheet(u)} />
                   {can('users', 'update') && (
-                    <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => toggleActive(u)}>
-                      {u.isActive ? 'Désactiver' : 'Activer'}
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        className="erp-btn erp-btn--sm erp-btn--ghost"
+                        onClick={() => {
+                          setEditing(u);
+                          setForm({
+                            email: u.email,
+                            password: '',
+                            firstName: u.firstName,
+                            lastName: u.lastName,
+                            phone: u.phone ?? '',
+                            role: u.role,
+                          });
+                          setShowForm(true);
+                        }}
+                      >
+                        Modifier
+                      </button>
+                      <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => toggleActive(u)}>
+                        {u.isActive ? 'Désactiver' : 'Activer'}
+                      </button>
+                    </>
                   )}
                   {can('users', 'delete') && u.isActive && (
                     <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => api.deleteUser(u.id).then(load)}>
@@ -92,14 +124,14 @@ export default function UsersPage() {
         </table>
       </ErpPanel>
 
-      <Modal title="Nouvel utilisateur" open={showForm} onClose={() => setShowForm(false)}>
+      <Modal title={editing ? 'Modifier l’utilisateur' : 'Nouvel utilisateur'} open={showForm} onClose={() => setShowForm(false)}>
         <form onSubmit={handleSubmit} className="form-stack">
           <div className="form-row">
             <div className="form-group"><label>Prénom</label><input value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} required /></div>
             <div className="form-group"><label>Nom</label><input value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} required /></div>
           </div>
-          <div className="form-group"><label>Email</label><input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></div>
-          <div className="form-group"><label>Mot de passe</label><input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required /></div>
+          <div className="form-group"><label>Email</label><input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required disabled={!!editing} /></div>
+          <div className="form-group"><label>Mot de passe{editing ? ' (laisser vide pour conserver)' : ''}</label><input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required={!editing} /></div>
           <div className="form-group">
             <label>Profil</label>
             <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
@@ -107,7 +139,7 @@ export default function UsersPage() {
             </select>
           </div>
           <div className="form-group"><label>Téléphone</label><input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
-          <button type="submit" className="erp-btn" disabled={saving}>{saving ? 'Création...' : 'Créer'}</button>
+          <button type="submit" className="erp-btn" disabled={saving}>{saving ? 'Enregistrement...' : editing ? 'Mettre à jour' : 'Créer'}</button>
         </form>
       </Modal>
     </div>

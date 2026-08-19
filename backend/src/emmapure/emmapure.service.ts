@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { LoyaltyTier, LotStatus, ProductionOrderStatus, QualityCheckStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.module';
 
@@ -120,13 +120,44 @@ export class EmmapureService {
       where: { id: clientId },
       data: { loyaltyPoints: { increment: points } },
     });
+    return this.applyLoyaltyTier(clientId, client.loyaltyPoints);
+  }
+
+  async updateLoyalty(
+    clientId: string,
+    data: { loyaltyPoints?: number; walletBalance?: number },
+  ) {
+    const client = await this.prisma.client.update({
+      where: { id: clientId },
+      data: {
+        loyaltyPoints: data.loyaltyPoints,
+        walletBalance: data.walletBalance,
+      },
+    });
+    return this.applyLoyaltyTier(clientId, client.loyaltyPoints);
+  }
+
+  resetLoyalty(clientId: string) {
+    return this.updateLoyalty(clientId, { loyaltyPoints: 0 });
+  }
+
+  private async applyLoyaltyTier(clientId: string, points: number) {
     let tier: LoyaltyTier = LoyaltyTier.BRONZE;
-    if (client.loyaltyPoints >= 500) tier = LoyaltyTier.PLATINE;
-    else if (client.loyaltyPoints >= 300) tier = LoyaltyTier.OR;
-    else if (client.loyaltyPoints >= 100) tier = LoyaltyTier.ARGENT;
+    if (points >= 500) tier = LoyaltyTier.PLATINE;
+    else if (points >= 300) tier = LoyaltyTier.OR;
+    else if (points >= 100) tier = LoyaltyTier.ARGENT;
     return this.prisma.client.update({
       where: { id: clientId },
       data: { loyaltyTier: tier },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        segment: true,
+        loyaltyPoints: true,
+        loyaltyTier: true,
+        walletBalance: true,
+      },
     });
   }
 
@@ -199,6 +230,30 @@ export class EmmapureService {
 
   deleteQuality(id: string) {
     return this.prisma.qualityCheck.delete({ where: { id } });
+  }
+
+  async updateQuality(
+    id: string,
+    data: {
+      lotNumber?: string;
+      ph?: number;
+      chlorineFree?: number;
+      tds?: number;
+      turbidity?: number;
+      microbiologyOk?: boolean;
+      notes?: string;
+    },
+  ) {
+    const check = await this.prisma.qualityCheck.findUnique({ where: { id } });
+    if (!check) throw new NotFoundException('Contrôle introuvable');
+    if (check.status !== QualityCheckStatus.EN_ATTENTE) {
+      throw new BadRequestException('Seul un contrôle en attente peut être modifié');
+    }
+    return this.prisma.qualityCheck.update({
+      where: { id },
+      data,
+      include: { productionOrder: true },
+    });
   }
 
   createPackaging(data: { barcode: string; productFormat: string; maxRotations: number }) {

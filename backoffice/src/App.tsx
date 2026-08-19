@@ -14,7 +14,9 @@ import ProductsPage from './pages/ProductsPage';
 import PricingPage from './pages/PricingPage';
 import OrdersPage from './pages/OrdersPage';
 import ToursPage from './pages/ToursPage';
+import VehiclesPage from './pages/VehiclesPage';
 import StockPage from './pages/StockPage';
+import PackagingPage from './pages/PackagingPage';
 import DeliveriesPage from './pages/DeliveriesPage';
 import PaymentsPage from './pages/PaymentsPage';
 import ProductionPage from './pages/ProductionPage';
@@ -34,6 +36,7 @@ import IotPage from './pages/IotPage';
 import RoutingPage from './pages/RoutingPage';
 import EsgPage from './pages/EsgPage';
 import SecurityPage from './pages/SecurityPage';
+import AuthorizationsPage from './pages/AuthorizationsPage';
 import MarketplacePage from './pages/MarketplacePage';
 import IntegrationsPage from './pages/IntegrationsPage';
 import PortalAccountsPage from './pages/PortalAccountsPage';
@@ -99,7 +102,7 @@ function AppRoutes() {
   const { pathname } = useLocation();
   const isPublicSite =
     pathname === '/'
-    || ['/eau', '/origine', '/produits', '/engagement', '/contact', '/portail/connexion', '/portail/inscription'].includes(pathname);
+    || ['/eau', '/systeme', '/origine', '/produits', '/engagement', '/contact', '/portail/connexion', '/portail/inscription'].includes(pathname);
 
   if (isLoading && !isPublicSite) return <div className="loading-screen">Chargement...</div>;
 
@@ -110,6 +113,7 @@ function AppRoutes() {
       <Route element={<WebsiteLayout />}>
         <Route path="/" element={<WebsiteHomePage />} />
         <Route path="/eau" element={<Navigate to="/#eau" replace />} />
+        <Route path="/systeme" element={<Navigate to="/#systeme" replace />} />
         <Route path="/origine" element={<Navigate to="/#origine" replace />} />
         <Route path="/produits" element={<Navigate to="/#produits" replace />} />
         <Route path="/engagement" element={<Navigate to="/#engagement" replace />} />
@@ -143,7 +147,9 @@ function AppRoutes() {
         <Route path="/products" element={<GuardedRoute resource="products" element={<ProductsPage />} />} />
         <Route path="/pricing" element={<GuardedRoute resource="pricing" element={<PricingPage />} />} />
         <Route path="/tours" element={<GuardedRoute resource="tours" element={<ToursPage />} />} />
+        <Route path="/vehicles" element={<GuardedRoute resource="vehicles" element={<VehiclesPage />} />} />
         <Route path="/stock" element={<GuardedRoute resource="stock" element={<StockPage />} />} />
+        <Route path="/packaging" element={<GuardedRoute resource="packaging" element={<PackagingPage />} />} />
         <Route path="/deliveries" element={<GuardedRoute resource="deliveries" element={<DeliveriesPage />} />} />
         <Route path="/payments" element={<GuardedRoute resource="payments" element={<PaymentsPage />} />} />
         <Route path="/production" element={<GuardedRoute resource="production" element={<ProductionPage />} />} />
@@ -162,6 +168,7 @@ function AppRoutes() {
         <Route path="/routing" element={<GuardedRoute resource="routing" element={<RoutingPage />} />} />
         <Route path="/esg" element={<GuardedRoute resource="esg" element={<EsgPage />} />} />
         <Route path="/security" element={<GuardedRoute resource="security" element={<SecurityPage />} />} />
+        <Route path="/authorizations" element={<GuardedRoute resource="authorizations" element={<AuthorizationsPage />} />} />
         <Route path="/marketplace" element={<GuardedRoute resource="marketplace" element={<MarketplacePage />} />} />
         <Route path="/integrations" element={<GuardedRoute resource="integrations" element={<IntegrationsPage />} />} />
         <Route path="/portal-accounts" element={<GuardedRoute resource="portal" element={<PortalAccountsPage />} />} />

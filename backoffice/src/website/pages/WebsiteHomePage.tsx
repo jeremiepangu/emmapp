@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import { sectionHref, WEBSITE_NAV } from '../nav';
 
 function useCount(target: number, decimals = 0) {
   const [value, setValue] = useState('0');
@@ -57,59 +58,69 @@ export default function WebsiteHomePage() {
   return (
     <main>
       <section className="ws-hero" id="accueil">
-        <div className="ws-hero-grid" aria-hidden />
+        <div className="ws-hero-media" aria-hidden />
+        <div className="ws-hero-overlay" aria-hidden />
         <div className="ws-hero-copy">
-          <p className="ws-kicker"><span className="ws-live" /> Eau potable · Kinshasa</p>
+          <p className="ws-kicker ws-kicker--on-dark">Eau potable · Kinshasa</p>
           <h1>L&apos;eau saine, livrée et contrôlée chaque jour.</h1>
           <p className="ws-lead">
             EMMANUEL SERVICES SARLU traite, conditionne et distribue une eau de boisson claire,
             au goût frais, depuis Bandalungwa jusqu&apos;à votre porte.
           </p>
           <div className="ws-hero-cta">
-            <a href="#eau" className="ws-btn ws-btn--light">Voir notre eau</a>
+            <a href={sectionHref('eau')} className="ws-btn ws-btn--light">Voir notre eau</a>
             <Link to="/portail/inscription" className="ws-btn">Commander</Link>
           </div>
-          <dl className="ws-hud">
-            <div><dt>pH</dt><dd>{ph}</dd></div>
-            <div><dt>Résidu sec</dt><dd>{tds}<small> mg/L</small></dd></div>
-            <div><dt>Étapes</dt><dd>{steps}</dd></div>
-            <div><dt>Statut</dt><dd className="ws-ok">OK</dd></div>
-          </dl>
+          <nav className="ws-hero-pills" aria-label="Sections">
+            {WEBSITE_NAV.filter((item) => item.id !== 'accueil').map((item) => (
+              <a key={item.id} href={sectionHref(item.id)}>{item.label}</a>
+            ))}
+          </nav>
         </div>
-        <div className="ws-hero-visual" aria-hidden>
-          <div className="ws-core">
-            <span className="ws-core-ring" />
-            <span className="ws-core-ring ws-core-ring--2" />
-            <span className="ws-core-ring ws-core-ring--3" />
-            <img src="/logo-emmanuel-services.png" alt="" />
+        <dl className="ws-stats">
+          <div className="ws-stat ws-stat--blue">
+            <dt>pH</dt>
+            <dd>{ph}</dd>
           </div>
-        </div>
+          <div className="ws-stat ws-stat--green">
+            <dt>Résidu sec</dt>
+            <dd>{tds}<small> mg/L</small></dd>
+          </div>
+          <div className="ws-stat ws-stat--blue">
+            <dt>Étapes</dt>
+            <dd>{steps}</dd>
+          </div>
+          <div className="ws-stat ws-stat--green">
+            <dt>Statut</dt>
+            <dd>OK</dd>
+          </div>
+        </dl>
       </section>
 
-      <section className="ws-section" id="systeme">
+      <section className="ws-section ws-section--after-hero" id="systeme">
         <p className="ws-kicker">Pourquoi nous</p>
         <h2>Qualité, traçabilité et livraison, sans friction.</h2>
         <p className="ws-intro">Chaque lot est analysé. Chaque tournée est suivie. Chaque client commande en quelques clics.</p>
         <div className="ws-cards">
           <article>
-            <span className="ws-chip">LAB</span>
+            <span className="ws-chip">Lab</span>
             <h3>Contrôle HACCP</h3>
             <p>pH, microbiologie, minéraux : un lot non conforme n&apos;entre pas dans le circuit commercial.</p>
           </article>
           <article>
-            <span className="ws-chip">IOT</span>
+            <span className="ws-chip">Iot</span>
             <h3>Usine connectée</h3>
             <p>Capteurs et alertes pour une production qui réagit en temps réel.</p>
           </article>
           <article>
-            <span className="ws-chip">GPS</span>
+            <span className="ws-chip">Gps</span>
             <h3>Livraison Kinshasa</h3>
             <p>Tournées, consignes de bonbonnes et suivi jusqu&apos;au seuil du client.</p>
           </article>
         </div>
       </section>
 
-      <section className="ws-section ws-lab" id="eau">
+      <section className="ws-section" id="eau">
         <p className="ws-kicker">Notre eau</p>
         <h2>Une signature minérale claire, lot après lot.</h2>
         <p className="ws-intro">Profil type issu de nos analyses à Bandalungwa. Goût frais, minéralité légère, pH proche de la neutralité.</p>
@@ -152,7 +163,7 @@ export default function WebsiteHomePage() {
             </ul>
           </div>
         </div>
-        <p className="ws-residue">Minéralité totale à 180 °C · <strong>165 mg/L</strong> · <span className="ws-ok">LIBÉRÉ</span></p>
+        <p className="ws-residue">Minéralité totale à 180 °C · <strong>165 mg/L</strong> · <span className="ws-ok">Libéré</span></p>
       </section>
 
       <section className="ws-section" id="origine">
@@ -189,7 +200,7 @@ export default function WebsiteHomePage() {
             <p>Créez un compte, choisissez vos formats, suivez la tournée et les consignes.</p>
             <div className="ws-hero-cta">
               <Link to="/portail/inscription" className="ws-btn ws-btn--light">Créer un compte</Link>
-              <Link to="/portail/connexion" className="ws-btn">J&apos;ai déjà un compte</Link>
+              <Link to="/portail/connexion" className="ws-btn ws-btn--ghost">J&apos;ai déjà un compte</Link>
             </div>
           </div>
         </div>
@@ -200,17 +211,17 @@ export default function WebsiteHomePage() {
         <h2>Préserver la ressource, sans relâcher la qualité.</h2>
         <div className="ws-cards">
           <article>
-            <span className="ws-chip">LOOP</span>
+            <span className="ws-chip">Loop</span>
             <h3>Consignes réutilisables</h3>
             <p>Les bonbonnes reviennent, sont contrôlées et remises en circuit.</p>
           </article>
           <article>
-            <span className="ws-chip">ROUTE</span>
+            <span className="ws-chip">Route</span>
             <h3>Tournées sobres</h3>
             <p>Itinéraires optimisés, moins de kilomètres à vide.</p>
           </article>
           <article>
-            <span className="ws-chip">GATE</span>
+            <span className="ws-chip">Gate</span>
             <h3>Zéro compromis</h3>
             <p>Un lot non conforme n&apos;est jamais commercialisé.</p>
           </article>
@@ -222,17 +233,17 @@ export default function WebsiteHomePage() {
         <h2>Une ligne directe vers Bandalungwa.</h2>
         <div className="ws-cards">
           <article>
-            <span className="ws-chip">TEL</span>
+            <span className="ws-chip">Tel</span>
             <h3>Téléphone</h3>
             <p><a href="tel:+243813170215">+243 813 170 215</a></p>
           </article>
           <article>
-            <span className="ws-chip">MAIL</span>
+            <span className="ws-chip">Mail</span>
             <h3>E-mail</h3>
             <p><a href="mailto:contact@emmas.cd">contact@emmas.cd</a></p>
           </article>
           <article>
-            <span className="ws-chip">ID</span>
+            <span className="ws-chip">Id</span>
             <h3>Identifiants</h3>
             <p>RCCM KNG/RCCM/24-B-02180<br />IMPOT A2425053J<br />ID NAT 01-F4300-N64238H</p>
           </article>

@@ -18,6 +18,9 @@ import {
   SensorStatus,
   QuoteRequestStatus,
   PricingRuleType,
+  PackagingKind,
+  PackagingPackFormat,
+  PackagingMovementType,
   type Order,
   type Delivery,
 } from '@prisma/client';
@@ -576,6 +579,80 @@ async function main() {
     skipDuplicates: true,
   });
 
+  const packFormats: Array<{ format: PackagingPackFormat; label: string; slug: string }> = [
+    { format: PackagingPackFormat.BIDON_5L, label: 'Bidon 5 L', slug: '5L' },
+    { format: PackagingPackFormat.BIDON_10L, label: 'Bidon 10 L', slug: '10L' },
+    { format: PackagingPackFormat.BIDON_25L, label: 'Bidon 25 L', slug: '25L' },
+    { format: PackagingPackFormat.BONBONNE_5G, label: 'Bonbonne 5 gallons', slug: '5G' },
+  ];
+  const packKinds: Array<{ kind: PackagingKind; prefix: string; noun: string; minStock: number; qty: Record<string, number> }> = [
+    { kind: PackagingKind.EMBALLAGE, prefix: 'EMB', noun: 'Emballage vide', minStock: 40, qty: { '5L': 200, '10L': 150, '25L': 80, '5G': 120 } },
+    { kind: PackagingKind.ETIQUETTE, prefix: 'ETQ', noun: 'Étiquette', minStock: 80, qty: { '5L': 500, '10L': 400, '25L': 250, '5G': 300 } },
+    { kind: PackagingKind.BOUCHON, prefix: 'BOU', noun: 'Bouchon', minStock: 80, qty: { '5L': 400, '10L': 350, '25L': 200, '5G': 280 } },
+  ];
+
+  await prisma.packagingMovement.deleteMany({ where: { reference: { startsWith: 'SEED-EMB' } } });
+
+  for (const kind of packKinds) {
+    for (const format of packFormats) {
+      const code = `${kind.prefix}-${format.slug}`;
+      const sku = await prisma.packagingSku.upsert({
+        where: { code },
+        update: { name: `${kind.noun} ${format.label}`, kind: kind.kind, format: format.format, minStock: kind.minStock, isActive: true },
+        create: {
+          code,
+          name: `${kind.noun} ${format.label}`,
+          kind: kind.kind,
+          format: format.format,
+          minStock: kind.minStock,
+        },
+      });
+      const bought = kind.qty[format.slug];
+      const used = kind.kind === PackagingKind.EMBALLAGE && format.slug === '5L' ? 20 : 0;
+      const scrapped = kind.kind === PackagingKind.BOUCHON && format.slug === '10L' ? 10 : 0;
+      await prisma.packagingStock.upsert({
+        where: { skuId: sku.id },
+        update: { quantity: bought - used - scrapped },
+        create: { skuId: sku.id, quantity: bought - used - scrapped },
+      });
+      await prisma.packagingMovement.create({
+        data: {
+          skuId: sku.id,
+          type: PackagingMovementType.ACHAT,
+          quantity: bought,
+          supplier: 'Plastiques Kinshasa SARL',
+          reference: 'SEED-EMB-ACHAT',
+          notes: 'Réception initiale magasin emballages',
+          createdById: magasinier.id,
+        },
+      });
+      if (used) {
+        await prisma.packagingMovement.create({
+          data: {
+            skuId: sku.id,
+            type: PackagingMovementType.UTILISATION,
+            quantity: used,
+            reference: 'SEED-EMB-UTIL',
+            notes: 'Consommation ligne L1 — remplissage',
+            createdById: chefProduction.id,
+          },
+        });
+      }
+      if (scrapped) {
+        await prisma.packagingMovement.create({
+          data: {
+            skuId: sku.id,
+            type: PackagingMovementType.DECLASSEMENT,
+            quantity: scrapped,
+            reference: 'SEED-EMB-DECL',
+            notes: 'Lot fêlé — rebut',
+            createdById: magasinier.id,
+          },
+        });
+      }
+    }
+  }
+
   await prisma.fountainAsset.createMany({
     data: [
       { serialNumber: 'FNT-2024-001', clientId: clients[2].id, model: 'Fontaine FR-200', contractType: 'LOCATION', fillLevelPct: 42 },
@@ -873,6 +950,19 @@ async function main() {
   for (const user of allUsers.sort((a, b) => a.email.localeCompare(b.email))) {
     console.log(`  ${user.email.padEnd(30)} ${user.role}`);
   }
+
+  const { DEFAULT_ROLE_PERMISSIONS } = await import('../src/authorizations/acl.catalog');
+  const resources = Object.keys(DEFAULT_ROLE_PERMISSIONS.ADMIN);
+  for (const [role, matrix] of Object.entries(DEFAULT_ROLE_PERMISSIONS)) {
+    for (const resource of resources) {
+      await prisma.rolePermission.upsert({
+        where: { role_resource: { role: role as UserRole, resource } },
+        create: { role: role as UserRole, resource, actions: matrix[resource] ?? [] },
+        update: { actions: matrix[resource] ?? [] },
+      });
+    }
+  }
+  console.log(`Habilitations : ${resources.length} modules × ${Object.keys(DEFAULT_ROLE_PERMISSIONS).length} profils.`);
 }
 
 main()

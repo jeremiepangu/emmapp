@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { ProductFormat, UserRole } from '@prisma/client';
 import { ConsignesService } from './consignes.service';
@@ -35,6 +35,21 @@ export class ConsignesController {
     },
   ) {
     return this.consignesService.recordMovement(body);
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.MAGASINIER, UserRole.COMMERCIAL)
+  @Patch(':id')
+  update(
+    @Param('id') id: string,
+    @Body()
+    body: {
+      productFormat?: ProductFormat;
+      qtyIn?: number;
+      qtyOut?: number;
+      notes?: string;
+    },
+  ) {
+    return this.consignesService.update(id, body);
   }
 
   @Roles(UserRole.ADMIN, UserRole.MAGASINIER)

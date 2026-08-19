@@ -389,6 +389,9 @@ export default function HrPage() {
                           }}>Rejeter</button>
                         </>
                       )}
+                      {writeMaster && l.status !== 'VALIDEE' && l.status !== 'REJETEE' && l.status !== 'ANNULEE' && (
+                        <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => api.cancelLeave(l.id).then(loadCore)}>Annuler</button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -677,6 +680,9 @@ export default function HrPage() {
                       <DocButton onClick={() => printShiftSheet(s)} />
                       {canValidate && !s.validated && (
                         <button type="button" className="erp-btn erp-btn--sm" onClick={() => api.validateShiftAssignment(s.id).then(loadCore)}>Valider</button>
+                      )}
+                      {writeMaster && (
+                        <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => api.deleteShiftAssignment(s.id).then(loadCore)}>Supprimer</button>
                       )}
                     </td>
                   </tr>

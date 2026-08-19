@@ -9,6 +9,7 @@ import { JwtAuthGuard } from './jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Reflector } from '@nestjs/core';
 import { SecurityModule } from '../security/security.module';
+import { AuthorizationsModule } from '../authorizations/authorizations.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { SecurityModule } from '../security/security.module';
       signOptions: { expiresIn: process.env.JWT_EXPIRES_IN || '8h' },
     }),
     SecurityModule,
+    AuthorizationsModule,
   ],
   controllers: [AuthController],
   providers: [

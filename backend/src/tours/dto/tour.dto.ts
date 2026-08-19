@@ -30,3 +30,31 @@ export class CreateTourDto {
   @IsUUID('4', { each: true })
   orderIds?: string[];
 }
+
+export class UpdateTourDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  zone?: string;
+
+  @ApiPropertyOptional({ example: '2026-08-11' })
+  @IsOptional()
+  @IsDateString()
+  date?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  driverId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  vehicleId?: string;
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  orderIds?: string[];
+}

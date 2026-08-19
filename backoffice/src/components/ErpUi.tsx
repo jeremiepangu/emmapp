@@ -42,6 +42,10 @@ const STATUS_MAP: Record<string, { label: string; className: string }> = {
   ENCAISSEMENT: { label: 'Encaissement', className: 'erp-pill erp-pill--green' },
   PRODUCTION: { label: 'Production', className: 'erp-pill erp-pill--blue' },
   CAPTEUR: { label: 'Capteur', className: 'erp-pill erp-pill--orange' },
+  ACHAT: { label: 'Achat', className: 'erp-pill erp-pill--green' },
+  UTILISATION: { label: 'Utilisation', className: 'erp-pill erp-pill--blue' },
+  VENTE: { label: 'Vente', className: 'erp-pill erp-pill--blue' },
+  DECLASSEMENT: { label: 'Déclassement', className: 'erp-pill erp-pill--red' },
 };
 
 export default function StatusPill({ status, label }: { status: string; label?: string }) {

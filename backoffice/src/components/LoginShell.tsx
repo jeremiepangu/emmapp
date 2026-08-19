@@ -55,7 +55,7 @@ export default function LoginShell({
   wide?: boolean;
 }) {
   return (
-    <div className="es-login">
+    <div className={`es-login${wide ? ' es-login--wide' : ''}`}>
       <div className="es-login-vignette" aria-hidden />
       <div className="es-login-halftone" aria-hidden />
       <WaterDrops />
@@ -63,7 +63,7 @@ export default function LoginShell({
         <div className="es-login-emblem">
           <img src={LOGO} alt="Emmanuel Services" />
         </div>
-        <div className={`es-login-card${wide ? ' es-login-card--register' : ''}`}>{children}</div>
+        <div className="es-login-card">{children}</div>
         {extras}
       </main>
     </div>
