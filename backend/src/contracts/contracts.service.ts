@@ -600,6 +600,8 @@ export class ContractsService {
       companyName: 'EMMANUEL SERVICES SARLU',
       companyAddress: 'Kinshasa, Bandalungwa, RDC',
       companyLegal: 'RCCM KNG/RCCM/24-B-02180 · IMPOT A2425053J · ID NAT 01-F4300-N64238H',
+      companyPhone: '+243 813 170 215',
+      companyEmail: 'contact@emmas.cd',
       today: this.fmtDate(this.today()),
       jobTitle: party.jobTitle,
       department: party.department,
@@ -634,7 +636,9 @@ export class ContractsService {
     const vars = this.varsOf(contract);
     const title = fillPlaceholders(template.title || contract.title, vars);
     const body = fillPlaceholders(template.body, vars);
-    const clauses = fillPlaceholders([template.clauses, contract.clauses].filter(Boolean).join('\n\n'), vars);
+    const fromTemplate = fillPlaceholders(template.clauses || '', { ...vars, clauses: '' }).trim();
+    const fromContract = (contract.clauses ?? '').trim();
+    const clauses = [fromTemplate, fromContract].filter(Boolean).join('\n\n');
     const buffer = await buildContractDocx({
       title,
       reference: contract.reference,
@@ -645,7 +649,7 @@ export class ContractsService {
         { label: 'Référence', value: vars.reference },
         { label: 'Partie', value: `${vars.partyKind} — ${vars.partyName}` },
         { label: 'Type', value: vars.kind },
-        { label: 'Période', value: `${vars.startDate} → ${vars.endDate}` },
+        { label: 'Période', value: vars.endDate ? `${vars.startDate} au ${vars.endDate}` : `${vars.startDate} (durée indéterminée)` },
         { label: 'Montant', value: vars.amount },
         { label: 'Paiement', value: vars.paymentTerms },
         { label: 'Territoire', value: vars.territory },
@@ -653,6 +657,8 @@ export class ContractsService {
       ],
       signedByParty: vars.signedByParty,
       signedByCompany: vars.signedByCompany,
+      partyKind: contract.partyKind,
+      vars,
     });
     const filename = `${contract.reference}-signature.docx`;
     const saved = await this.prisma.contractDocument.create({
