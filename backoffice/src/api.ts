@@ -43,6 +43,132 @@ export interface CreateVehicleInput {
   isActive?: boolean;
 }
 
+export type ContractPartyKind = 'AGENT' | 'SUPPLIER' | 'KEY_CLIENT';
+export type BusinessContractKind =
+  | 'CDI'
+  | 'CDD'
+  | 'STAGE'
+  | 'PRESTATION'
+  | 'JOURNALIER'
+  | 'FOURNITURE'
+  | 'PRESTATION_SERVICE'
+  | 'CADRE'
+  | 'DISTRIBUTION'
+  | 'EXCLUSIVITE'
+  | 'CONSIGNATION';
+export type ContractLifecycle = 'BROUILLON' | 'ACTIF' | 'SUSPENDU' | 'EXPIRE' | 'RESILIE' | 'RENOUVELE';
+
+export interface Supplier {
+  id: string;
+  code: string;
+  name: string;
+  category?: string | null;
+  contactName?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
+  nif?: string | null;
+  rccm?: string | null;
+  notes?: string | null;
+  isActive: boolean;
+}
+
+export interface CreateSupplierInput {
+  code: string;
+  name: string;
+  category?: string;
+  contactName?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  nif?: string;
+  rccm?: string;
+  notes?: string;
+}
+
+export interface ContractAmendment {
+  id: string;
+  reference: string;
+  reason: string;
+  amount?: string | number | null;
+  startDate: string;
+  notes?: string | null;
+  createdAt: string;
+}
+
+export interface BusinessContract {
+  id: string;
+  reference: string;
+  partyKind: ContractPartyKind;
+  title: string;
+  kind: BusinessContractKind;
+  status: ContractLifecycle;
+  startDate: string;
+  endDate?: string | null;
+  noticeDays: number;
+  autoRenew: boolean;
+  currency: string;
+  amount?: string | number | null;
+  paymentTerms?: string | null;
+  billingCycle?: string | null;
+  volumeCommitment?: string | null;
+  territory?: string | null;
+  exclusivity: boolean;
+  clauses?: string | null;
+  notes?: string | null;
+  employeeId?: string | null;
+  supplierId?: string | null;
+  clientId?: string | null;
+  signedByParty?: string | null;
+  signedByCompany?: string | null;
+  validatedAt?: string | null;
+  terminatedAt?: string | null;
+  terminateReason?: string | null;
+  renewalCount: number;
+  employee?: EmployeeProfile | null;
+  supplier?: Supplier | null;
+  client?: { id: string; code: string; name: string; segment: string; phone?: string | null; email?: string | null; zone?: string | null } | null;
+  validatedBy?: { id: string; firstName: string; lastName: string } | null;
+  amendments: ContractAmendment[];
+}
+
+export interface CreateContractInput {
+  partyKind: ContractPartyKind;
+  title: string;
+  kind: BusinessContractKind;
+  startDate: string;
+  endDate?: string;
+  noticeDays?: number;
+  autoRenew?: boolean;
+  currency?: string;
+  amount?: number;
+  paymentTerms?: string;
+  billingCycle?: string;
+  volumeCommitment?: string;
+  territory?: string;
+  exclusivity?: boolean;
+  clauses?: string;
+  notes?: string;
+  employeeId?: string;
+  supplierId?: string;
+  clientId?: string;
+  signedByParty?: string;
+  signedByCompany?: string;
+}
+
+export interface ContractsSummary {
+  total: number;
+  status: Record<string, number>;
+  parties: Record<string, number>;
+  expiring30d: number;
+}
+
+export interface ContractParties {
+  employees: EmployeeProfile[];
+  suppliers: Supplier[];
+  clients: Array<{ id: string; code: string; name: string; segment: string; phone?: string | null; email?: string | null; zone?: string | null }>;
+}
+
 export type PaymentMethod =
   | 'ESPECES'
   | 'CHEQUE'
@@ -176,6 +302,39 @@ export const api = {
   updateVehicle: (id: string, data: Partial<CreateVehicleInput>) =>
     request<Vehicle>(`/vehicles/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteVehicle: (id: string) => request<Vehicle>(`/vehicles/${id}`, { method: 'DELETE' }),
+
+  getContracts: (params?: { partyKind?: string; status?: string; q?: string; expiringDays?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.partyKind) q.set('partyKind', params.partyKind);
+    if (params?.status) q.set('status', params.status);
+    if (params?.q) q.set('q', params.q);
+    if (params?.expiringDays) q.set('expiringDays', String(params.expiringDays));
+    const qs = q.toString();
+    return request<BusinessContract[]>(`/contracts${qs ? `?${qs}` : ''}`);
+  },
+  getContractsSummary: () => request<ContractsSummary>('/contracts/summary'),
+  getContractParties: () => request<ContractParties>('/contracts/parties'),
+  getContract: (id: string) => request<BusinessContract>(`/contracts/${id}`),
+  createContract: (data: CreateContractInput) =>
+    request<BusinessContract>('/contracts', { method: 'POST', body: JSON.stringify(data) }),
+  updateContract: (id: string, data: Partial<CreateContractInput>) =>
+    request<BusinessContract>(`/contracts/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteContract: (id: string) => request<{ id: string }>(`/contracts/${id}`, { method: 'DELETE' }),
+  validateContract: (id: string) => request<BusinessContract>(`/contracts/${id}/validate`, { method: 'POST' }),
+  suspendContract: (id: string) => request<BusinessContract>(`/contracts/${id}/suspend`, { method: 'POST' }),
+  resumeContract: (id: string) => request<BusinessContract>(`/contracts/${id}/resume`, { method: 'POST' }),
+  renewContract: (id: string, endDate?: string) =>
+    request<BusinessContract>(`/contracts/${id}/renew`, { method: 'POST', body: JSON.stringify(endDate ? { endDate } : {}) }),
+  terminateContract: (id: string, reason: string) =>
+    request<BusinessContract>(`/contracts/${id}/terminate`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  addContractAmendment: (id: string, data: { reason: string; amount?: number; startDate?: string; notes?: string }) =>
+    request<BusinessContract>(`/contracts/${id}/amendments`, { method: 'POST', body: JSON.stringify(data) }),
+  getSuppliers: () => request<Supplier[]>('/contracts/suppliers'),
+  createSupplier: (data: CreateSupplierInput) =>
+    request<Supplier>('/contracts/suppliers', { method: 'POST', body: JSON.stringify(data) }),
+  updateSupplier: (id: string, data: Partial<CreateSupplierInput & { isActive: boolean }>) =>
+    request<Supplier>(`/contracts/suppliers/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteSupplier: (id: string) => request<Supplier>(`/contracts/suppliers/${id}`, { method: 'DELETE' }),
 
   getTours: (params?: { driverId?: string; status?: string }) => {
     const q = new URLSearchParams();

@@ -21,6 +21,9 @@ import {
   PackagingKind,
   PackagingPackFormat,
   PackagingMovementType,
+  ContractPartyKind,
+  BusinessContractKind,
+  ContractLifecycle,
   type Order,
   type Delivery,
 } from '@prisma/client';
@@ -899,6 +902,131 @@ async function main() {
     where: { year_month: { year: payrollNow.getFullYear(), month: payrollNow.getMonth() + 1 } },
     update: {},
     create: { year: payrollNow.getFullYear(), month: payrollNow.getMonth() + 1, expectedDays: 26, notes: 'Période initiale' },
+  });
+
+  const suppliers = await Promise.all([
+    prisma.supplier.upsert({
+      where: { code: 'FRN-001' },
+      update: { name: 'Plastiques Kinshasa SARL', category: 'Emballages', isActive: true },
+      create: {
+        code: 'FRN-001',
+        name: 'Plastiques Kinshasa SARL',
+        category: 'Emballages',
+        contactName: 'Jean Mbala',
+        phone: '+243810100001',
+        email: 'ventes@plastiques-kin.cd',
+        address: 'Zone industrielle, Limete',
+        rccm: 'CD/KNG/RCCM/22-B-01001',
+      },
+    }),
+    prisma.supplier.upsert({
+      where: { code: 'FRN-002' },
+      update: { name: 'Etiquettes Congo', category: 'Consommables', isActive: true },
+      create: {
+        code: 'FRN-002',
+        name: 'Etiquettes Congo',
+        category: 'Consommables',
+        contactName: 'Amina Diallo',
+        phone: '+243810100002',
+        email: 'commande@etiquettes-congo.cd',
+        address: 'Ngaliema',
+      },
+    }),
+    prisma.supplier.upsert({
+      where: { code: 'FRN-003' },
+      update: { name: 'Chimie Kinoise', category: 'Traitement eau', isActive: true },
+      create: {
+        code: 'FRN-003',
+        name: 'Chimie Kinoise',
+        category: 'Traitement eau',
+        contactName: 'Paul Kalala',
+        phone: '+243810100003',
+        email: 'labo@chimie-kinoise.cd',
+        address: 'Lemba',
+      },
+    }),
+  ]);
+
+  const agentForContract = allUsers.find((u) => u.role === UserRole.LIVREUR) ?? livreur;
+  const agentProfile = await prisma.employeeProfile.findUnique({ where: { userId: agentForContract.id } });
+  const adminUser = allUsers.find((u) => u.role === UserRole.ADMIN);
+
+  if (agentProfile) {
+    await prisma.contract.upsert({
+      where: { reference: 'CTR-2026-0001' },
+      update: { status: ContractLifecycle.ACTIF, employeeId: agentProfile.id },
+      create: {
+        reference: 'CTR-2026-0001',
+        partyKind: ContractPartyKind.AGENT,
+        title: 'Contrat de travail livreur',
+        kind: BusinessContractKind.CDI,
+        status: ContractLifecycle.ACTIF,
+        startDate: new Date('2024-01-08'),
+        amount: 550000,
+        currency: 'CDF',
+        paymentTerms: 'Mensuel',
+        employeeId: agentProfile.id,
+        validatedById: adminUser?.id,
+        validatedAt: new Date('2024-01-08'),
+        signedByCompany: 'EMMANUEL SERVICES SARLU',
+        signedByParty: `${agentForContract.firstName} ${agentForContract.lastName}`.trim(),
+        clauses: 'Contrat a duree indeterminee. Preavis 30 jours. Affiliation CNSS.',
+      },
+    });
+  }
+
+  await prisma.contract.upsert({
+    where: { reference: 'CTR-2026-0002' },
+    update: { supplierId: suppliers[0].id, status: ContractLifecycle.ACTIF },
+    create: {
+      reference: 'CTR-2026-0002',
+      partyKind: ContractPartyKind.SUPPLIER,
+      title: 'Fourniture bidons et bouchons',
+      kind: BusinessContractKind.CADRE,
+      status: ContractLifecycle.ACTIF,
+      startDate: new Date('2026-01-01'),
+      endDate: new Date('2026-12-31'),
+      amount: 18000000,
+      currency: 'CDF',
+      paymentTerms: '30 jours',
+      billingCycle: 'Mensuel',
+      autoRenew: true,
+      noticeDays: 45,
+      supplierId: suppliers[0].id,
+      territory: 'Kinshasa',
+      validatedById: adminUser?.id,
+      validatedAt: new Date('2026-01-01'),
+      signedByCompany: 'EMMANUEL SERVICES SARLU',
+      signedByParty: 'Plastiques Kinshasa SARL',
+      clauses: 'Prix fermes 12 mois. Livraison usine Bandalungwa. Penalite 2% par semaine de retard.',
+    },
+  });
+
+  await prisma.contract.upsert({
+    where: { reference: 'CTR-2026-0003' },
+    update: { clientId: clients[0].id, status: ContractLifecycle.ACTIF },
+    create: {
+      reference: 'CTR-2026-0003',
+      partyKind: ContractPartyKind.KEY_CLIENT,
+      title: 'Contrat cadre distribution Kin Marche',
+      kind: BusinessContractKind.DISTRIBUTION,
+      status: ContractLifecycle.ACTIF,
+      startDate: new Date('2026-02-01'),
+      endDate: new Date('2027-01-31'),
+      amount: 96000000,
+      currency: 'CDF',
+      paymentTerms: '15 jours',
+      billingCycle: 'Hebdomadaire',
+      volumeCommitment: '200 bidons 5L / semaine',
+      exclusivity: false,
+      territory: 'Gombe',
+      clientId: clients[0].id,
+      validatedById: adminUser?.id,
+      validatedAt: new Date('2026-02-01'),
+      signedByCompany: 'EMMANUEL SERVICES SARLU',
+      signedByParty: 'Supermarche Kin Marche',
+      clauses: 'Livraison 3 fois par semaine. Consignes selon bareme en vigueur. Remise volume catalogue.',
+    },
   });
   const notifTemplates: Array<{
     roles: UserRole[];

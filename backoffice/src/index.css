@@ -437,6 +437,14 @@ th {
   gap: 4px;
 }
 
+.erp-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  margin: 6px 0;
+}
+
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;

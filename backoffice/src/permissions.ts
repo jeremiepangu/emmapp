@@ -29,7 +29,8 @@ export type Resource =
   | 'activity'
   | 'packaging'
   | 'vehicles'
-  | 'authorizations';
+  | 'authorizations'
+  | 'contracts';
 
 export type Action = 'read' | 'create' | 'update' | 'delete' | 'validate';
 
@@ -49,21 +50,21 @@ export const PERMISSIONS: Record<string, Partial<Record<Resource, Action[]>>> = 
     stock: FULL, deliveries: FULL, payments: FULL, production: FULL, quality: FULL,
     loyalty: FULL, consignes: FULL, hr: FULL, payroll: FULL, observability: FULL, users: FULL, notifications: FULL,
     ai: FULL, assistant: FULL, iot: FULL, routing: FULL, esg: FULL, security: FULL,
-    portal: FULL, marketplace: FULL, integrations: FULL, pricing: FULL, activity: FULL, packaging: FULL, vehicles: FULL, authorizations: FULL,
+    portal: FULL, marketplace: FULL, integrations: FULL, pricing: FULL, activity: FULL, packaging: FULL, vehicles: FULL, authorizations: FULL, contracts: FULL,
   },
   DG: {
     dashboard: R, clients: R, orders: R, products: R, tours: R, stock: R, deliveries: R,
     payments: R, production: R, quality: R, loyalty: R, consignes: R, hr: R, payroll: R,
     observability: R, users: R, notifications: R,
-    ai: R, assistant: RC, iot: R, routing: R, esg: R, security: R, portal: R, marketplace: R, pricing: R, packaging: R, vehicles: R, authorizations: R,
+    ai: R, assistant: RC, iot: R, routing: R, esg: R, security: R, portal: R, marketplace: R, pricing: R, packaging: R, vehicles: R, authorizations: R, contracts: RUV,
   },
   CHEF_PRODUCTION: {
     dashboard: R, production: FULL, quality: R, stock: FULL, packaging: FULL, products: RCU, observability: R, notifications: R,
-    ai: R, assistant: RC, iot: RU, hr: RUV,
+    ai: R, assistant: RC, iot: RU, hr: RUV, contracts: R,
   },
   CHEF_EXPLOITATION: {
     dashboard: R, orders: FULL, tours: FULL, deliveries: RUV, stock: R, packaging: R, vehicles: FULL, clients: R, notifications: R,
-    ai: R, assistant: RC, routing: RCUV, iot: R, esg: R, hr: RUV,
+    ai: R, assistant: RC, routing: RCUV, iot: R, esg: R, hr: RUV, contracts: R,
   },
   CHARGE_EXPLOITATION: {
     dashboard: R, orders: R, tours: RU, deliveries: R, stock: R, vehicles: R, notifications: R,
@@ -75,7 +76,7 @@ export const PERMISSIONS: Record<string, Partial<Record<Resource, Action[]>>> = 
   },
   MAGASINIER: {
     dashboard: R, stock: FULL, packaging: FULL, vehicles: FULL, tours: RC, consignes: FULL, products: R, notifications: R,
-    assistant: RC, hr: R,
+    assistant: RC, hr: R, contracts: RCU,
   },
   AGENT_CHARGEUR: {
     dashboard: R, tours: RU, stock: R, deliveries: R, notifications: R,
@@ -91,11 +92,11 @@ export const PERMISSIONS: Record<string, Partial<Record<Resource, Action[]>>> = 
   },
   COMMERCIAL: {
     dashboard: R, clients: FULL, orders: FULL, loyalty: RCU, products: R, payments: RCU, notifications: R,
-    ai: R, assistant: RC, portal: RCU, marketplace: RCUV, pricing: FULL, hr: R,
+    ai: R, assistant: RC, portal: RCU, marketplace: RCUV, pricing: FULL, hr: R, contracts: RCUV,
   },
   DELEGUE_COMMERCIAL: {
     dashboard: R, clients: RC, orders: RC, loyalty: R, products: R, notifications: R,
-    assistant: RC, marketplace: RC, pricing: R, hr: R,
+    assistant: RC, marketplace: RC, pricing: R, hr: R, contracts: R,
   },
   CAISSIER: {
     dashboard: R, payments: FULL, clients: R, orders: R, notifications: R,
@@ -103,25 +104,25 @@ export const PERMISSIONS: Record<string, Partial<Record<Resource, Action[]>>> = 
   },
   COMPTABLE: {
     payments: RCU, clients: R, orders: R, dashboard: R, notifications: R,
-    ai: R, assistant: RC, payroll: RCUV, hr: R,
+    ai: R, assistant: RC, payroll: RCUV, hr: R, contracts: RCUV,
   },
   RH: {
     dashboard: R, hr: FULL, payroll: FULL, users: FULL, notifications: R, authorizations: RCU,
-    assistant: RC,
+    assistant: RC, contracts: FULL,
   },
   SUPERVISEUR: {
     dashboard: R, tours: R, vehicles: R, observability: R, users: R, deliveries: R, notifications: R,
-    ai: R, assistant: RC, iot: R, routing: R, esg: R, security: R, hr: RUV,
+    ai: R, assistant: RC, iot: R, routing: R, esg: R, security: R, hr: RUV, contracts: R,
   },
   IT_GED: {
     observability: R, users: R, notifications: R, dashboard: R, authorizations: R,
-    assistant: RC, iot: RCU, integrations: FULL, security: R,
+    assistant: RC, iot: RCU, integrations: FULL, security: R, contracts: R,
   },
   /** Analyste de données — exploitation de l'entrepôt analytique et des modèles prédictifs. */
   DATA_ANALYST: {
     dashboard: R, notifications: R, observability: R, assistant: RC,
     ai: RCUV, esg: R, iot: R, routing: R, clients: R, orders: R, products: R,
-    payments: R, production: R, quality: R, stock: R, packaging: R, vehicles: R, deliveries: R, tours: R, loyalty: R,
+    payments: R, production: R, quality: R, stock: R, packaging: R, vehicles: R, deliveries: R, tours: R, loyalty: R, contracts: R,
   },
   /** Responsable sécurité — pilotage du centre de sécurité et de la conformité. */
   RESP_SECURITE: {
@@ -182,6 +183,7 @@ export const MENU_ITEMS: MenuItem[] = [
   { path: '/assistant', label: 'Assistant', resource: 'assistant', section: 'INTELLIGENCE' },
   { path: '/clients', label: 'Clients', resource: 'clients', section: 'ANNUAIRES' },
   { path: '/portal-accounts', label: 'Comptes portail', resource: 'portal', section: 'ANNUAIRES' },
+  { path: '/contracts', label: 'Contrats', resource: 'contracts', section: 'CONTRATS' },
   { path: '/orders', label: 'Historique commandes', resource: 'orders', section: 'COMMANDES' },
   { path: '/products', label: 'Catalogue produits', resource: 'products', section: 'COMMANDES' },
   { path: '/pricing', label: 'Tarifs et remises', resource: 'pricing', section: 'COMMANDES' },

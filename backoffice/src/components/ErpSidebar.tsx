@@ -35,6 +35,8 @@ const ICONS: Record<string, string> = {
   '/marketplace': '⚖',
   '/integrations': '🔗',
   '/portal-accounts': '⌂',
+  '/contracts': '📑',
+  '/payroll': '₪',
   '/mobile': '📱',
 };
 

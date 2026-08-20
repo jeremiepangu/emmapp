@@ -23,8 +23,21 @@ export class AuthorizationsService implements OnModuleInit {
 
   async ensureDefaults() {
     const count = await this.prisma.rolePermission.count();
-    if (count > 0) return;
-    await this.resetAllRoles();
+    if (count === 0) {
+      await this.resetAllRoles();
+      return;
+    }
+    const existing = await this.prisma.rolePermission.findMany({ select: { role: true, resource: true } });
+    const have = new Set(existing.map((row) => `${row.role}:${row.resource}`));
+    for (const role of allRoles()) {
+      const matrix = defaultMatrixFor(role);
+      for (const resource of ACL_RESOURCES) {
+        if (have.has(`${role}:${resource.id}`)) continue;
+        await this.prisma.rolePermission.create({
+          data: { role, resource: resource.id, actions: matrix[resource.id] ?? [] },
+        });
+      }
+    }
   }
 
   catalog() {

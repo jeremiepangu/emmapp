@@ -37,6 +37,7 @@ import RoutingPage from './pages/RoutingPage';
 import EsgPage from './pages/EsgPage';
 import SecurityPage from './pages/SecurityPage';
 import AuthorizationsPage from './pages/AuthorizationsPage';
+import ContractsPage from './pages/ContractsPage';
 import MarketplacePage from './pages/MarketplacePage';
 import IntegrationsPage from './pages/IntegrationsPage';
 import PortalAccountsPage from './pages/PortalAccountsPage';
@@ -143,6 +144,7 @@ function AppRoutes() {
       <Route element={<ProtectedLayout />}>
         <Route path="/app" element={<GuardedRoute resource="dashboard" element={<DashboardPage />} />} />
         <Route path="/clients" element={<GuardedRoute resource="clients" element={<ClientsPage />} />} />
+        <Route path="/contracts" element={<GuardedRoute resource="contracts" element={<ContractsPage />} />} />
         <Route path="/orders" element={<GuardedRoute resource="orders" element={<OrdersPage />} />} />
         <Route path="/products" element={<GuardedRoute resource="products" element={<ProductsPage />} />} />
         <Route path="/pricing" element={<GuardedRoute resource="pricing" element={<PricingPage />} />} />

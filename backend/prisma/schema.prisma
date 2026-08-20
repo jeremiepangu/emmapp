@@ -180,6 +180,7 @@ model User {
   packagingMovements   PackagingMovement[]
   hrFieldChanges       EmployeeFieldHistory[] @relation("HistoryActor")
   aclOverrides         UserPermission[]
+  contractsValidated   Contract[]            @relation("ContractValidator")
 
   @@map("users")
 }
@@ -225,6 +226,7 @@ model Client {
   portalAccounts PortalAccount[]
   quoteRequests  QuoteRequest[]
   pricingRules   PricingRule[]
+  contracts      Contract[]
 
   @@map("clients")
 }
@@ -1149,6 +1151,35 @@ enum ContractType {
   JOURNALIER
 }
 
+enum ContractPartyKind {
+  AGENT
+  SUPPLIER
+  KEY_CLIENT
+}
+
+enum BusinessContractKind {
+  CDI
+  CDD
+  STAGE
+  PRESTATION
+  JOURNALIER
+  FOURNITURE
+  PRESTATION_SERVICE
+  CADRE
+  DISTRIBUTION
+  EXCLUSIVITE
+  CONSIGNATION
+}
+
+enum ContractLifecycle {
+  BROUILLON
+  ACTIF
+  SUSPENDU
+  EXPIRE
+  RESILIE
+  RENOUVELE
+}
+
 enum EmployeeStatus {
   ACTIF
   SUSPENDU
@@ -1274,6 +1305,7 @@ model EmployeeProfile {
   payslips    Payslip[]
   documents   EmployeeDocument[]
   fieldHistory EmployeeFieldHistory[]
+  contracts    Contract[]
 
   @@map("employee_profiles")
 }
@@ -1502,6 +1534,90 @@ model EmployeeFieldHistory {
 
   @@index([employeeId, createdAt])
   @@map("employee_field_history")
+}
+
+model Supplier {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  category    String?
+  contactName String?  @map("contact_name")
+  phone       String?
+  email       String?
+  address     String?
+  nif         String?
+  rccm        String?
+  notes       String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  contracts Contract[]
+
+  @@map("suppliers")
+}
+
+/// Contrats d'agents, de fournisseurs et de grands comptes.
+model Contract {
+  id                String               @id @default(uuid())
+  reference         String               @unique
+  partyKind         ContractPartyKind    @map("party_kind")
+  title             String
+  kind              BusinessContractKind
+  status            ContractLifecycle    @default(BROUILLON)
+  startDate         DateTime             @map("start_date") @db.Date
+  endDate           DateTime?            @map("end_date") @db.Date
+  noticeDays        Int                  @default(30) @map("notice_days")
+  autoRenew         Boolean              @default(false) @map("auto_renew")
+  currency          String               @default("CDF")
+  amount            Decimal?             @db.Decimal(14, 2)
+  paymentTerms      String?              @map("payment_terms")
+  billingCycle      String?              @map("billing_cycle")
+  volumeCommitment  String?              @map("volume_commitment")
+  territory         String?
+  exclusivity       Boolean              @default(false)
+  clauses           String?              @db.Text
+  notes             String?              @db.Text
+  documentUrl       String?              @map("document_url") @db.Text
+  signedAt          DateTime?            @map("signed_at")
+  signedByParty     String?              @map("signed_by_party")
+  signedByCompany   String?              @map("signed_by_company")
+  employeeId        String?              @map("employee_id")
+  supplierId        String?              @map("supplier_id")
+  clientId          String?              @map("client_id")
+  validatedById     String?              @map("validated_by_id")
+  validatedAt       DateTime?            @map("validated_at")
+  terminatedAt      DateTime?            @map("terminated_at")
+  terminateReason   String?              @map("terminate_reason")
+  renewalCount      Int                  @default(0) @map("renewal_count")
+  createdAt         DateTime             @default(now()) @map("created_at")
+  updatedAt         DateTime             @updatedAt @map("updated_at")
+
+  employee    EmployeeProfile?     @relation(fields: [employeeId], references: [id])
+  supplier    Supplier?            @relation(fields: [supplierId], references: [id])
+  client      Client?              @relation(fields: [clientId], references: [id])
+  validatedBy User?                @relation("ContractValidator", fields: [validatedById], references: [id])
+  amendments  ContractAmendment[]
+
+  @@index([partyKind, status])
+  @@index([endDate])
+  @@map("contracts")
+}
+
+model ContractAmendment {
+  id         String   @id @default(uuid())
+  contractId String   @map("contract_id")
+  reference  String
+  reason     String
+  amount     Decimal? @db.Decimal(14, 2)
+  startDate  DateTime @map("start_date") @db.Date
+  notes      String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@index([contractId])
+  @@map("contract_amendments")
 }
 
 /// Matrice d'habilitations par profil (CRUDVN) sur chaque module / menu.

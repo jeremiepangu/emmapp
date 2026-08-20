@@ -30,6 +30,7 @@ import { HrModule } from './hr/hr.module';
 import { PricingModule } from './pricing/pricing.module';
 import { PackagingModule } from './packaging/packaging.module';
 import { AuthorizationsModule } from './authorizations/authorizations.module';
+import { ContractsModule } from './contracts/contracts.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -65,6 +66,7 @@ import { HealthController } from './health.controller';
     PricingModule,
     PackagingModule,
     AuthorizationsModule,
+    ContractsModule,
   ],
   controllers: [HealthController],
 })

@@ -42,6 +42,7 @@ import type {
   HrDashboard,
   PerformanceObjective,
   PerformanceReview,
+  BusinessContract,
 } from '../api';
 import { formatDate, formatMoney, printDocument, printList, type DocSpec } from './printDocument';
 
@@ -940,4 +941,68 @@ export function printActivityOverview(o: ActivityOverview): void {
       ],
     },
   );
+}
+
+function contractPartyName(c: BusinessContract): string {
+  if (c.partyKind === 'AGENT') {
+    const u = c.employee?.user;
+    return u ? `${u.firstName} ${u.lastName}` : c.employee?.matricule ?? 'Agent';
+  }
+  if (c.partyKind === 'SUPPLIER') return c.supplier?.name ?? 'Fournisseur';
+  return c.client?.name ?? 'Grand client';
+}
+
+const PARTY_KIND_LABEL: Record<BusinessContract['partyKind'], string> = {
+  AGENT: 'Agent',
+  SUPPLIER: 'Fournisseur',
+  KEY_CLIENT: 'Grand client',
+};
+
+export function printContractSheet(c: BusinessContract): void {
+  printDocument({
+    kind: 'Contrat',
+    reference: c.reference,
+    subtitle: c.title,
+    fields: [
+      { label: 'Référence', value: c.reference },
+      { label: 'Partie', value: `${PARTY_KIND_LABEL[c.partyKind]} — ${contractPartyName(c)}` },
+      { label: 'Type', value: c.kind },
+      { label: 'Statut', value: c.status },
+      { label: 'Début', value: formatDate(c.startDate) },
+      { label: 'Fin', value: c.endDate ? formatDate(c.endDate) : 'Durée indéterminée' },
+      { label: 'Préavis', value: `${c.noticeDays} jours` },
+      { label: 'Reconduction', value: c.autoRenew ? 'Tacite' : 'Non' },
+      { label: 'Montant', value: c.amount != null ? `${formatMoney(c.amount)} (${c.currency})` : '—' },
+      { label: 'Paiement', value: c.paymentTerms ?? '—' },
+      { label: 'Facturation', value: c.billingCycle ?? '—' },
+      { label: 'Volume', value: c.volumeCommitment ?? '—' },
+      { label: 'Territoire', value: c.territory ?? '—' },
+      { label: 'Exclusivité', value: c.exclusivity ? 'Oui' : 'Non' },
+      { label: 'Signataire partie', value: c.signedByParty ?? '—' },
+      { label: 'Signataire société', value: c.signedByCompany ?? 'EMMANUEL SERVICES SARLU' },
+    ],
+    tables: c.amendments?.length
+      ? [{
+          title: 'Avenants',
+          headers: ['Référence', 'Motif', 'Montant', 'Date'],
+          rows: c.amendments.map((a) => [a.reference, a.reason, a.amount != null ? formatMoney(a.amount) : '—', formatDate(a.startDate)]),
+        }]
+      : undefined,
+    notes: [c.clauses, c.notes, c.terminateReason ? `Résiliation : ${c.terminateReason}` : '']
+      .filter(Boolean)
+      .join('\n\n') || undefined,
+    signatures: ['Pour EMMANUEL SERVICES SARLU', `Pour ${contractPartyName(c)}`],
+  });
+}
+
+export function printContractsList(rows: BusinessContract[]): void {
+  printList('Registre des contrats', ['Référence', 'Partie', 'Intitulé', 'Type', 'Fin', 'Statut', 'Montant'], rows.map((c) => [
+    c.reference,
+    `${PARTY_KIND_LABEL[c.partyKind]} · ${contractPartyName(c)}`,
+    c.title,
+    c.kind,
+    c.endDate ? formatDate(c.endDate) : 'Indéterminée',
+    c.status,
+    c.amount != null ? formatMoney(c.amount) : '—',
+  ]));
 }
