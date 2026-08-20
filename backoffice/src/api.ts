@@ -130,6 +130,8 @@ export interface BusinessContract {
   client?: { id: string; code: string; name: string; segment: string; phone?: string | null; email?: string | null; zone?: string | null } | null;
   validatedBy?: { id: string; firstName: string; lastName: string } | null;
   amendments: ContractAmendment[];
+  documents?: ContractDocument[];
+  template?: { id: string; code: string; name: string } | null;
 }
 
 export interface CreateContractInput {
@@ -161,6 +163,47 @@ export interface ContractsSummary {
   status: Record<string, number>;
   parties: Record<string, number>;
   expiring30d: number;
+  archived?: number;
+}
+
+export interface ContractTemplate {
+  id: string;
+  code: string;
+  name: string;
+  partyKind?: ContractPartyKind | null;
+  kind?: BusinessContractKind | null;
+  title: string;
+  body: string;
+  clauses?: string | null;
+  footer?: string | null;
+  isActive: boolean;
+}
+
+export interface CreateContractTemplateInput {
+  code: string;
+  name: string;
+  partyKind?: ContractPartyKind | null;
+  kind?: BusinessContractKind | null;
+  title: string;
+  body: string;
+  clauses?: string;
+  footer?: string;
+}
+
+export interface ContractDocument {
+  id: string;
+  contractId?: string;
+  templateId?: string | null;
+  kind: 'WORD_SIGNATURE' | 'SIGNED_ARCHIVE';
+  filename: string;
+  mimeType: string;
+  byteSize: number;
+  generatedAt: string;
+  archivedAt?: string | null;
+  notes?: string | null;
+  template?: { id: string; code: string; name: string } | null;
+  archivedBy?: { id: string; firstName: string; lastName: string } | null;
+  contract?: { id: string; reference: string; title: string; partyKind: ContractPartyKind };
 }
 
 export interface ContractParties {
@@ -329,6 +372,34 @@ export const api = {
     request<BusinessContract>(`/contracts/${id}/terminate`, { method: 'POST', body: JSON.stringify({ reason }) }),
   addContractAmendment: (id: string, data: { reason: string; amount?: number; startDate?: string; notes?: string }) =>
     request<BusinessContract>(`/contracts/${id}/amendments`, { method: 'POST', body: JSON.stringify(data) }),
+  getContractTemplates: () => request<ContractTemplate[]>('/contracts/templates'),
+  getContractPlaceholders: () => request<Array<{ key: string; label: string }>>('/contracts/placeholders'),
+  createContractTemplate: (data: CreateContractTemplateInput) =>
+    request<ContractTemplate>('/contracts/templates', { method: 'POST', body: JSON.stringify(data) }),
+  updateContractTemplate: (id: string, data: Partial<CreateContractTemplateInput & { isActive: boolean }>) =>
+    request<ContractTemplate>(`/contracts/templates/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteContractTemplate: (id: string) => request<ContractTemplate>(`/contracts/templates/${id}`, { method: 'DELETE' }),
+  generateContractWord: (id: string, templateId?: string) =>
+    request<ContractDocument>(`/contracts/${id}/generate-word`, { method: 'POST', body: JSON.stringify(templateId ? { templateId } : {}) }),
+  archiveContractDocument: (contractId: string, docId: string, notes?: string) =>
+    request<ContractDocument>(`/contracts/${contractId}/documents/${docId}/archive`, { method: 'POST', body: JSON.stringify({ notes }) }),
+  uploadSignedContract: (contractId: string, data: { filename: string; mimeType?: string; contentBase64: string; notes?: string }) =>
+    request<ContractDocument>(`/contracts/${contractId}/archive-signed`, { method: 'POST', body: JSON.stringify(data) }),
+  getContractArchives: () => request<ContractDocument[]>('/contracts/archives'),
+  downloadContractDocument: async (docId: string, filename: string) => {
+    const token = getToken();
+    const response = await fetch(`${API_BASE}/contracts/documents/${docId}/file`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!response.ok) throw new Error('Telechargement impossible');
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
   getSuppliers: () => request<Supplier[]>('/contracts/suppliers'),
   createSupplier: (data: CreateSupplierInput) =>
     request<Supplier>('/contracts/suppliers', { method: 'POST', body: JSON.stringify(data) }),

@@ -400,3 +400,122 @@ export class CreateAmendmentDto {
   @IsString()
   notes?: string;
 }
+
+export class CreateTemplateDto {
+  @ApiProperty()
+  @IsString()
+  code: string;
+
+  @ApiProperty()
+  @IsString()
+  name: string;
+
+  @ApiPropertyOptional({ enum: ContractPartyKind })
+  @IsOptional()
+  @IsEnum(ContractPartyKind)
+  partyKind?: ContractPartyKind | null;
+
+  @ApiPropertyOptional({ enum: BusinessContractKind })
+  @IsOptional()
+  @IsEnum(BusinessContractKind)
+  kind?: BusinessContractKind | null;
+
+  @ApiProperty()
+  @IsString()
+  title: string;
+
+  @ApiProperty()
+  @IsString()
+  body: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  clauses?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  footer?: string;
+}
+
+export class UpdateTemplateDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  code?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @ApiPropertyOptional({ enum: ContractPartyKind })
+  @IsOptional()
+  @IsEnum(ContractPartyKind)
+  partyKind?: ContractPartyKind | null;
+
+  @ApiPropertyOptional({ enum: BusinessContractKind })
+  @IsOptional()
+  @IsEnum(BusinessContractKind)
+  kind?: BusinessContractKind | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  title?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  body?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  clauses?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  footer?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+}
+
+export class GenerateWordDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  templateId?: string;
+}
+
+export class ArchiveDocumentDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
+export class UploadSignedDto {
+  @ApiProperty()
+  @IsString()
+  filename: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  mimeType?: string;
+
+  @ApiProperty()
+  @IsString()
+  contentBase64: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}

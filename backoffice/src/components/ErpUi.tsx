@@ -41,6 +41,8 @@ const STATUS_MAP: Record<string, { label: string; className: string }> = {
   EXPIRE: { label: 'Expiré', className: 'erp-pill erp-pill--red' },
   RESILIE: { label: 'Résilié', className: 'erp-pill erp-pill--red' },
   RENOUVELE: { label: 'Renouvelé', className: 'erp-pill erp-pill--blue' },
+  WORD_SIGNATURE: { label: 'Word à signer', className: 'erp-pill erp-pill--blue' },
+  SIGNED_ARCHIVE: { label: 'Archivé signé', className: 'erp-pill erp-pill--green' },
   STOCK: { label: 'Stock', className: 'erp-pill erp-pill--orange' },
   CONSIGNE: { label: 'Consigne', className: 'erp-pill erp-pill--blue' },
   ENCAISSEMENT: { label: 'Encaissement', className: 'erp-pill erp-pill--green' },

@@ -947,6 +947,58 @@ async function main() {
     }),
   ]);
 
+  const templateSeeds = [
+    {
+      code: 'MDL-AGENT-CDI',
+      name: 'Contrat de travail CDI',
+      partyKind: ContractPartyKind.AGENT,
+      kind: BusinessContractKind.CDI,
+      title: 'Contrat de travail a duree indeterminee',
+      body:
+        'Entre {{companyName}}, dont le siege est a {{companyAddress}}, ci-apres l\'Employeur,\n' +
+        'et {{partyName}}, matricule {{partyCode}}, occupant le poste de {{jobTitle}} au service {{department}}, ci-apres le Travailleur.\n\n' +
+        'Le present contrat prend effet le {{startDate}} pour une duree indeterminee. Le salaire convenu s\'eleve a {{amount}}, payable selon les usages de paie de l\'Employeur.\n\n' +
+        'Le preavis de rupture est de {{noticeDays}} jours. Le Travailleur s\'engage a respecter le reglement interieur, les consignes d\'hygiene et de securite applicables a la production et a la distribution d\'eau potable.',
+      clauses: '{{clauses}}',
+      footer: 'Exemplaire a signer puis a archiver au dossier RH — {{reference}}',
+    },
+    {
+      code: 'MDL-FRN-CADRE',
+      name: 'Contrat cadre fournisseur',
+      partyKind: ContractPartyKind.SUPPLIER,
+      kind: BusinessContractKind.CADRE,
+      title: 'Contrat cadre de fourniture',
+      body:
+        'Entre {{companyName}} (l\'Acheteur) et {{partyName}} (le Fournisseur), code {{partyCode}}.\n\n' +
+        'Le Fournisseur s\'engage a livrer les biens et services definis au present contrat, sur le territoire {{territory}}, du {{startDate}} au {{endDate}}.\n\n' +
+        'Le montant de reference est de {{amount}}. Les factures sont payables a {{paymentTerms}}, selon un cycle {{billingCycle}}. Reconduction tacite : {{autoRenew}}.\n\n' +
+        'Toute livraison non conforme peut etre refusee. Un preavis de {{noticeDays}} jours s\'applique en cas de resiliation.',
+      clauses: '{{clauses}}',
+      footer: 'Document destine a la signature des parties — {{reference}}',
+    },
+    {
+      code: 'MDL-CLIENT-DIST',
+      name: 'Contrat de distribution grand client',
+      partyKind: ContractPartyKind.KEY_CLIENT,
+      kind: BusinessContractKind.DISTRIBUTION,
+      title: 'Contrat de distribution d\'eau potable',
+      body:
+        'Entre {{companyName}} (le Fournisseur) et {{partyName}} (le Client), code {{partyCode}}.\n\n' +
+        'Le Fournisseur s\'engage a livrer l\'eau potable EMMANUEL SERVICES selon les volumes convenus ({{volume}}) sur le territoire {{territory}}, du {{startDate}} au {{endDate}}.\n\n' +
+        'Le montant annuel de reference est de {{amount}}. Conditions de paiement : {{paymentTerms}}. Exclusivite : {{exclusivity}}.\n\n' +
+        'Les consignes d\'emballages reutilisables suivent le bareme en vigueur. Le preavis de resiliation est de {{noticeDays}} jours.',
+      clauses: '{{clauses}}',
+      footer: 'A signer en deux exemplaires — {{reference}}',
+    },
+  ];
+  for (const tpl of templateSeeds) {
+    await prisma.contractTemplate.upsert({
+      where: { code: tpl.code },
+      update: { name: tpl.name, body: tpl.body, clauses: tpl.clauses, footer: tpl.footer, isActive: true },
+      create: tpl,
+    });
+  }
+
   const agentForContract = allUsers.find((u) => u.role === UserRole.LIVREUR) ?? livreur;
   const agentProfile = await prisma.employeeProfile.findUnique({ where: { userId: agentForContract.id } });
   const adminUser = allUsers.find((u) => u.role === UserRole.ADMIN);

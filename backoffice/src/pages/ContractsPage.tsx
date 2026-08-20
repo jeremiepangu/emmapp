@@ -3,8 +3,11 @@ import {
   api,
   BusinessContract,
   BusinessContractKind,
+  ContractDocument,
   ContractPartyKind,
+  ContractTemplate,
   CreateContractInput,
+  CreateContractTemplateInput,
   CreateSupplierInput,
   Supplier,
 } from '../api';
@@ -15,7 +18,7 @@ import Modal from '../components/Modal';
 import DocButton from '../components/DocButton';
 import { printContractSheet, printContractsList } from '../documents/templates';
 
-type Tab = 'ALL' | ContractPartyKind | 'SUPPLIERS' | 'ALERTS';
+type Tab = 'ALL' | ContractPartyKind | 'SUPPLIERS' | 'ALERTS' | 'TEMPLATES' | 'ARCHIVES';
 
 const PARTY_LABEL: Record<ContractPartyKind, string> = {
   AGENT: 'Agent',
@@ -77,6 +80,17 @@ const emptySupplier = (): CreateSupplierInput => ({
   address: '',
 });
 
+const emptyTemplate = (): CreateContractTemplateInput => ({
+  code: '',
+  name: '',
+  partyKind: 'AGENT',
+  kind: 'CDI',
+  title: '',
+  body: 'Entre {{companyName}} et {{partyName}}.\n\nLe present contrat {{reference}} prend effet le {{startDate}} jusqu\'au {{endDate}} pour un montant de {{amount}}.\n\n{{clauses}}',
+  clauses: '',
+  footer: 'Document genere pour signature — {{reference}}',
+});
+
 function isoDate(value?: string | null) {
   return value ? value.slice(0, 10) : '';
 }
@@ -99,8 +113,11 @@ export default function ContractsPage() {
   const [tab, setTab] = useState<Tab>('ALL');
   const [contracts, setContracts] = useState<BusinessContract[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [summary, setSummary] = useState<{ total: number; status: Record<string, number>; parties: Record<string, number>; expiring30d: number } | null>(null);
+  const [summary, setSummary] = useState<{ total: number; status: Record<string, number>; parties: Record<string, number>; expiring30d: number; archived?: number } | null>(null);
   const [parties, setParties] = useState<Awaited<ReturnType<typeof api.getContractParties>> | null>(null);
+  const [templates, setTemplates] = useState<ContractTemplate[]>([]);
+  const [archives, setArchives] = useState<ContractDocument[]>([]);
+  const [placeholders, setPlaceholders] = useState<Array<{ key: string; label: string }>>([]);
   const [query, setQuery] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<BusinessContract | null>(null);
@@ -112,6 +129,13 @@ export default function ContractsPage() {
   const [terminateReason, setTerminateReason] = useState('');
   const [amendId, setAmendId] = useState<string | null>(null);
   const [amend, setAmend] = useState({ reason: '', amount: '', notes: '' });
+  const [wordFor, setWordFor] = useState<BusinessContract | null>(null);
+  const [wordTemplateId, setWordTemplateId] = useState('');
+  const [docsFor, setDocsFor] = useState<BusinessContract | null>(null);
+  const [showTemplate, setShowTemplate] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<ContractTemplate | null>(null);
+  const [templateForm, setTemplateForm] = useState<CreateContractTemplateInput>(emptyTemplate());
+  const [uploadFor, setUploadFor] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState('');
 
@@ -120,16 +144,23 @@ export default function ContractsPage() {
       tab === 'ALERTS' ? { expiringDays: 30, q: query || undefined }
       : tab === 'ALL' || tab === 'SUPPLIERS' ? { q: query || undefined }
       : { partyKind: tab, q: query || undefined };
-    const [rows, stats, directory, frn] = await Promise.all([
-      tab === 'SUPPLIERS' ? api.getContracts() : api.getContracts(params),
+    const [rows, stats, directory, frn, tpls, arch] = await Promise.all([
+      tab === 'SUPPLIERS' || tab === 'TEMPLATES' || tab === 'ARCHIVES' ? api.getContracts() : api.getContracts(params),
       api.getContractsSummary(),
       api.getContractParties(),
       api.getSuppliers(),
+      api.getContractTemplates(),
+      api.getContractArchives(),
     ]);
     setContracts(rows);
     setSummary(stats);
     setParties(directory);
     setSuppliers(frn);
+    setTemplates(tpls);
+    setArchives(arch);
+    if (!placeholders.length) {
+      api.getContractPlaceholders().then(setPlaceholders).catch(() => undefined);
+    }
   };
 
   useEffect(() => { load().catch((err) => setError(err instanceof Error ? err.message : 'Chargement impossible')); }, [tab]);
@@ -223,16 +254,21 @@ export default function ContractsPage() {
     <div className="erp-page">
       <ErpPageHeader
         title="Contrats"
-        subtitle="Agents, fournisseurs et grands clients — cycle de vie, avenants et échéances"
+        subtitle="Modèles Word, signature, archives — agents, fournisseurs et grands clients"
         actions={(
           <>
             <DocButton label="Registre" onClick={() => printContractsList(contracts)} />
-            {can('contracts', 'create') && tab !== 'SUPPLIERS' && (
+            {can('contracts', 'create') && tab !== 'SUPPLIERS' && tab !== 'TEMPLATES' && tab !== 'ARCHIVES' && (
               <button type="button" className="erp-btn" onClick={openCreate}>+ Nouveau contrat</button>
             )}
             {can('contracts', 'create') && tab === 'SUPPLIERS' && (
               <button type="button" className="erp-btn" onClick={() => { setEditingSupplier(null); setSupplierForm(emptySupplier()); setShowSupplier(true); }}>
                 + Fournisseur
+              </button>
+            )}
+            {can('contracts', 'create') && tab === 'TEMPLATES' && (
+              <button type="button" className="erp-btn" onClick={() => { setEditingTemplate(null); setTemplateForm(emptyTemplate()); setShowTemplate(true); }}>
+                + Modèle
               </button>
             )}
           </>
@@ -247,6 +283,7 @@ export default function ContractsPage() {
           <div className="erp-kpi"><div className="erp-kpi-label">Agents</div><div className="erp-kpi-value">{summary.parties.AGENT ?? 0}</div></div>
           <div className="erp-kpi erp-kpi--blue"><div className="erp-kpi-label">Fournisseurs</div><div className="erp-kpi-value">{summary.parties.SUPPLIER ?? 0}</div></div>
           <div className="erp-kpi"><div className="erp-kpi-label">Grands clients</div><div className="erp-kpi-value">{summary.parties.KEY_CLIENT ?? 0}</div></div>
+          <div className="erp-kpi erp-kpi--green"><div className="erp-kpi-label">Archives</div><div className="erp-kpi-value">{summary.archived ?? 0}</div></div>
         </div>
       )}
 
@@ -257,6 +294,8 @@ export default function ContractsPage() {
           ['SUPPLIER', 'Fournisseurs'],
           ['KEY_CLIENT', 'Grands clients'],
           ['ALERTS', 'Échéances'],
+          ['TEMPLATES', 'Modèles'],
+          ['ARCHIVES', 'Archives'],
           ['SUPPLIERS', 'Annuaire fournisseurs'],
         ] as const).map(([id, label]) => (
           <button key={id} type="button" className={`erp-tab ${tab === id ? 'active' : ''}`} onClick={() => setTab(id)}>{label}</button>
@@ -266,7 +305,7 @@ export default function ContractsPage() {
       {error && <p className="error-msg">{error}</p>}
       {busy && <p className="erp-muted">{busy}…</p>}
 
-      {tab !== 'SUPPLIERS' && (
+      {tab !== 'SUPPLIERS' && tab !== 'TEMPLATES' && tab !== 'ARCHIVES' && (
         <ErpPanel
           title={tab === 'ALERTS' ? 'Contrats à échéance (30 jours)' : `Contrats (${contracts.length})`}
           actions={(
@@ -304,6 +343,18 @@ export default function ContractsPage() {
                   <td><StatusPill status={c.status} /></td>
                   <td className="erp-row-actions">
                     <DocButton label="Contrat" onClick={() => printContractSheet(c)} />
+                    {can('contracts', 'create') && (
+                      <button type="button" className="erp-btn erp-btn--sm" onClick={() => {
+                        const match = templates.find((t) => t.isActive && t.partyKind === c.partyKind && t.kind === c.kind)
+                          ?? templates.find((t) => t.isActive && t.partyKind === c.partyKind)
+                          ?? templates.find((t) => t.isActive);
+                        setWordFor(c);
+                        setWordTemplateId(match?.id ?? '');
+                      }}>Word</button>
+                    )}
+                    <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => setDocsFor(c)}>
+                      Dossier{c.documents?.length ? ` (${c.documents.length})` : ''}
+                    </button>
                     {can('contracts', 'update') && c.status !== 'RESILIE' && (
                       <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => openEdit(c)}>Modifier</button>
                     )}
@@ -332,6 +383,92 @@ export default function ContractsPage() {
                 </tr>
               ))}
               {!contracts.length && <tr><td colSpan={8} className="erp-muted">Aucun contrat.</td></tr>}
+            </tbody>
+          </table>
+        </ErpPanel>
+      )}
+
+      {tab === 'TEMPLATES' && (
+        <ErpPanel title={`Modèles (${templates.length})`}>
+          <p className="erp-muted">Utilisez les variables {'{{reference}}'}, {'{{partyName}}'}, {'{{amount}}'}, etc. Le Word généré est prêt à signer puis à archiver.</p>
+          <table className="erp-table">
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Nom</th>
+                <th>Partie</th>
+                <th>Type</th>
+                <th>Statut</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {templates.map((t) => (
+                <tr key={t.id}>
+                  <td><strong>{t.code}</strong></td>
+                  <td>{t.name}</td>
+                  <td>{t.partyKind ? PARTY_LABEL[t.partyKind] : 'Tous'}</td>
+                  <td>{t.kind ? KIND_LABEL[t.kind] : 'Tous'}</td>
+                  <td><StatusPill status={t.isActive ? 'ACTIF' : 'ANNULEE'} label={t.isActive ? 'Actif' : 'Inactif'} /></td>
+                  <td className="erp-row-actions">
+                    {can('contracts', 'update') && (
+                      <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => {
+                        setEditingTemplate(t);
+                        setTemplateForm({
+                          code: t.code,
+                          name: t.name,
+                          partyKind: t.partyKind ?? undefined,
+                          kind: t.kind ?? undefined,
+                          title: t.title,
+                          body: t.body,
+                          clauses: t.clauses ?? '',
+                          footer: t.footer ?? '',
+                        });
+                        setShowTemplate(true);
+                      }}>Modifier</button>
+                    )}
+                    {can('contracts', 'update') && !t.isActive && (
+                      <button type="button" className="erp-btn erp-btn--sm" onClick={() => run('Réactivation', () => api.updateContractTemplate(t.id, { isActive: true }))}>Réactiver</button>
+                    )}
+                    {can('contracts', 'delete') && t.isActive && (
+                      <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => run('Retrait', () => api.deleteContractTemplate(t.id))}>Retirer</button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {!templates.length && <tr><td colSpan={6} className="erp-muted">Aucun modèle.</td></tr>}
+            </tbody>
+          </table>
+        </ErpPanel>
+      )}
+
+      {tab === 'ARCHIVES' && (
+        <ErpPanel title={`Documents archivés (${archives.length})`}>
+          <table className="erp-table">
+            <thead>
+              <tr>
+                <th>Contrat</th>
+                <th>Fichier</th>
+                <th>Type</th>
+                <th>Archivé le</th>
+                <th>Par</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {archives.map((d) => (
+                <tr key={d.id}>
+                  <td><strong>{d.contract?.reference}</strong><div className="erp-muted">{d.contract?.title}</div></td>
+                  <td>{d.filename}</td>
+                  <td><StatusPill status={d.kind} /></td>
+                  <td>{d.archivedAt ? isoDate(d.archivedAt) : '—'}</td>
+                  <td>{d.archivedBy ? `${d.archivedBy.firstName} ${d.archivedBy.lastName}` : '—'}</td>
+                  <td className="erp-row-actions">
+                    <button type="button" className="erp-btn erp-btn--sm" onClick={() => api.downloadContractDocument(d.id, d.filename)}>Télécharger</button>
+                  </td>
+                </tr>
+              ))}
+              {!archives.length && <tr><td colSpan={6} className="erp-muted">Aucune archive. Générez un Word, faites-le signer, puis archivez-le.</td></tr>}
             </tbody>
           </table>
         </ErpPanel>
@@ -519,6 +656,161 @@ export default function ContractsPage() {
           <div className="form-group"><label>Nouveau montant</label><input type="number" min={0} value={amend.amount} onChange={(e) => setAmend({ ...amend, amount: e.target.value })} /></div>
           <div className="form-group"><label>Notes</label><textarea value={amend.notes} onChange={(e) => setAmend({ ...amend, notes: e.target.value })} rows={2} /></div>
           <button type="submit" className="erp-btn">Enregistrer l’avenant</button>
+        </form>
+      </Modal>
+
+      <Modal title={wordFor ? `Word pour signature — ${wordFor.reference}` : 'Word'} open={!!wordFor} onClose={() => setWordFor(null)}>
+        <form className="form-stack" onSubmit={async (e) => {
+          e.preventDefault();
+          if (!wordFor) return;
+          setBusy('Génération Word');
+          setError('');
+          try {
+            const doc = await api.generateContractWord(wordFor.id, wordTemplateId || undefined);
+            await api.downloadContractDocument(doc.id, doc.filename);
+            setWordFor(null);
+            await load();
+          } catch (err) {
+            setError(err instanceof Error ? err.message : 'Génération impossible');
+          } finally {
+            setBusy('');
+          }
+        }}>
+          <p className="erp-muted">Le fichier Word est enregistré dans le dossier du contrat, prêt à être imprimé et signé.</p>
+          <div className="form-group">
+            <label>Modèle</label>
+            <select value={wordTemplateId} onChange={(e) => setWordTemplateId(e.target.value)}>
+              <option value="">— Modèle le plus adapté —</option>
+              {templates.filter((t) => t.isActive && (!t.partyKind || t.partyKind === wordFor?.partyKind)).map((t) => (
+                <option key={t.id} value={t.id}>{t.name} ({t.code})</option>
+              ))}
+            </select>
+          </div>
+          {error && <p className="error-msg">{error}</p>}
+          <button type="submit" className="erp-btn">Générer et télécharger</button>
+        </form>
+      </Modal>
+
+      <Modal title={docsFor ? `Dossier ${docsFor.reference}` : 'Dossier'} open={!!docsFor} onClose={() => setDocsFor(null)}>
+        {docsFor && (
+          <div className="form-stack">
+            <table className="erp-table">
+              <thead>
+                <tr><th>Fichier</th><th>Type</th><th>Date</th><th>Actions</th></tr>
+              </thead>
+              <tbody>
+                {(docsFor.documents ?? []).map((d) => (
+                  <tr key={d.id}>
+                    <td>{d.filename}<div className="erp-muted">{Math.round(d.byteSize / 1024)} Ko</div></td>
+                    <td><StatusPill status={d.archivedAt ? 'SIGNED_ARCHIVE' : d.kind} /></td>
+                    <td>{isoDate(d.archivedAt ?? d.generatedAt)}</td>
+                    <td className="erp-row-actions">
+                      <button type="button" className="erp-btn erp-btn--sm" onClick={() => api.downloadContractDocument(d.id, d.filename)}>Télécharger</button>
+                      {can('contracts', 'update') && !d.archivedAt && (
+                        <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => run('Archivage', () => api.archiveContractDocument(docsFor.id, d.id, 'Exemplaire signé')).then(async () => {
+                          const fresh = await api.getContract(docsFor.id);
+                          setDocsFor(fresh);
+                        })}>Archiver</button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {!(docsFor.documents ?? []).length && <tr><td colSpan={4} className="erp-muted">Aucun document. Générez d’abord le Word.</td></tr>}
+              </tbody>
+            </table>
+            {can('contracts', 'create') && (
+              <button type="button" className="erp-btn erp-btn--ghost" onClick={() => setUploadFor(docsFor.id)}>Archiver un exemplaire signé (PDF ou Word)</button>
+            )}
+          </div>
+        )}
+      </Modal>
+
+      <Modal title={editingTemplate ? `Modifier ${editingTemplate.code}` : 'Nouveau modèle'} open={showTemplate} onClose={() => setShowTemplate(false)}>
+        <form className="form-stack" onSubmit={async (e) => {
+          e.preventDefault();
+          setError('');
+          try {
+            const payload = {
+              ...templateForm,
+              partyKind: templateForm.partyKind || undefined,
+              kind: templateForm.kind || undefined,
+            };
+            if (editingTemplate) await api.updateContractTemplate(editingTemplate.id, payload);
+            else await api.createContractTemplate(payload);
+            setShowTemplate(false);
+            await load();
+          } catch (err) {
+            setError(err instanceof Error ? err.message : 'Enregistrement modèle impossible');
+          }
+        }}>
+          <div className="form-group"><label>Code</label><input value={templateForm.code} onChange={(e) => setTemplateForm({ ...templateForm, code: e.target.value })} required disabled={!!editingTemplate} /></div>
+          <div className="form-group"><label>Nom</label><input value={templateForm.name} onChange={(e) => setTemplateForm({ ...templateForm, name: e.target.value })} required /></div>
+          <div className="form-group">
+            <label>Partie</label>
+            <select value={templateForm.partyKind ?? ''} onChange={(e) => setTemplateForm({ ...templateForm, partyKind: (e.target.value || undefined) as ContractPartyKind | undefined, kind: e.target.value ? KINDS_BY_PARTY[e.target.value as ContractPartyKind][0] : undefined })}>
+              <option value="">Tous</option>
+              <option value="AGENT">Agent</option>
+              <option value="SUPPLIER">Fournisseur</option>
+              <option value="KEY_CLIENT">Grand client</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label>Type</label>
+            <select value={templateForm.kind ?? ''} onChange={(e) => setTemplateForm({ ...templateForm, kind: (e.target.value || undefined) as BusinessContractKind | undefined })}>
+              <option value="">Tous</option>
+              {(templateForm.partyKind ? KINDS_BY_PARTY[templateForm.partyKind] : Object.keys(KIND_LABEL) as BusinessContractKind[]).map((k) => (
+                <option key={k} value={k}>{KIND_LABEL[k]}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group"><label>Titre du document</label><input value={templateForm.title} onChange={(e) => setTemplateForm({ ...templateForm, title: e.target.value })} required /></div>
+          <div className="form-group"><label>Corps (variables {'{{nom}}'})</label><textarea value={templateForm.body} onChange={(e) => setTemplateForm({ ...templateForm, body: e.target.value })} rows={8} required /></div>
+          <div className="form-group"><label>Clauses</label><textarea value={templateForm.clauses ?? ''} onChange={(e) => setTemplateForm({ ...templateForm, clauses: e.target.value })} rows={3} /></div>
+          <div className="form-group"><label>Pied de page</label><input value={templateForm.footer ?? ''} onChange={(e) => setTemplateForm({ ...templateForm, footer: e.target.value })} /></div>
+          {placeholders.length > 0 && (
+            <p className="erp-muted">{placeholders.map((p) => `{{${p.key}}}`).join(' ')}</p>
+          )}
+          {error && <p className="error-msg">{error}</p>}
+          <button type="submit" className="erp-btn">{editingTemplate ? 'Mettre à jour' : 'Créer le modèle'}</button>
+        </form>
+      </Modal>
+
+      <Modal title="Archiver l’exemplaire signé" open={!!uploadFor} onClose={() => setUploadFor(null)}>
+        <form className="form-stack" onSubmit={(e) => e.preventDefault()}>
+          <p className="erp-muted">Déposez le PDF ou le Word signé. Il sera conservé dans l’archive du contrat.</p>
+          <input
+            type="file"
+            accept=".pdf,.doc,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file || !uploadFor) return;
+              setBusy('Archivage');
+              setError('');
+              try {
+                const contentBase64 = await new Promise<string>((resolve, reject) => {
+                  const reader = new FileReader();
+                  reader.onload = () => resolve(String(reader.result ?? ''));
+                  reader.onerror = () => reject(new Error('Lecture fichier impossible'));
+                  reader.readAsDataURL(file);
+                });
+                await api.uploadSignedContract(uploadFor, {
+                  filename: file.name,
+                  mimeType: file.type || 'application/octet-stream',
+                  contentBase64,
+                  notes: 'Exemplaire signé déposé',
+                });
+                const fresh = await api.getContract(uploadFor);
+                setDocsFor(fresh);
+                setUploadFor(null);
+                await load();
+              } catch (err) {
+                setError(err instanceof Error ? err.message : 'Archivage impossible');
+              } finally {
+                setBusy('');
+              }
+            }}
+          />
+          {error && <p className="error-msg">{error}</p>}
         </form>
       </Modal>
     </div>

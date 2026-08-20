@@ -181,6 +181,7 @@ model User {
   hrFieldChanges       EmployeeFieldHistory[] @relation("HistoryActor")
   aclOverrides         UserPermission[]
   contractsValidated   Contract[]            @relation("ContractValidator")
+  contractArchives     ContractDocument[]    @relation("ContractArchiver")
 
   @@map("users")
 }
@@ -1180,6 +1181,11 @@ enum ContractLifecycle {
   RENOUVELE
 }
 
+enum ContractDocumentKind {
+  WORD_SIGNATURE
+  SIGNED_ARCHIVE
+}
+
 enum EmployeeStatus {
   ACTIF
   SUSPENDU
@@ -1598,6 +1604,9 @@ model Contract {
   client      Client?              @relation(fields: [clientId], references: [id])
   validatedBy User?                @relation("ContractValidator", fields: [validatedById], references: [id])
   amendments  ContractAmendment[]
+  documents   ContractDocument[]
+  template    ContractTemplate?    @relation(fields: [templateId], references: [id])
+  templateId  String?              @map("template_id")
 
   @@index([partyKind, status])
   @@index([endDate])
@@ -1618,6 +1627,50 @@ model ContractAmendment {
 
   @@index([contractId])
   @@map("contract_amendments")
+}
+
+model ContractTemplate {
+  id          String                 @id @default(uuid())
+  code        String                 @unique
+  name        String
+  partyKind   ContractPartyKind?     @map("party_kind")
+  kind        BusinessContractKind?
+  title       String
+  body        String                 @db.Text
+  clauses     String?                @db.Text
+  footer      String?                @db.Text
+  isActive    Boolean                @default(true) @map("is_active")
+  createdAt   DateTime               @default(now()) @map("created_at")
+  updatedAt   DateTime               @updatedAt @map("updated_at")
+
+  contracts Contract[]
+  documents ContractDocument[]
+
+  @@index([partyKind, kind])
+  @@map("contract_templates")
+}
+
+model ContractDocument {
+  id           String               @id @default(uuid())
+  contractId   String               @map("contract_id")
+  templateId   String?              @map("template_id")
+  kind         ContractDocumentKind
+  filename     String
+  mimeType     String               @map("mime_type")
+  byteSize     Int                  @map("byte_size")
+  content      Bytes
+  generatedAt  DateTime             @default(now()) @map("generated_at")
+  archivedAt   DateTime?            @map("archived_at")
+  archivedById String?              @map("archived_by_id")
+  notes        String?
+
+  contract   Contract          @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  template   ContractTemplate? @relation(fields: [templateId], references: [id])
+  archivedBy User?             @relation("ContractArchiver", fields: [archivedById], references: [id])
+
+  @@index([contractId, kind])
+  @@index([archivedAt])
+  @@map("contract_documents")
 }
 
 /// Matrice d'habilitations par profil (CRUDVN) sur chaque module / menu.

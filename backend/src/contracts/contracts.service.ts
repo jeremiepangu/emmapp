@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import {
   BusinessContractKind,
   ClientSegment,
+  ContractDocumentKind,
   ContractLifecycle,
   ContractPartyKind,
   ContractType,
@@ -9,15 +10,21 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.module';
 import {
+  ArchiveDocumentDto,
   CreateAmendmentDto,
   CreateContractDto,
   CreateSupplierDto,
+  CreateTemplateDto,
   ContractQueryDto,
+  GenerateWordDto,
   RenewContractDto,
   TerminateContractDto,
   UpdateContractDto,
   UpdateSupplierDto,
+  UpdateTemplateDto,
+  UploadSignedDto,
 } from './dto/contract.dto';
+import { buildContractDocx, CONTRACT_PLACEHOLDERS, fillPlaceholders } from './word-generator';
 
 const KEY_CLIENT_SEGMENTS: ClientSegment[] = [
   ClientSegment.SUPERMARCHE,
@@ -33,6 +40,21 @@ const HR_KINDS: BusinessContractKind[] = [
   BusinessContractKind.JOURNALIER,
 ];
 
+const DOC_SELECT = {
+  id: true,
+  contractId: true,
+  templateId: true,
+  kind: true,
+  filename: true,
+  mimeType: true,
+  byteSize: true,
+  generatedAt: true,
+  archivedAt: true,
+  notes: true,
+  template: { select: { id: true, code: true, name: true } },
+  archivedBy: { select: { id: true, firstName: true, lastName: true } },
+} satisfies Prisma.ContractDocumentSelect;
+
 const INCLUDE = {
   employee: {
     include: {
@@ -43,6 +65,8 @@ const INCLUDE = {
   client: { select: { id: true, code: true, name: true, segment: true, phone: true, email: true, zone: true } },
   validatedBy: { select: { id: true, firstName: true, lastName: true } },
   amendments: { orderBy: { createdAt: 'desc' as const } },
+  template: { select: { id: true, code: true, name: true } },
+  documents: { select: DOC_SELECT, orderBy: { generatedAt: 'desc' as const } },
 } satisfies Prisma.ContractInclude;
 
 @Injectable()
@@ -131,6 +155,7 @@ export class ContractsService {
       status,
       parties,
       expiring30d: expiring,
+      archived: await this.prisma.contractDocument.count({ where: { archivedAt: { not: null } } }),
     };
   }
 
@@ -430,5 +455,265 @@ export class ContractsService {
       await this.prisma.contract.update({ where: { id }, data: { amount: dto.amount } });
     }
     return this.findOne(id).then((c) => ({ ...c, lastAmendment: amendment }));
+  }
+
+  placeholders() {
+    return CONTRACT_PLACEHOLDERS;
+  }
+
+  listTemplates() {
+    return this.prisma.contractTemplate.findMany({ orderBy: [{ partyKind: 'asc' }, { name: 'asc' }] });
+  }
+
+  async createTemplate(dto: CreateTemplateDto) {
+    return this.prisma.contractTemplate.create({
+      data: {
+        code: dto.code.trim().toUpperCase(),
+        name: dto.name.trim(),
+        partyKind: dto.partyKind ?? undefined,
+        kind: dto.kind ?? undefined,
+        title: dto.title.trim(),
+        body: dto.body,
+        clauses: dto.clauses?.trim() || undefined,
+        footer: dto.footer?.trim() || undefined,
+      },
+    });
+  }
+
+  async updateTemplate(id: string, dto: UpdateTemplateDto) {
+    const existing = await this.prisma.contractTemplate.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Modèle introuvable');
+    return this.prisma.contractTemplate.update({
+      where: { id },
+      data: {
+        code: dto.code?.trim().toUpperCase(),
+        name: dto.name?.trim(),
+        partyKind: dto.partyKind === undefined ? undefined : dto.partyKind,
+        kind: dto.kind === undefined ? undefined : dto.kind,
+        title: dto.title?.trim(),
+        body: dto.body,
+        clauses: dto.clauses?.trim(),
+        footer: dto.footer?.trim(),
+        isActive: dto.isActive,
+      },
+    });
+  }
+
+  async deactivateTemplate(id: string) {
+    const existing = await this.prisma.contractTemplate.findUnique({ where: { id } });
+    if (!existing) throw new NotFoundException('Modèle introuvable');
+    return this.prisma.contractTemplate.update({ where: { id }, data: { isActive: false } });
+  }
+
+  async listArchives() {
+    return this.prisma.contractDocument.findMany({
+      where: { archivedAt: { not: null } },
+      select: {
+        ...DOC_SELECT,
+        contract: { select: { id: true, reference: true, title: true, partyKind: true } },
+      },
+      orderBy: { archivedAt: 'desc' },
+    });
+  }
+
+  async getDocumentFile(docId: string) {
+    const doc = await this.prisma.contractDocument.findUnique({ where: { id: docId } });
+    if (!doc) throw new NotFoundException('Document introuvable');
+    return doc;
+  }
+
+  private fmtDate(value?: Date | null) {
+    if (!value) return 'durée indéterminée';
+    return value.toLocaleDateString('fr-FR');
+  }
+
+  private fmtMoney(amount: Prisma.Decimal | number | null | undefined, currency: string) {
+    if (amount == null) return '—';
+    return `${Number(amount).toLocaleString('fr-FR')} ${currency}`;
+  }
+
+  private partyOf(contract: Awaited<ReturnType<ContractsService['findOne']>>) {
+    if (contract.partyKind === ContractPartyKind.AGENT) {
+      const u = contract.employee?.user;
+      return {
+        name: u ? `${u.firstName} ${u.lastName}` : contract.employee?.matricule ?? 'Agent',
+        code: contract.employee?.matricule ?? '',
+        phone: u ? '' : '',
+        email: u?.email ?? '',
+        jobTitle: contract.employee?.jobTitle ?? '',
+        department: contract.employee?.department ?? '',
+      };
+    }
+    if (contract.partyKind === ContractPartyKind.SUPPLIER) {
+      return {
+        name: contract.supplier?.name ?? 'Fournisseur',
+        code: contract.supplier?.code ?? '',
+        phone: contract.supplier?.phone ?? '',
+        email: contract.supplier?.email ?? '',
+        jobTitle: '',
+        department: '',
+      };
+    }
+    return {
+      name: contract.client?.name ?? 'Grand client',
+      code: contract.client?.code ?? '',
+      phone: contract.client?.phone ?? '',
+      email: contract.client?.email ?? '',
+      jobTitle: '',
+      department: '',
+    };
+  }
+
+  private varsOf(contract: Awaited<ReturnType<ContractsService['findOne']>>): Record<string, string> {
+    const party = this.partyOf(contract);
+    const partyKindLabel =
+      contract.partyKind === ContractPartyKind.AGENT
+        ? 'Agent'
+        : contract.partyKind === ContractPartyKind.SUPPLIER
+          ? 'Fournisseur'
+          : 'Grand client';
+    return {
+      reference: contract.reference,
+      title: contract.title,
+      kind: contract.kind,
+      status: contract.status,
+      partyKind: partyKindLabel,
+      partyName: party.name,
+      partyCode: party.code,
+      partyPhone: party.phone,
+      partyEmail: party.email,
+      startDate: this.fmtDate(contract.startDate),
+      endDate: this.fmtDate(contract.endDate),
+      noticeDays: String(contract.noticeDays),
+      autoRenew: contract.autoRenew ? 'oui' : 'non',
+      amount: this.fmtMoney(contract.amount, contract.currency),
+      currency: contract.currency,
+      paymentTerms: contract.paymentTerms ?? '',
+      billingCycle: contract.billingCycle ?? '',
+      volume: contract.volumeCommitment ?? '',
+      territory: contract.territory ?? '',
+      exclusivity: contract.exclusivity ? 'oui' : 'non',
+      clauses: contract.clauses ?? '',
+      notes: contract.notes ?? '',
+      signedByParty: contract.signedByParty || party.name,
+      signedByCompany: contract.signedByCompany || 'EMMANUEL SERVICES SARLU',
+      companyName: 'EMMANUEL SERVICES SARLU',
+      companyAddress: 'Kinshasa, Bandalungwa, RDC',
+      companyLegal: 'RCCM KNG/RCCM/24-B-02180 · IMPOT A2425053J · ID NAT 01-F4300-N64238H',
+      today: this.fmtDate(this.today()),
+      jobTitle: party.jobTitle,
+      department: party.department,
+    };
+  }
+
+  private async resolveTemplate(contract: Awaited<ReturnType<ContractsService['findOne']>>, templateId?: string) {
+    if (templateId) {
+      const tpl = await this.prisma.contractTemplate.findUnique({ where: { id: templateId } });
+      if (!tpl || !tpl.isActive) throw new NotFoundException('Modèle introuvable');
+      return tpl;
+    }
+    const exact = await this.prisma.contractTemplate.findFirst({
+      where: { isActive: true, partyKind: contract.partyKind, kind: contract.kind },
+    });
+    if (exact) return exact;
+    const byParty = await this.prisma.contractTemplate.findFirst({
+      where: { isActive: true, partyKind: contract.partyKind, kind: null },
+    });
+    if (byParty) return byParty;
+    const generic = await this.prisma.contractTemplate.findFirst({
+      where: { isActive: true, partyKind: null },
+      orderBy: { name: 'asc' },
+    });
+    if (!generic) throw new BadRequestException('Aucun modèle de contrat actif. Créez-en un dans l\'onglet Modèles.');
+    return generic;
+  }
+
+  async generateWord(id: string, dto: GenerateWordDto) {
+    const contract = await this.findOne(id);
+    const template = await this.resolveTemplate(contract, dto.templateId);
+    const vars = this.varsOf(contract);
+    const title = fillPlaceholders(template.title || contract.title, vars);
+    const body = fillPlaceholders(template.body, vars);
+    const clauses = fillPlaceholders([template.clauses, contract.clauses].filter(Boolean).join('\n\n'), vars);
+    const buffer = await buildContractDocx({
+      title,
+      reference: contract.reference,
+      body,
+      clauses,
+      footer: template.footer ? fillPlaceholders(template.footer, vars) : undefined,
+      fields: [
+        { label: 'Référence', value: vars.reference },
+        { label: 'Partie', value: `${vars.partyKind} — ${vars.partyName}` },
+        { label: 'Type', value: vars.kind },
+        { label: 'Période', value: `${vars.startDate} → ${vars.endDate}` },
+        { label: 'Montant', value: vars.amount },
+        { label: 'Paiement', value: vars.paymentTerms },
+        { label: 'Territoire', value: vars.territory },
+        { label: 'Préavis', value: `${vars.noticeDays} jours` },
+      ],
+      signedByParty: vars.signedByParty,
+      signedByCompany: vars.signedByCompany,
+    });
+    const filename = `${contract.reference}-signature.docx`;
+    const saved = await this.prisma.contractDocument.create({
+      data: {
+        contractId: contract.id,
+        templateId: template.id,
+        kind: ContractDocumentKind.WORD_SIGNATURE,
+        filename,
+        mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        byteSize: buffer.length,
+        content: buffer,
+      },
+      select: DOC_SELECT,
+    });
+    await this.prisma.contract.update({
+      where: { id: contract.id },
+      data: { templateId: template.id, documentUrl: `/contracts/documents/${saved.id}/file` },
+    });
+    return saved;
+  }
+
+  async archiveDocument(contractId: string, docId: string, userId: string, dto: ArchiveDocumentDto) {
+    const doc = await this.prisma.contractDocument.findFirst({ where: { id: docId, contractId } });
+    if (!doc) throw new NotFoundException('Document introuvable');
+    return this.prisma.contractDocument.update({
+      where: { id: docId },
+      data: {
+        archivedAt: new Date(),
+        archivedById: userId,
+        notes: dto.notes?.trim() || doc.notes,
+        kind: doc.kind === ContractDocumentKind.WORD_SIGNATURE ? ContractDocumentKind.WORD_SIGNATURE : ContractDocumentKind.SIGNED_ARCHIVE,
+      },
+      select: DOC_SELECT,
+    });
+  }
+
+  async uploadSigned(contractId: string, userId: string, dto: UploadSignedDto) {
+    await this.findOne(contractId);
+    const raw = dto.contentBase64.includes(',') ? dto.contentBase64.split(',')[1] : dto.contentBase64;
+    let buffer: Buffer;
+    try {
+      buffer = Buffer.from(raw, 'base64');
+    } catch {
+      throw new BadRequestException('Fichier signé illisible');
+    }
+    if (!buffer.length) throw new BadRequestException('Fichier signé vide');
+    if (buffer.length > 6 * 1024 * 1024) throw new BadRequestException('Fichier trop volumineux (6 Mo max)');
+    const filename = dto.filename.trim() || `signe-${Date.now()}.pdf`;
+    return this.prisma.contractDocument.create({
+      data: {
+        contractId,
+        kind: ContractDocumentKind.SIGNED_ARCHIVE,
+        filename,
+        mimeType: dto.mimeType?.trim() || 'application/pdf',
+        byteSize: buffer.length,
+        content: buffer,
+        archivedAt: new Date(),
+        archivedById: userId,
+        notes: dto.notes?.trim() || 'Exemplaire signé archivé',
+      },
+      select: DOC_SELECT,
+    });
   }
 }
