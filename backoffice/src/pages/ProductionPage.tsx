@@ -58,7 +58,16 @@ export default function ProductionPage() {
 
         subtitle="Ordres de fabrication et traçabilité lots (format LOT-AAAAMMJJ-LIGNE-FORMAT)"
 
-        actions={<DocButton label="Imprimer le registre" onClick={() => printProductionList(orders)} />}
+        actions={
+          <>
+            <DocButton label="Imprimer le registre" onClick={() => printProductionList(orders)} />
+            {can('production', 'create') && (
+              <button type="button" className="erp-btn" onClick={() => document.getElementById('production-form')?.scrollIntoView({ behavior: 'smooth' })}>
+                + Nouvel ordre
+              </button>
+            )}
+          </>
+        }
 
       />
 
@@ -66,7 +75,7 @@ export default function ProductionPage() {
 
         <ErpPanel title="Nouvel ordre de fabrication" padded>
 
-          <form onSubmit={handleSubmit} className="form-row">
+          <form id="production-form" onSubmit={handleSubmit} className="form-row">
 
             <div className="form-group">
 

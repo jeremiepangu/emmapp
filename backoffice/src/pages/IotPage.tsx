@@ -12,7 +12,7 @@ import { usePermissions } from '../hooks/usePermissions';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
 import DocButton from '../components/DocButton';
-import { printIotReport } from '../documents/templates';
+import { printIotReport, printIotSensorSheet } from '../documents/templates';
 
 const EMPTY: CreateSensorInput = {
   code: '',
@@ -61,13 +61,30 @@ export default function IotPage() {
       <ErpPageHeader
         title="Capteurs & télémétrie"
         subtitle="Qualité en ligne, véhicules et fontaines connectées — alerte automatique hors plage"
-        actions={<DocButton label="Rapport capteurs" onClick={() => printIotReport(sensors)} />}
+        actions={
+          <>
+            <DocButton label="Rapport capteurs" onClick={() => printIotReport(sensors)} />
+            {can('iot', 'create') && (
+              <button
+                type="button"
+                className="erp-btn"
+                onClick={() => {
+                  setEditing(null);
+                  setForm(EMPTY);
+                  document.getElementById('iot-form')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+              >
+                + Nouveau capteur
+              </button>
+            )}
+          </>
+        }
       />
       {error && <p className="error-msg">{error}</p>}
 
       {(can('iot', 'create') || editing) && (
         <ErpPanel title={editing ? 'Modifier le capteur' : 'Enregistrer un capteur'} padded>
-          <form onSubmit={create} className="form-row">
+          <form id="iot-form" onSubmit={create} className="form-row">
             <div className="form-group"><label>Code</label><input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} required /></div>
             <div className="form-group"><label>Libellé</label><input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} required /></div>
             <div className="form-group">
@@ -106,7 +123,8 @@ export default function IotPage() {
                   {s.outOfRange ? ' · hors plage' : ''}
                 </td>
                 <td><StatusPill status={s.status} /></td>
-                <td>
+                <td className="erp-row-actions">
+                  <DocButton onClick={() => printIotSensorSheet(s)} />
                   <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => openReadings(s.id)}>Relevés</button>
                   {can('iot', 'delete') && (
                     <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => api.deleteSensor(s.id).then(load)}>Retirer</button>

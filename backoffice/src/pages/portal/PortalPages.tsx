@@ -417,7 +417,24 @@ export function PortalAssistantPage() {
   };
   return (
     <div className="erp-page">
-      <ErpPageHeader title="Assistant client" subtitle="Commandes, livraisons et consignes" />
+      <ErpPageHeader
+        title="Assistant client"
+        subtitle="Commandes, livraisons et consignes"
+        actions={
+          <DocButton
+            label="Conversation"
+            onClick={() => printDocument({
+              kind: 'Conversation portail',
+              fields: [{ label: 'Messages', value: String(log.length) }],
+              tables: [{
+                headers: ['Auteur', 'Message'],
+                rows: log.flatMap((m) => [['Client', m.q], ['Assistant', m.a]]),
+              }],
+              signatures: ['Pour EMMANUEL SERVICES SARLU'],
+            })}
+          />
+        }
+      />
       <ErpPanel title="Conversation" padded>
         {log.map((m, i) => (
           <div key={i}>

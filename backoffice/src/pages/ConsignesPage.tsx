@@ -39,12 +39,17 @@ export default function ConsignesPage() {
             <DocButton label="Mouvements" onClick={() => printConsignesList(movements)} />
             <DocButton label="Emballages" onClick={() => printPackagingList(packaging)} />
             <DocButton label="Fontaines" onClick={() => printFountainsList(fountains)} />
+            {can('consignes', 'create') && (
+              <button type="button" className="erp-btn" onClick={() => document.getElementById('consigne-form')?.scrollIntoView({ behavior: 'smooth' })}>
+                + Nouveau mouvement
+              </button>
+            )}
           </>
         }
       />
       {can('consignes', 'create') && (
         <ErpPanel title="Nouveau mouvement / emballage" padded>
-          <form className="form-row" onSubmit={addMove}>
+          <form id="consigne-form" className="form-row" onSubmit={addMove}>
             <div className="form-group">
               <label>Client</label>
               <select value={moveForm.clientId} onChange={(e) => setMoveForm({ ...moveForm, clientId: e.target.value })} required>

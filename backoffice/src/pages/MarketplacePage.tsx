@@ -43,13 +43,22 @@ export default function MarketplacePage() {
       <ErpPageHeader
         title="Marketplace B2B"
         subtitle="Demandes de cotation des grossistes et détaillants, conversion en commande interne"
-        actions={<DocButton label="Imprimer les devis" onClick={() => printQuotesList(quotes)} />}
+        actions={
+          <>
+            <DocButton label="Imprimer les devis" onClick={() => printQuotesList(quotes)} />
+            {can('marketplace', 'create') && (
+              <button type="button" className="erp-btn" onClick={() => document.getElementById('marketplace-form')?.scrollIntoView({ behavior: 'smooth' })}>
+                + Nouvelle demande
+              </button>
+            )}
+          </>
+        }
       />
       {error && <p className="error-msg">{error}</p>}
 
       {can('marketplace', 'create') && (
         <ErpPanel title="Nouvelle demande" padded>
-          <form onSubmit={submit} className="form-row">
+          <form id="marketplace-form" onSubmit={submit} className="form-row">
             <div className="form-group"><label>Société</label><input value={form.companyName} onChange={(e) => setForm({ ...form, companyName: e.target.value })} required /></div>
             <div className="form-group"><label>Email</label><input type="email" value={form.contactEmail} onChange={(e) => setForm({ ...form, contactEmail: e.target.value })} required /></div>
             <div className="form-group">

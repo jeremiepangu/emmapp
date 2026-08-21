@@ -78,11 +78,25 @@ export default function StockPage() {
       <ErpPageHeader
         title="Stocks"
         subtitle="Produits finis, emplacements, ajustements et stock embarqué"
-        actions={<DocButton label="État d'inventaire" onClick={() => printInventory(items)} />}
+        actions={
+          <>
+            <DocButton label="État d'inventaire" onClick={() => printInventory(items)} />
+            {can('stock', 'create') && (
+              <>
+                <button type="button" className="erp-btn" onClick={() => document.getElementById('stock-adjust')?.scrollIntoView({ behavior: 'smooth' })}>
+                  + Ajuster
+                </button>
+                <button type="button" className="erp-btn erp-btn--ghost" onClick={() => document.getElementById('stock-location')?.scrollIntoView({ behavior: 'smooth' })}>
+                  + Emplacement
+                </button>
+              </>
+            )}
+          </>
+        }
       />
       {can('stock', 'create') && (
         <ErpPanel title="Ajuster le stock" padded>
-          <form className="form-row" onSubmit={adjust}>
+          <form id="stock-adjust" className="form-row" onSubmit={adjust}>
             <div className="form-group">
               <label>Produit</label>
               <select value={form.productId} onChange={(e) => setForm({ ...form, productId: e.target.value })} required>
@@ -105,7 +119,7 @@ export default function StockPage() {
       )}
       <ErpPanel title={`Emplacements (${locations.length})`} padded>
         {can('stock', 'create') && (
-          <form className="form-row" onSubmit={saveLocation}>
+          <form id="stock-location" className="form-row" onSubmit={saveLocation}>
             <div className="form-group"><label>Code</label><input value={locForm.code} onChange={(e) => setLocForm({ ...locForm, code: e.target.value })} required disabled={!!editingLoc} /></div>
             <div className="form-group"><label>Nom</label><input value={locForm.name} onChange={(e) => setLocForm({ ...locForm, name: e.target.value })} required /></div>
             <div className="form-group">

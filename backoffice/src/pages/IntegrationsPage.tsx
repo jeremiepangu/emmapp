@@ -62,17 +62,24 @@ export default function IntegrationsPage() {
         title="API publique & webhooks"
         subtitle="Clés partenaires, événements métier et intégration des opérateurs de monnaie électronique"
         actions={
-          <DocButton
-            label="Registre"
-            onClick={() => printList(
-              'Registre API et webhooks',
-              ['Type', 'Libellé', 'Détail', 'Statut'],
-              [
-                ...keys.map((k) => ['Clé API', k.label, `${k.partner} · ${k.keyPrefix}`, k.isActive ? 'Actif' : 'Révoqué']),
-                ...hooks.map((h) => ['Webhook', h.label, h.events.join(', '), h.isActive ? 'Actif' : 'Inactif']),
-              ],
+          <>
+            <DocButton
+              label="Registre"
+              onClick={() => printList(
+                'Registre API et webhooks',
+                ['Type', 'Libellé', 'Détail', 'Statut'],
+                [
+                  ...keys.map((k) => ['Clé API', k.label, `${k.partner} · ${k.keyPrefix}`, k.isActive ? 'Actif' : 'Révoqué']),
+                  ...hooks.map((h) => ['Webhook', h.label, h.events.join(', '), h.isActive ? 'Actif' : 'Inactif']),
+                ],
+              )}
+            />
+            {can('integrations', 'create') && (
+              <button type="button" className="erp-btn" onClick={() => document.getElementById('integrations-form')?.scrollIntoView({ behavior: 'smooth' })}>
+                + Nouvelle clé
+              </button>
             )}
-          />
+          </>
         }
       />
       {error && <p className="error-msg">{error}</p>}
@@ -85,7 +92,7 @@ export default function IntegrationsPage() {
       {can('integrations', 'create') && (
         <div className="erp-split">
           <ErpPanel title="Nouvelle clé API" padded>
-            <form onSubmit={createKey} className="form-row">
+            <form id="integrations-form" onSubmit={createKey} className="form-row">
               <div className="form-group"><label>Libellé</label><input value={keyForm.label} onChange={(e) => setKeyForm({ ...keyForm, label: e.target.value })} required /></div>
               <div className="form-group"><label>Partenaire</label><input value={keyForm.partner} onChange={(e) => setKeyForm({ ...keyForm, partner: e.target.value })} required /></div>
               <div className="form-group"><label>Périmètres</label><input value={keyForm.scopes} onChange={(e) => setKeyForm({ ...keyForm, scopes: e.target.value })} /></div>

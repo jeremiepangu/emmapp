@@ -4,7 +4,7 @@ import { usePermissions } from '../hooks/usePermissions';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
 import DocButton from '../components/DocButton';
-import { printNotifications } from '../documents/templates';
+import { printNotifications, printGenericReport } from '../documents/templates';
 
 const typeLabel: Record<string, string> = {
   INFO: 'Info',
@@ -52,7 +52,7 @@ export default function NotificationsPage() {
       <ErpPanel title={`Messages (${items.length})`}>
         <table className="erp-table">
           <thead>
-            <tr><th>Date</th><th>Type</th><th>Catégorie</th><th>Titre</th><th>Message</th><th>Statut</th></tr>
+            <tr><th>Date</th><th>Type</th><th>Catégorie</th><th>Titre</th><th>Message</th><th>Statut</th><th>Actions</th></tr>
           </thead>
           <tbody>
             {items.map((n) => (
@@ -63,6 +63,18 @@ export default function NotificationsPage() {
                 <td><strong>{n.title}</strong></td>
                 <td>{n.message}</td>
                 <td><StatusPill status={n.read ? 'TERMINEE' : 'EN_COURS'} label={n.read ? 'Lu' : 'Non lu'} /></td>
+                <td className="erp-row-actions">
+                  <DocButton onClick={() => printGenericReport('Notification', {
+                    reference: n.id.slice(0, 8),
+                    fields: [
+                      { label: 'Type', value: n.type },
+                      { label: 'Catégorie', value: n.category },
+                      { label: 'Titre', value: n.title },
+                      { label: 'Message', value: n.message },
+                      { label: 'Date', value: new Date(n.createdAt).toLocaleString('fr-FR') },
+                    ],
+                  })} />
+                </td>
               </tr>
             ))}
           </tbody>

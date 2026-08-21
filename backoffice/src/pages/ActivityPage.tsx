@@ -90,6 +90,11 @@ export default function ActivityPage() {
             {tab === 'mine' && mine && (
               <DocButton label="Mon rapport" onClick={() => printActivitySheet(mine)} />
             )}
+            {tab === 'mine' && (
+              <button type="button" className="erp-btn" onClick={() => document.getElementById('activity-form')?.scrollIntoView({ behavior: 'smooth' })}>
+                + Enregistrer
+              </button>
+            )}
           </>
         }
       />
@@ -162,7 +167,7 @@ export default function ActivityPage() {
             </div>
           )}
           <ErpPanel title={`Rapport de ${user?.firstName ?? ''} ${user?.lastName ?? ''}`}>
-            <form className="form-stack" onSubmit={saveMine}>
+            <form id="activity-form" className="form-stack" onSubmit={saveMine}>
               <div className="form-group">
                 <label>Résumé de la journée</label>
                 <textarea rows={4} value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="Tournées, clients visités, points d’attention…" />

@@ -4,6 +4,8 @@ import { usePermissions } from '../hooks/usePermissions';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
 import Modal from '../components/Modal';
+import DocButton from '../components/DocButton';
+import { printVehicleSheet, printVehiclesList } from '../documents/templates';
 
 const emptyForm = { plate: '', name: '', capacity: 100, fuelType: 'DIESEL', co2FactorKgPerKm: 0.31 };
 
@@ -46,11 +48,14 @@ export default function VehiclesPage() {
         title="Véhicules"
         subtitle="Parc de livraison — plaques, capacité et facteur CO₂"
         actions={
-          can('vehicles', 'create') ? (
-            <button type="button" className="erp-btn" onClick={() => { setEditing(null); setForm(emptyForm); setShowForm(true); }}>
-              + Nouveau véhicule
-            </button>
-          ) : undefined
+          <>
+            <DocButton label="Imprimer le parc" onClick={() => printVehiclesList(vehicles)} />
+            {can('vehicles', 'create') && (
+              <button type="button" className="erp-btn" onClick={() => { setEditing(null); setForm(emptyForm); setShowForm(true); }}>
+                + Nouveau véhicule
+              </button>
+            )}
+          </>
         }
       />
       <ErpPanel title={`Parc (${vehicles.length})`}>
@@ -76,6 +81,7 @@ export default function VehiclesPage() {
                 <td>{v.co2FactorKgPerKm ?? '—'}</td>
                 <td><StatusPill status={v.isActive === false ? 'ANNULEE' : 'CONFORME'} label={v.isActive === false ? 'Inactif' : 'Actif'} /></td>
                 <td className="erp-row-actions">
+                  <DocButton onClick={() => printVehicleSheet(v)} />
                   {can('vehicles', 'update') && (
                     <button
                       type="button"

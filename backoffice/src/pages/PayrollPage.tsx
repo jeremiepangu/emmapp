@@ -4,7 +4,7 @@ import { usePermissions } from '../hooks/usePermissions';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
 import DocButton from '../components/DocButton';
-import { printPayrollRegister, printPayslip } from '../documents/templates';
+import { printPayrollPeriodsList, printPayrollRegister, printPayslip } from '../documents/templates';
 
 const MONTHS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
 
@@ -61,13 +61,23 @@ export default function PayrollPage() {
       <ErpPageHeader
         title="Paie des agents"
         subtitle="Périodes mensuelles, calcul CNSS / IPRF, validation et paiement des bulletins"
-        actions={selected ? (
-          <DocButton label="Registre de paie" onClick={() => printPayrollRegister(payslips, selected)} />
-        ) : undefined}
+        actions={(
+          <>
+            <DocButton
+              label={selected ? 'Registre de paie' : 'Périodes'}
+              onClick={() => selected ? printPayrollRegister(payslips, selected) : printPayrollPeriodsList(periods)}
+            />
+            {can('payroll', 'create') && (
+              <button type="button" className="erp-btn" onClick={() => document.getElementById('payroll-form')?.scrollIntoView({ behavior: 'smooth' })}>
+                + Nouvelle période
+              </button>
+            )}
+          </>
+        )}
       />
       {can('payroll', 'create') && (
         <ErpPanel title="Nouvelle période" padded>
-          <form className="form-row" onSubmit={createPeriod}>
+          <form id="payroll-form" className="form-row" onSubmit={createPeriod}>
             <div className="form-group"><label>Année</label><input type="number" min={2020} value={form.year} onChange={(e) => setForm({ ...form, year: Number(e.target.value) })} /></div>
             <div className="form-group">
               <label>Mois</label>

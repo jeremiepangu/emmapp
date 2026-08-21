@@ -4,7 +4,7 @@ import { usePermissions } from '../hooks/usePermissions';
 import { ErpPageHeader, ErpPanel, RingGauge } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
 import DocButton from '../components/DocButton';
-import { printSecurityReport } from '../documents/templates';
+import { printSecurityReport, printGenericReport } from '../documents/templates';
 
 export default function SecurityPage() {
   const { can } = usePermissions();
@@ -105,7 +105,17 @@ export default function SecurityPage() {
                   <td><StatusPill status={a.status} /></td>
                   <td>{a.message}<div className="erp-muted">{a.email} {a.ipAddress}</div></td>
                   <td>{new Date(a.createdAt).toLocaleString('fr-FR')}</td>
-                  <td>
+                  <td className="erp-row-actions">
+                    <DocButton onClick={() => printGenericReport('Alerte sécurité', {
+                      reference: a.id.slice(0, 8),
+                      fields: [
+                        { label: 'Type', value: a.kind },
+                        { label: 'Sévérité', value: a.severity },
+                        { label: 'Statut', value: a.status },
+                        { label: 'Message', value: a.message },
+                        { label: 'Date', value: new Date(a.createdAt).toLocaleString('fr-FR') },
+                      ],
+                    })} />
                     {can('security', 'update') && a.status === 'OUVERTE' && (
                       <>
                         <button type="button" className="erp-btn erp-btn--sm" onClick={() => api.updateSecurityAlert(a.id, 'ANALYSEE').then(load)}>Analyser</button>

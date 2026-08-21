@@ -4,7 +4,7 @@ import { usePermissions } from '../hooks/usePermissions';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
 import DocButton from '../components/DocButton';
-import { printRouteSheet } from '../documents/templates';
+import { printOptimizedRoutesList, printRouteSheet } from '../documents/templates';
 
 export default function RoutingPage() {
   const { can } = usePermissions();
@@ -50,7 +50,12 @@ export default function RoutingPage() {
       <ErpPageHeader
         title="Itinéraires optimisés"
         subtitle="Plus proche voisin + 2-opt, priorités clients et trafic horaire — ajustable avant validation"
-        actions={selected ? <DocButton label="Imprimer l'itinéraire" onClick={() => printRouteSheet({ ...selected, stops })} /> : undefined}
+        actions={
+          <>
+            <DocButton label="Liste des itinéraires" onClick={() => printOptimizedRoutesList(routes)} />
+            {selected && <DocButton label="Imprimer l'itinéraire" onClick={() => printRouteSheet({ ...selected, stops })} />}
+          </>
+        }
       />
       {error && <p className="error-msg">{error}</p>}
 

@@ -10,6 +10,8 @@ import { useAuth } from '../AuthContext';
 import { usePermissions } from '../hooks/usePermissions';
 import { ROLE_LABELS } from '../permissions';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
+import DocButton from '../components/DocButton';
+import { printAuthorizationMatrix, printUserAuthorizationSheet } from '../documents/templates';
 
 type Tab = 'profils' | 'exceptions';
 const ACTIONS: AclAction[] = ['read', 'create', 'update', 'delete', 'validate'];
@@ -179,12 +181,30 @@ export default function AuthorizationsPage() {
         title="Habilitations"
         subtitle="Paramétrage des droits par profil sur tous les modules, menus et fonctions CRUDVN"
         actions={
-          tab === 'profils' && canEdit ? (
-            <>
-              {canReset && <button type="button" className="erp-btn erp-btn--ghost" onClick={resetRole}>Rétablir le profil</button>}
+          <>
+            {tab === 'profils' && catalog && (
+              <DocButton
+                label="Matrice PDF"
+                onClick={() => printAuthorizationMatrix(catalog, ROLE_LABELS[role] ?? role, draft)}
+              />
+            )}
+            {tab === 'exceptions' && catalog && detail && (
+              <DocButton
+                label="Fiche PDF"
+                onClick={() => printUserAuthorizationSheet(
+                  catalog,
+                  `${detail.user.firstName} ${detail.user.lastName}`,
+                  detail.effective,
+                )}
+              />
+            )}
+            {tab === 'profils' && canEdit && canReset && (
+              <button type="button" className="erp-btn erp-btn--ghost" onClick={resetRole}>Rétablir le profil</button>
+            )}
+            {tab === 'profils' && canEdit && (
               <button type="button" className="erp-btn" onClick={saveRole} disabled={saving}>{saving ? 'Enregistrement…' : 'Enregistrer le profil'}</button>
-            </>
-          ) : undefined
+            )}
+          </>
         }
       />
       {error && <p className="error-msg">{error}</p>}

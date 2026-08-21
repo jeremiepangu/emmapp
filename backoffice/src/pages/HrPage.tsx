@@ -27,13 +27,20 @@ import {
   printEmployeesList,
   printEmploymentCertificate,
   printEvaluationSheet,
+  printHrCoursesList,
   printHrDashboard,
+  printHrDeclarationsList,
+  printHrDocumentsList,
+  printHrEnrollmentsList,
+  printHrFunctionsList,
+  printHrObjectivesList,
   printLeaveCertificate,
   printLeaveRequest,
   printLeavesList,
   printShiftSheet,
   printShiftsList,
   printWorkCertificate,
+  printGenericReport,
 } from '../documents/templates';
 import {
   KINSHASA_DISTRICTS,
@@ -204,9 +211,41 @@ export default function HrPage() {
             {tab === 'dashboard' && dash && <DocButton label="Tableau de bord" onClick={() => printHrDashboard(dash)} />}
             {tab === 'personnel' && <DocButton label="Registre" onClick={() => printEmployeesList(employees)} />}
             {tab === 'conges' && <DocButton label="Registre" onClick={() => printLeavesList(leaves)} />}
+            {tab === 'activites' && (
+              <>
+                <DocButton label="Fonctions" onClick={() => printHrFunctionsList(functions)} />
+                <DocButton label="Déclarations" onClick={() => printHrDeclarationsList(declarations)} />
+              </>
+            )}
+            {tab === 'performance' && <DocButton label="Objectifs" onClick={() => printHrObjectivesList(objectives)} />}
+            {tab === 'formations' && (
+              <>
+                <DocButton label="Catalogue" onClick={() => printHrCoursesList(courses)} />
+                <DocButton label="Inscriptions" onClick={() => printHrEnrollmentsList(enrollments)} />
+              </>
+            )}
+            {tab === 'documents' && <DocButton label="Archives" onClick={() => printHrDocumentsList(docs)} />}
             {tab === 'shifts' && <DocButton label="Planning" onClick={() => printShiftsList(shifts, shiftDate)} />}
             {writeMaster && tab === 'personnel' && (
               <button type="button" className="erp-btn" onClick={() => { setEditing(null); setEmpForm(emptyEmp); setShowEmployee(true); }}>+ Nouveau dossier</button>
+            )}
+            {tab === 'conges' && (
+              <button type="button" className="erp-btn" onClick={() => document.getElementById('hr-leave-form')?.scrollIntoView({ behavior: 'smooth' })}>+ Nouvelle demande</button>
+            )}
+            {writeMaster && tab === 'activites' && (
+              <button type="button" className="erp-btn" onClick={() => document.getElementById('hr-function-form')?.scrollIntoView({ behavior: 'smooth' })}>+ Fonction</button>
+            )}
+            {writeMaster && tab === 'performance' && (
+              <button type="button" className="erp-btn" onClick={() => document.getElementById('hr-objective-form')?.scrollIntoView({ behavior: 'smooth' })}>+ Objectif</button>
+            )}
+            {writeMaster && tab === 'formations' && (
+              <button type="button" className="erp-btn" onClick={() => document.getElementById('hr-course-form')?.scrollIntoView({ behavior: 'smooth' })}>+ Formation</button>
+            )}
+            {writeMaster && tab === 'documents' && (
+              <button type="button" className="erp-btn" onClick={() => document.getElementById('hr-doc-form')?.scrollIntoView({ behavior: 'smooth' })}>+ Document</button>
+            )}
+            {writeMaster && tab === 'shifts' && (
+              <button type="button" className="erp-btn" onClick={() => document.getElementById('hr-shift-form')?.scrollIntoView({ behavior: 'smooth' })}>+ Planifier</button>
             )}
           </>
         }
@@ -325,7 +364,7 @@ export default function HrPage() {
             </div>
           )}
           <ErpPanel title="Nouvelle demande" padded>
-            <form className="form-row" onSubmit={async (e) => {
+            <form id="hr-leave-form" className="form-row" onSubmit={async (e) => {
               e.preventDefault();
               await api.createLeave({ ...leaveForm, userId: writeMaster && leaveForm.userId ? leaveForm.userId : user?.id ?? '' });
               await loadCore();
@@ -405,7 +444,7 @@ export default function HrPage() {
         <>
           {writeMaster && (
             <ErpPanel title="Référentiel des fonctions" padded>
-              <form className="form-row" onSubmit={async (e) => {
+              <form id="hr-function-form" className="form-row" onSubmit={async (e) => {
                 e.preventDefault();
                 await api.createJobFunction({
                   name: fnForm.name,
@@ -456,6 +495,16 @@ export default function HrPage() {
                     <td>{new Date(d.date).toLocaleDateString('fr-FR')}</td>
                     <td><StatusPill status={d.status} label={d.status} /></td>
                     <td className="erp-row-actions">
+                      <DocButton onClick={() => printGenericReport('Déclaration d’activité', {
+                        reference: d.id.slice(0, 8),
+                        fields: [
+                          { label: 'Agent', value: d.user ? `${d.user.firstName} ${d.user.lastName}` : '—' },
+                          { label: 'Activité', value: d.activity?.name ?? '—' },
+                          { label: 'Date', value: new Date(d.date).toLocaleDateString('fr-FR') },
+                          { label: 'Statut', value: d.status },
+                          { label: 'Commentaire', value: d.comment ?? '—' },
+                        ],
+                      })} />
                       {canValidate && d.status === 'SOUMISE' && (
                         <>
                           <button type="button" className="erp-btn erp-btn--sm" onClick={() => api.validateDeclaration(d.id).then(loadCore)}>Valider</button>
@@ -478,7 +527,7 @@ export default function HrPage() {
         <>
           {writeMaster && (
             <ErpPanel title="Nouvel objectif" padded>
-              <form className="form-row" onSubmit={async (e) => {
+              <form id="hr-objective-form" className="form-row" onSubmit={async (e) => {
                 e.preventDefault();
                 await api.createObjective(objForm);
                 await loadCore();
@@ -535,7 +584,7 @@ export default function HrPage() {
         <>
           {writeMaster && (
             <ErpPanel title="Nouvelle formation" padded>
-              <form className="form-row" onSubmit={async (e) => {
+              <form id="hr-course-form" className="form-row" onSubmit={async (e) => {
                 e.preventDefault();
                 await api.createTraining(courseForm);
                 setCourseForm({ title: '', kind: 'INTERNE', provider: '', location: '' });
@@ -573,6 +622,14 @@ export default function HrPage() {
                     <td>{en.course?.title}</td>
                     <td><StatusPill status={en.status} label={en.status} /></td>
                     <td className="erp-row-actions">
+                      <DocButton onClick={() => printGenericReport('Inscription formation', {
+                        reference: en.id.slice(0, 8),
+                        fields: [
+                          { label: 'Agent', value: en.user ? `${en.user.firstName} ${en.user.lastName}` : '—' },
+                          { label: 'Formation', value: en.course?.title ?? '—' },
+                          { label: 'Statut', value: en.status },
+                        ],
+                      })} />
                       {canValidate && en.status === 'INSCRITE' && (
                         <>
                           <button type="button" className="erp-btn erp-btn--sm" onClick={() => api.validateEnrollment(en.id).then(loadCore)}>Valider</button>
@@ -598,7 +655,7 @@ export default function HrPage() {
         <>
           {writeMaster && (
             <ErpPanel title="Ajouter un document" padded>
-              <form className="form-row" onSubmit={async (e) => {
+              <form id="hr-doc-form" className="form-row" onSubmit={async (e) => {
                 e.preventDefault();
                 await api.addHrDocument(docForm);
                 await loadCore();
@@ -623,7 +680,7 @@ export default function HrPage() {
           )}
           <ErpPanel title="Archives" actions={<input placeholder="Recherche" value={docQuery} onChange={(e) => setDocQuery(e.target.value)} onBlur={loadCore} />}>
             <table className="erp-table">
-              <thead><tr><th>Date</th><th>Agent</th><th>Type</th><th>Titre</th></tr></thead>
+              <thead><tr><th>Date</th><th>Agent</th><th>Type</th><th>Titre</th><th>Actions</th></tr></thead>
               <tbody>
                 {docs.map((d) => (
                   <tr key={d.id}>
@@ -631,6 +688,17 @@ export default function HrPage() {
                     <td>{d.employee?.user ? `${d.employee.user.firstName} ${d.employee.user.lastName}` : d.employee?.matricule}</td>
                     <td>{DOC_TYPES.find((t) => t.id === d.type)?.label ?? d.type}</td>
                     <td>{d.title}</td>
+                    <td className="erp-row-actions">
+                      <DocButton onClick={() => printGenericReport('Document RH', {
+                        reference: d.id.slice(0, 8),
+                        fields: [
+                          { label: 'Titre', value: d.title },
+                          { label: 'Type', value: DOC_TYPES.find((t) => t.id === d.type)?.label ?? d.type },
+                          { label: 'Agent', value: d.employee?.user ? `${d.employee.user.firstName} ${d.employee.user.lastName}` : d.employee?.matricule ?? '—' },
+                          { label: 'Date', value: new Date(d.createdAt).toLocaleDateString('fr-FR') },
+                        ],
+                      })} />
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -643,7 +711,7 @@ export default function HrPage() {
         <>
           {writeMaster && (
             <ErpPanel title="Planifier un shift" padded>
-              <form className="form-row" onSubmit={async (e) => {
+              <form id="hr-shift-form" className="form-row" onSubmit={async (e) => {
                 e.preventDefault();
                 await api.createShiftAssignment(shiftForm);
                 setShiftDate(shiftForm.date);

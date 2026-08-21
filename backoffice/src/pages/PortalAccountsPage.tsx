@@ -4,7 +4,7 @@ import { usePermissions } from '../hooks/usePermissions';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
 import DocButton from '../components/DocButton';
-import { printPortalAccountsList } from '../documents/templates';
+import { printPortalAccountsList, printPortalAccountSheet } from '../documents/templates';
 
 export default function PortalAccountsPage() {
   const { can } = usePermissions();
@@ -33,12 +33,21 @@ export default function PortalAccountsPage() {
       <ErpPageHeader
         title="Comptes portail client"
         subtitle="Accès self-service distinct des comptes internes — commande, suivi, consigne et fidélité"
-        actions={<DocButton label="Imprimer la liste" onClick={() => printPortalAccountsList(accounts)} />}
+        actions={
+          <>
+            <DocButton label="Imprimer la liste" onClick={() => printPortalAccountsList(accounts)} />
+            {can('portal', 'create') && (
+              <button type="button" className="erp-btn" onClick={() => document.getElementById('portal-form')?.scrollIntoView({ behavior: 'smooth' })}>
+                + Nouvel accès
+              </button>
+            )}
+          </>
+        }
       />
       {error && <p className="error-msg">{error}</p>}
       {can('portal', 'create') && (
         <ErpPanel title="Créer un accès" padded>
-          <form onSubmit={submit} className="form-row">
+          <form id="portal-form" onSubmit={submit} className="form-row">
             <div className="form-group"><label>Nom</label><input value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} required /></div>
             <div className="form-group"><label>Email</label><input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></div>
             <div className="form-group">
@@ -64,7 +73,8 @@ export default function PortalAccountsPage() {
                 <td>{a.client?.name ?? a.clientId}</td>
                 <td>{a.lastLoginAt ? new Date(a.lastLoginAt).toLocaleString('fr-FR') : '—'}</td>
                 <td><StatusPill status={a.isActive ? 'ACTIF' : 'ANNULEE'} /></td>
-                <td>
+                <td className="erp-row-actions">
+                  <DocButton onClick={() => printPortalAccountSheet(a)} />
                   {can('portal', 'update') && (
                     <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => api.updatePortalAccount(a.id, { isActive: !a.isActive }).then(load)}>
                       {a.isActive ? 'Désactiver' : 'Réactiver'}

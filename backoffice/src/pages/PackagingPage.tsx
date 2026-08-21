@@ -14,6 +14,8 @@ import { usePermissions } from '../hooks/usePermissions';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
 import Modal from '../components/Modal';
+import DocButton from '../components/DocButton';
+import { printPackagingMovementSheet, printPackagingMovements, printPackagingSkuSheet, printPackagingSkus } from '../documents/templates';
 
 const KIND_TABS: { id: PackagingKind | 'TOUS'; label: string }[] = [
   { id: 'TOUS', label: 'Tous' },
@@ -133,15 +135,19 @@ export default function PackagingPage() {
         title="Emballages"
         subtitle="Stock des bidons 5 / 10 / 25 L, bonbonnes 5 gallons, étiquettes et bouchons — achat, utilisation, vente, déclassement"
         actions={
-          can('packaging', 'create') ? (
-            <button
-              type="button"
-              className="erp-btn"
-              onClick={() => { setEditingSku(null); setSkuForm(emptySku); setShowSku(true); }}
-            >
-              + Nouvel article
-            </button>
-          ) : undefined
+          <>
+            <DocButton label="Articles" onClick={() => printPackagingSkus(skus)} />
+            <DocButton label="Mouvements" onClick={() => printPackagingMovements(movements)} />
+            {can('packaging', 'create') && (
+              <button
+                type="button"
+                className="erp-btn"
+                onClick={() => { setEditingSku(null); setSkuForm(emptySku); setShowSku(true); }}
+              >
+                + Nouvel article
+              </button>
+            )}
+          </>
         }
       />
 
@@ -272,6 +278,7 @@ export default function PackagingPage() {
                   <td>{sku.minStock}</td>
                   <td>{low ? <StatusPill status="ALERTE" label="Stock bas" /> : sku.isActive ? <StatusPill status="ACTIF" label="OK" /> : <StatusPill status="ANNULEE" label="Inactif" />}</td>
                   <td className="erp-row-actions">
+                    <DocButton onClick={() => printPackagingSkuSheet(sku)} />
                     {can('packaging', 'update') && (
                       <button
                         type="button"
@@ -337,7 +344,8 @@ export default function PackagingPage() {
                   </td>
                   <td>{[m.supplier, m.reference].filter(Boolean).join(' · ') || m.notes || '—'}</td>
                   <td>{m.createdBy ? `${m.createdBy.firstName} ${m.createdBy.lastName}` : '—'}</td>
-                  <td>
+                  <td className="erp-row-actions">
+                    <DocButton onClick={() => printPackagingMovementSheet(m)} />
                     {can('packaging', 'delete') && (
                       <button
                         type="button"

@@ -43,6 +43,16 @@ import type {
   PerformanceObjective,
   PerformanceReview,
   BusinessContract,
+  Vehicle,
+  PackagingSku,
+  PackagingMovement,
+  AuthorizationCatalog,
+  JobFunction,
+  ActivityDeclaration,
+  TrainingCourse,
+  TrainingEnrollment,
+  HrDocument,
+  AssistantSession,
 } from '../api';
 import { formatDate, formatMoney, printDocument, printList, type DocSpec } from './printDocument';
 
@@ -749,6 +759,22 @@ export function printIotReport(sensors: IotSensor[]): void {
   );
 }
 
+export function printIotSensorSheet(s: IotSensor): void {
+  printDocument({
+    kind: 'Fiche capteur',
+    reference: s.code,
+    fields: [
+      { label: 'Libellé', value: s.label },
+      { label: 'Famille', value: s.kind },
+      { label: 'Métrique', value: s.metric },
+      { label: 'Unité', value: s.unit },
+      { label: 'Dernière valeur', value: s.lastValue != null ? `${s.lastValue} ${s.unit}` : '—' },
+      { label: 'Statut', value: s.status },
+    ],
+    signatures: ['Pour EMMANUEL SERVICES SARLU'],
+  });
+}
+
 export function printRouteSheet(route: OptimizedRoute): void {
   printDocument({
     kind: 'Itinéraire de tournée',
@@ -801,6 +827,21 @@ export function printPortalAccountsList(accounts: PortalAccount[]): void {
     ['Nom', 'Email', 'Client', 'Actif', 'Dernière connexion'],
     accounts.map((a) => [a.fullName, a.email, a.client?.name ?? a.clientId, a.isActive ? 'Oui' : 'Non', a.lastLoginAt ? formatDate(a.lastLoginAt) : '—']),
   );
+}
+
+export function printPortalAccountSheet(a: PortalAccount): void {
+  printDocument({
+    kind: 'Fiche compte portail',
+    reference: a.email,
+    fields: [
+      { label: 'Nom', value: a.fullName },
+      { label: 'Email', value: a.email },
+      { label: 'Client', value: a.client?.name ?? a.clientId },
+      { label: 'Statut', value: a.isActive ? 'Actif' : 'Inactif' },
+      { label: 'Dernière connexion', value: a.lastLoginAt ? formatDate(a.lastLoginAt) : '—' },
+    ],
+    signatures: ['Pour EMMANUEL SERVICES SARLU'],
+  });
 }
 
 export function printObservabilityReport(data: ObservabilityStatus): void {
@@ -1005,4 +1046,232 @@ export function printContractsList(rows: BusinessContract[]): void {
     c.status,
     c.amount != null ? formatMoney(c.amount) : '—',
   ]));
+}
+
+export function printVehicleSheet(v: Vehicle): void {
+  printDocument({
+    kind: 'Fiche véhicule',
+    reference: v.plate,
+    fields: [
+      { label: 'Plaque', value: v.plate },
+      { label: 'Nom', value: v.name },
+      { label: 'Capacité', value: String(v.capacity) },
+      { label: 'Carburant', value: v.fuelType ?? '—' },
+      { label: 'Facteur CO2 (kg/km)', value: String(v.co2FactorKgPerKm ?? '—') },
+      { label: 'Statut', value: v.isActive === false ? 'Inactif' : 'Actif' },
+    ],
+    signatures: ['Pour EMMANUEL SERVICES SARLU'],
+  });
+}
+
+export function printVehiclesList(vehicles: Vehicle[]): void {
+  printList(
+    'Parc véhicules',
+    ['Plaque', 'Nom', 'Capacité', 'Carburant', 'CO2 kg/km', 'Statut'],
+    vehicles.map((v) => [
+      v.plate,
+      v.name,
+      String(v.capacity),
+      v.fuelType ?? '—',
+      String(v.co2FactorKgPerKm ?? '—'),
+      v.isActive === false ? 'Inactif' : 'Actif',
+    ]),
+  );
+}
+
+export function printPackagingSkuSheet(s: PackagingSku): void {
+  printDocument({
+    kind: 'Fiche article emballage',
+    reference: s.code,
+    fields: [
+      { label: 'Nom', value: s.name },
+      { label: 'Type', value: s.kind },
+      { label: 'Format', value: s.format },
+      { label: 'Stock', value: String(s.stock?.quantity ?? 0) },
+      { label: 'Seuil', value: String(s.minStock) },
+      { label: 'Statut', value: s.isActive ? 'Actif' : 'Inactif' },
+    ],
+    signatures: ['Pour EMMANUEL SERVICES SARLU'],
+  });
+}
+
+export function printPackagingSkus(skus: PackagingSku[]): void {
+  printList(
+    'Stockage primaire - articles',
+    ['Code', 'Nom', 'Type', 'Format', 'Stock', 'Seuil', 'Statut'],
+    skus.map((s) => [
+      s.code,
+      s.name,
+      s.kind,
+      s.format,
+      String(s.stock?.quantity ?? 0),
+      String(s.minStock),
+      s.isActive ? 'Actif' : 'Inactif',
+    ]),
+  );
+}
+
+export function printPackagingMovementSheet(m: PackagingMovement): void {
+  printDocument({
+    kind: 'Mouvement emballage',
+    reference: m.reference ?? m.id.slice(0, 8),
+    fields: [
+      { label: 'Date', value: formatDate(m.createdAt) },
+      { label: 'Type', value: m.type },
+      { label: 'Article', value: m.sku?.name ?? m.skuId },
+      { label: 'Quantité', value: String(m.quantity) },
+      { label: 'Fournisseur', value: m.supplier ?? '—' },
+      { label: 'Notes', value: m.notes ?? '—' },
+    ],
+    signatures: ['Pour EMMANUEL SERVICES SARLU'],
+  });
+}
+
+export function printPackagingMovements(rows: PackagingMovement[]): void {
+  printList(
+    'Mouvements stockage primaire',
+    ['Date', 'Type', 'Article', 'Quantité', 'Fournisseur', 'Référence'],
+    rows.map((m) => [
+      formatDate(m.createdAt),
+      m.type,
+      m.sku?.name ?? m.skuId,
+      String(m.quantity),
+      m.supplier ?? '—',
+      m.reference ?? m.notes ?? '—',
+    ]),
+  );
+}
+
+export function printAuthorizationMatrix(
+  catalog: AuthorizationCatalog,
+  roleLabel: string,
+  grants: Record<string, string[]>,
+): void {
+  printList(
+    `Matrice habilitations ${roleLabel}`,
+    ['Module', ...catalog.actions.map((a) => a.short || a.label)],
+    catalog.resources.map((r) => [
+      `${r.section} / ${r.label}`,
+      ...catalog.actions.map((a) => ((grants[r.id] ?? []).includes(a.id) ? 'Oui' : 'Non')),
+    ]),
+  );
+}
+
+export function printUserAuthorizationSheet(
+  catalog: AuthorizationCatalog,
+  userLabel: string,
+  effective: Record<string, string[]>,
+): void {
+  printList(
+    `Habilitations ${userLabel}`,
+    ['Module', ...catalog.actions.map((a) => a.short || a.label)],
+    catalog.resources.map((r) => [
+      `${r.section} / ${r.label}`,
+      ...catalog.actions.map((a) => ((effective[r.id] ?? []).includes(a.id) ? 'Oui' : 'Non')),
+    ]),
+  );
+}
+
+export function printOptimizedRoutesList(routes: OptimizedRoute[]): void {
+  printList(
+    'Itinéraires optimisés',
+    ['Tournée', 'Zone', 'Distance km', 'Durée min', 'Arrêts', 'Ajusté'],
+    routes.map((r) => [
+      r.tour?.tourNumber ?? r.tourId,
+      r.tour?.zone ?? '—',
+      r.totalDistanceKm.toFixed(1),
+      String(r.estimatedDurationMin),
+      String(r.stops?.length ?? 0),
+      r.manuallyAdjusted ? 'Oui' : 'Non',
+    ]),
+  );
+}
+
+export function printPayrollPeriodsList(periods: PayrollPeriod[]): void {
+  printList(
+    'Périodes de paie',
+    ['Année', 'Mois', 'Jours ouvrés', 'Bulletins', 'Statut'],
+    periods.map((p) => [
+      String(p.year),
+      MONTHS[p.month - 1] ?? String(p.month),
+      String(p.expectedDays),
+      String(p._count?.payslips ?? 0),
+      p.status,
+    ]),
+  );
+}
+
+export function printHrFunctionsList(rows: JobFunction[]): void {
+  printList(
+    'Référentiel des fonctions',
+    ['Fonction', 'Service', 'Activités'],
+    rows.map((f) => [f.name, f.department ?? '—', (f.activities ?? []).map((a) => a.name).join(', ') || '—']),
+  );
+}
+
+export function printHrDeclarationsList(rows: ActivityDeclaration[]): void {
+  printList(
+    'Déclarations d’activité',
+    ['Agent', 'Activité', 'Date', 'Statut'],
+    rows.map((d) => [
+      d.user ? `${d.user.firstName} ${d.user.lastName}` : '—',
+      d.activity?.name ?? '—',
+      formatDate(d.date),
+      d.status,
+    ]),
+  );
+}
+
+export function printHrObjectivesList(rows: PerformanceObjective[]): void {
+  printList(
+    'Objectifs de performance',
+    ['Agent', 'Objectif', 'Poids %', 'Année'],
+    rows.map((o) => [
+      o.user ? `${o.user.firstName} ${o.user.lastName}` : '—',
+      o.title,
+      String(o.weight),
+      String(o.year),
+    ]),
+  );
+}
+
+export function printHrCoursesList(rows: TrainingCourse[]): void {
+  printList(
+    'Catalogue de formations',
+    ['Intitulé', 'Type', 'Organisme', 'Lieu'],
+    rows.map((c) => [c.title, c.kind, c.provider ?? '—', c.location ?? '—']),
+  );
+}
+
+export function printHrEnrollmentsList(rows: TrainingEnrollment[]): void {
+  printList(
+    'Inscriptions formations',
+    ['Agent', 'Formation', 'Statut'],
+    rows.map((e) => [
+      e.user ? `${e.user.firstName} ${e.user.lastName}` : '—',
+      e.course?.title ?? '—',
+      e.status,
+    ]),
+  );
+}
+
+export function printHrDocumentsList(rows: HrDocument[]): void {
+  printList(
+    'Archives RH',
+    ['Date', 'Agent', 'Type', 'Titre'],
+    rows.map((d) => [
+      formatDate(d.createdAt),
+      d.employee?.user ? `${d.employee.user.firstName} ${d.employee.user.lastName}` : d.employee?.matricule ?? '—',
+      d.type,
+      d.title,
+    ]),
+  );
+}
+
+export function printAssistantSessionsList(rows: AssistantSession[]): void {
+  printList(
+    'Sessions assistant',
+    ['Canal', 'Début', 'Escaladée'],
+    rows.map((s) => [s.channel, formatDate(s.startedAt), s.escalated ? 'Oui' : 'Non']),
+  );
 }
