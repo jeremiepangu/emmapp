@@ -329,6 +329,23 @@ export const api = {
   updatePricingRule: (id: string, data: Partial<CreatePricingRuleInput>) =>
     request<PricingRule>(`/pricing-rules/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deletePricingRule: (id: string) => request<PricingRule>(`/pricing-rules/${id}`, { method: 'DELETE' }),
+
+  getActivityObjectives: (params?: { userId?: string; year?: number; month?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.userId) q.set('userId', params.userId);
+    if (params?.year) q.set('year', String(params.year));
+    if (params?.month) q.set('month', String(params.month));
+    const qs = q.toString();
+    return request<ActivityObjective[]>(`/activity-objectives${qs ? `?${qs}` : ''}`);
+  },
+  getActivityObjectivesCatalog: () =>
+    request<{ users: User[]; functions: JobFunction[] }>('/activity-objectives/catalog'),
+  createActivityObjective: (data: CreateActivityObjectiveInput) =>
+    request<ActivityObjective>('/activity-objectives', { method: 'POST', body: JSON.stringify(data) }),
+  updateActivityObjective: (id: string, data: Partial<CreateActivityObjectiveInput>) =>
+    request<ActivityObjective>(`/activity-objectives/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteActivityObjective: (id: string) =>
+    request<ActivityObjective>(`/activity-objectives/${id}`, { method: 'DELETE' }),
   previewPrice: (clientId: string, productId: string, quantity: number, driverId?: string) => {
     const q = new URLSearchParams({ clientId, productId, quantity: String(quantity) });
     if (driverId) q.set('driverId', driverId);
@@ -483,6 +500,21 @@ export const api = {
   getPayments: () => request<Payment[]>('/payments'),
   createPayment: (data: CreatePaymentInput) =>
     request<Payment>('/payments', { method: 'POST', body: JSON.stringify(data) }),
+
+  getPosCatalog: () => request<PosCatalog>('/pos/catalog'),
+  getPosSales: (from?: string, to?: string) => {
+    const q = new URLSearchParams();
+    if (from) q.set('from', from);
+    if (to) q.set('to', to);
+    const qs = q.toString();
+    return request<PosSalesResponse>(`/pos/sales${qs ? `?${qs}` : ''}`);
+  },
+  quotePos: (data: { clientId?: string | null; lines: Array<{ productId: string; quantity: number }> }) =>
+    request<PosQuote>('/pos/quote', { method: 'POST', body: JSON.stringify(data) }),
+  checkoutPos: (data: PosCheckoutInput) =>
+    request<PosSale>('/pos/checkout', { method: 'POST', body: JSON.stringify(data) }),
+  cancelPosSale: (id: string) =>
+    request<PosSale>(`/pos/sales/${id}/cancel`, { method: 'POST' }),
   updatePayment: (id: string, data: Partial<CreatePaymentInput>) =>
     request<Payment>(`/payments/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deletePayment: (id: string) => request<void>(`/payments/${id}`, { method: 'DELETE' }),
@@ -997,6 +1029,7 @@ export interface PricingRule {
   productId?: string | null;
   minQuantity: number;
   maxQuantity?: number | null;
+  stepQuantity?: number;
   type: PricingRuleType;
   value: string | number;
   priority: number;
@@ -1015,6 +1048,7 @@ export interface CreatePricingRuleInput {
   productId?: string | null;
   minQuantity: number;
   maxQuantity?: number | null;
+  stepQuantity?: number;
   type: PricingRuleType;
   value: number;
   priority?: number;
@@ -1033,6 +1067,9 @@ export interface PricePreview {
   ruleId: string | null;
   ruleName: string | null;
   type: PricingRuleType | null;
+  stepQuantity?: number;
+  discountedQuantity?: number;
+  fullPriceQuantity?: number;
 }
 
 export interface CreateDeliveryInput {
@@ -1165,6 +1202,41 @@ export interface JobFunctionActivity {
   id: string;
   name: string;
   description?: string;
+  jobFunction?: { id: string; name: string; department?: string };
+}
+
+export interface ActivityObjective {
+  id: string;
+  userId: string;
+  activityId: string;
+  title: string;
+  periodType: string;
+  year: number;
+  month?: number | null;
+  quarter?: number | null;
+  targetValue: number;
+  unit: string;
+  notes?: string | null;
+  isActive: boolean;
+  actualValue: number;
+  remaining: number;
+  progressPct: number;
+  status: 'ATTEINT' | 'EN_COURS' | 'EN_RETARD';
+  user?: User;
+  activity?: JobFunctionActivity;
+}
+
+export interface CreateActivityObjectiveInput {
+  userId: string;
+  activityId: string;
+  title: string;
+  periodType?: string;
+  year: number;
+  month?: number | null;
+  quarter?: number | null;
+  targetValue: number;
+  unit?: string;
+  notes?: string;
 }
 
 export interface JobFunction {
@@ -1565,6 +1637,74 @@ export interface Payment {
   createdAt: string;
   clientId?: string;
   client?: { name: string };
+}
+
+export interface PosCatalog {
+  walkInClient: { id: string; code: string; name: string; segment: string };
+  products: Array<{ id: string; code: string; name: string; format: string; unitPrice: number; isReusable: boolean }>;
+  clients: Array<{ id: string; code: string; name: string; segment: string; zone?: string | null; phone?: string | null }>;
+  methods: PaymentMethod[];
+}
+
+export interface PosQuoteLine {
+  productId: string;
+  code: string;
+  name: string;
+  format: string;
+  quantity: number;
+  catalogPrice: number;
+  unitPrice: number;
+  discount: number;
+  lineTotal: number;
+  ruleName: string | null;
+}
+
+export interface PosQuote {
+  client: { id: string; code: string; name: string; segment: string };
+  lines: PosQuoteLine[];
+  subtotal: number;
+  discount: number;
+  total: number;
+}
+
+export interface PosSale {
+  id: string;
+  saleNumber: string;
+  method: PaymentMethod;
+  status: 'PAYEE' | 'ANNULEE';
+  subtotal: string | number;
+  discount: string | number;
+  totalAmount: string | number;
+  cashReceived?: string | number | null;
+  changeGiven?: string | number | null;
+  notes?: string | null;
+  createdAt: string;
+  client?: { id: string; code: string; name: string; segment: string };
+  cashier?: { id: string; firstName: string; lastName: string };
+  order?: { id: string; orderNumber: string; status: string } | null;
+  payment?: { id: string; paymentNumber: string; method: string; amount: string | number } | null;
+  lines?: Array<{
+    productId: string;
+    quantity: number;
+    catalogPrice: string | number;
+    unitPrice: string | number;
+    discount: string | number;
+    product?: { id: string; code: string; name: string; format: string };
+  }>;
+}
+
+export interface PosSalesResponse {
+  sales: PosSale[];
+  summary: { tickets: number; cancelled: number; revenue: number; averageTicket: number };
+}
+
+export interface PosCheckoutInput {
+  clientId?: string | null;
+  lines: Array<{ productId: string; quantity: number }>;
+  method: PaymentMethod;
+  cashReceived?: number;
+  reference?: string;
+  notes?: string;
 }
 
 export interface ProductionOrder {
@@ -2010,6 +2150,7 @@ export interface PortalCatalogItem {
     type: PricingRuleType;
     value: number;
     priority: number;
+    stepQuantity?: number;
   }>;
 }
 

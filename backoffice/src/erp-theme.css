@@ -1928,8 +1928,66 @@ body {
   margin: 0 0 12px;
 }
 
+.pos-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 18px;
+  align-items: start;
+}
+
+.pos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.pos-card {
+  text-align: left;
+  background: #fff;
+  border: 1px solid var(--erp-border);
+  border-radius: 4px;
+  padding: 14px 12px;
+  cursor: pointer;
+  width: 100%;
+}
+
+.pos-card:hover {
+  border-color: var(--erp-brand);
+}
+
+.pos-card strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.pos-card .erp-muted {
+  margin: 0;
+  font-size: 12px;
+}
+
+.pos-card-price {
+  margin-top: 8px;
+  font-weight: 700;
+  color: var(--erp-brand);
+}
+
+.pos-qty {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pos-qty button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+}
+
 @media (max-width: 1100px) {
   .acl-layout {
+    grid-template-columns: 1fr;
+  }
+  .pos-layout {
     grid-template-columns: 1fr;
   }
 }

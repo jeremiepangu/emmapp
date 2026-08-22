@@ -24,6 +24,9 @@ export interface PricedLine {
   ruleId: string | null;
   ruleName: string | null;
   type: PricingRuleType | null;
+  stepQuantity: number;
+  discountedQuantity: number;
+  fullPriceQuantity: number;
 }
 
 function emptyToNull(value?: string | null): string | null {
@@ -59,6 +62,7 @@ export class PricingService {
   async create(dto: CreatePricingRuleDto) {
     this.assertRange(dto.minQuantity ?? 1, dto.maxQuantity);
     this.assertValue(dto.type, dto.value);
+    this.assertStep(dto.stepQuantity ?? 10);
     await this.assertRefs(dto.clientId, dto.driverId);
     return this.prisma.pricingRule.create({
       data: this.toData(dto),
@@ -72,8 +76,10 @@ export class PricingService {
     const maxQuantity = dto.maxQuantity === undefined ? current.maxQuantity : dto.maxQuantity;
     const type = dto.type ?? current.type;
     const value = dto.value ?? Number(current.value);
+    const stepQuantity = dto.stepQuantity ?? current.stepQuantity;
     this.assertRange(minQuantity, maxQuantity);
     this.assertValue(type, value);
+    this.assertStep(stepQuantity);
     await this.assertRefs(
       dto.clientId === undefined ? current.clientId : dto.clientId,
       dto.driverId === undefined ? current.driverId : dto.driverId,
@@ -89,6 +95,7 @@ export class PricingService {
         productId: dto.productId === undefined ? undefined : dto.productId || null,
         minQuantity: dto.minQuantity,
         maxQuantity: dto.maxQuantity === undefined ? undefined : dto.maxQuantity,
+        stepQuantity: dto.stepQuantity,
         type: dto.type,
         value: dto.value,
         priority: dto.priority,
@@ -126,6 +133,9 @@ export class PricingService {
       ruleId: priced.ruleId,
       ruleName: priced.ruleName,
       type: priced.type,
+      stepQuantity: priced.stepQuantity,
+      discountedQuantity: priced.discountedQuantity,
+      fullPriceQuantity: priced.fullPriceQuantity,
     };
   }
 
@@ -158,12 +168,27 @@ export class PricingService {
   ): PricedLine {
     const catalog = new Prisma.Decimal(product.unitPrice);
     const rule = this.pickRule(rules, ctx, product.id, quantity);
+    const step = Math.max(1, rule?.stepQuantity ?? 1);
+    let discountedQty = quantity;
+    let fullPriceQty = 0;
     let unit = catalog;
     if (rule?.type === PricingRuleType.PERCENT) {
       const pct = Math.min(100, Math.max(0, Number(rule.value)));
-      unit = catalog.mul(1 - pct / 100);
+      const discountedUnit = catalog.mul(1 - pct / 100);
+      discountedQty = step > 1 ? Math.floor(quantity / step) * step : quantity;
+      fullPriceQty = quantity - discountedQty;
+      if (discountedQty === 0) {
+        unit = catalog;
+      } else if (fullPriceQty === 0) {
+        unit = discountedUnit;
+      } else {
+        const lineTotal = discountedUnit.mul(discountedQty).add(catalog.mul(fullPriceQty));
+        unit = lineTotal.div(quantity);
+      }
     } else if (rule?.type === PricingRuleType.FIXED) {
       unit = new Prisma.Decimal(rule.value);
+      discountedQty = quantity;
+      fullPriceQty = 0;
     }
     if (unit.lt(0)) unit = new Prisma.Decimal(0);
     unit = unit.toDecimalPlaces(2);
@@ -179,6 +204,9 @@ export class PricingService {
       ruleId: rule?.id ?? null,
       ruleName: rule?.name ?? null,
       type: rule?.type ?? null,
+      stepQuantity: rule?.type === PricingRuleType.PERCENT ? step : 1,
+      discountedQuantity: discountedQty,
+      fullPriceQuantity: fullPriceQty,
     };
   }
 
@@ -192,6 +220,7 @@ export class PricingService {
         productId: r.productId,
         minQuantity: r.minQuantity,
         maxQuantity: r.maxQuantity,
+        stepQuantity: r.stepQuantity ?? 10,
         type: r.type,
         value: Number(r.value),
         priority: r.priority,
@@ -242,6 +271,7 @@ export class PricingService {
       productId: dto.productId || null,
       minQuantity: dto.minQuantity ?? 1,
       maxQuantity: dto.maxQuantity ?? null,
+      stepQuantity: dto.stepQuantity ?? 10,
       type: dto.type,
       value: dto.value,
       priority: dto.priority ?? 0,
@@ -266,6 +296,12 @@ export class PricingService {
   private assertRange(minQuantity: number, maxQuantity?: number | null) {
     if (maxQuantity != null && maxQuantity < minQuantity) {
       throw new BadRequestException('La quantite maximale doit etre superieure ou egale a la quantite minimale');
+    }
+  }
+
+  private assertStep(stepQuantity: number) {
+    if (stepQuantity < 1) {
+      throw new BadRequestException('Le lot de remise doit etre d au moins 1 article');
     }
   }
 

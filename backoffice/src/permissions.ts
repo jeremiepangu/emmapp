@@ -30,7 +30,9 @@ export type Resource =
   | 'packaging'
   | 'vehicles'
   | 'authorizations'
-  | 'contracts';
+    | 'contracts'
+    | 'objectives'
+    | 'pos';
 
 export type Action = 'read' | 'create' | 'update' | 'delete' | 'validate';
 
@@ -50,25 +52,25 @@ export const PERMISSIONS: Record<string, Partial<Record<Resource, Action[]>>> = 
     stock: FULL, deliveries: FULL, payments: FULL, production: FULL, quality: FULL,
     loyalty: FULL, consignes: FULL, hr: FULL, payroll: FULL, observability: FULL, users: FULL, notifications: FULL,
     ai: FULL, assistant: FULL, iot: FULL, routing: FULL, esg: FULL, security: FULL,
-    portal: FULL, marketplace: FULL, integrations: FULL, pricing: FULL, activity: FULL, packaging: FULL, vehicles: FULL, authorizations: FULL, contracts: FULL,
+    portal: FULL, marketplace: FULL, integrations: FULL, pricing: FULL, activity: FULL, packaging: FULL, vehicles: FULL, authorizations: FULL, contracts: FULL, objectives: FULL, pos: FULL,
   },
   DG: {
     dashboard: R, clients: R, orders: R, products: R, tours: R, stock: R, deliveries: R,
     payments: R, production: R, quality: R, loyalty: R, consignes: R, hr: R, payroll: R,
     observability: R, users: R, notifications: R,
-    ai: R, assistant: RC, iot: R, routing: R, esg: R, security: R, portal: R, marketplace: R, pricing: R, packaging: R, vehicles: R, authorizations: R, contracts: RUV,
+    ai: R, assistant: RC, iot: R, routing: R, esg: R, security: R, portal: R, marketplace: R, pricing: R, packaging: R, vehicles: R, authorizations: R, contracts: RUV, objectives: R, pos: R,
   },
   CHEF_PRODUCTION: {
     dashboard: R, production: FULL, quality: R, stock: FULL, packaging: FULL, products: RCU, observability: R, notifications: R,
-    ai: R, assistant: RC, iot: RU, hr: RUV, contracts: R,
+    ai: R, assistant: RC, iot: RU, hr: RUV, contracts: R, objectives: RUV,
   },
   CHEF_EXPLOITATION: {
     dashboard: R, orders: FULL, tours: FULL, deliveries: RUV, stock: R, packaging: R, vehicles: FULL, clients: R, notifications: R,
-    ai: R, assistant: RC, routing: RCUV, iot: R, esg: R, hr: RUV, contracts: R,
+    ai: R, assistant: RC, routing: RCUV, iot: R, esg: R, hr: RUV, contracts: R, objectives: RCUV, pos: R,
   },
   CHARGE_EXPLOITATION: {
     dashboard: R, orders: R, tours: RU, deliveries: R, stock: R, vehicles: R, notifications: R,
-    assistant: RC, routing: R, iot: R, hr: R,
+    assistant: RC, routing: R, iot: R, hr: R, objectives: R,
   },
   RESP_QUALITE: {
     dashboard: R, quality: RCUV, production: R, consignes: R, observability: R, notifications: R,
@@ -84,35 +86,35 @@ export const PERMISSIONS: Record<string, Partial<Record<Resource, Action[]>>> = 
   },
   LIVREUR: {
     dashboard: R, deliveries: RCUV, payments: RC, orders: R, clients: R, notifications: R,
-    assistant: RC, routing: R, hr: R,
+    assistant: RC, routing: R, hr: R, objectives: R,
   },
   CHARGE_LIVRAISON: {
     dashboard: R, deliveries: RCUV, payments: RC, orders: R, clients: R, notifications: R,
-    assistant: RC, routing: R, hr: R,
+    assistant: RC, routing: R, hr: R, objectives: R,
   },
   COMMERCIAL: {
     dashboard: R, clients: FULL, orders: FULL, loyalty: RCU, products: R, payments: RCU, notifications: R,
-    ai: R, assistant: RC, portal: RCU, marketplace: RCUV, pricing: FULL, hr: R, contracts: RCUV,
+    ai: R, assistant: RC, portal: RCU, marketplace: RCUV, pricing: FULL, hr: R, contracts: RCUV, objectives: RCU, pos: FULL,
   },
   DELEGUE_COMMERCIAL: {
     dashboard: R, clients: RC, orders: RC, loyalty: R, products: R, notifications: R,
-    assistant: RC, marketplace: RC, pricing: R, hr: R, contracts: R,
+    assistant: RC, marketplace: RC, pricing: R, hr: R, contracts: R, objectives: R, pos: R,
   },
   CAISSIER: {
     dashboard: R, payments: FULL, clients: R, orders: R, notifications: R,
-    assistant: RC, hr: R,
+    assistant: RC, hr: R, pos: FULL,
   },
   COMPTABLE: {
     payments: RCU, clients: R, orders: R, dashboard: R, notifications: R,
-    ai: R, assistant: RC, payroll: RCUV, hr: R, contracts: RCUV,
+    ai: R, assistant: RC, payroll: RCUV, hr: R, contracts: RCUV, pos: R,
   },
   RH: {
     dashboard: R, hr: FULL, payroll: FULL, users: FULL, notifications: R, authorizations: RCU,
-    assistant: RC, contracts: FULL,
+    assistant: RC, contracts: FULL, objectives: FULL,
   },
   SUPERVISEUR: {
     dashboard: R, tours: R, vehicles: R, observability: R, users: R, deliveries: R, notifications: R,
-    ai: R, assistant: RC, iot: R, routing: R, esg: R, security: R, hr: RUV, contracts: R,
+    ai: R, assistant: RC, iot: R, routing: R, esg: R, security: R, hr: RUV, contracts: R, objectives: RCUV,
   },
   IT_GED: {
     observability: R, users: R, notifications: R, dashboard: R, authorizations: R,
@@ -185,6 +187,7 @@ export const MENU_ITEMS: MenuItem[] = [
   { path: '/portal-accounts', label: 'Comptes portail', resource: 'portal', section: 'ANNUAIRES' },
   { path: '/contracts', label: 'Contrats', resource: 'contracts', section: 'CONTRATS' },
   { path: '/orders', label: 'Historique commandes', resource: 'orders', section: 'COMMANDES' },
+  { path: '/pos', label: 'Point de vente', resource: 'pos', section: 'COMMANDES' },
   { path: '/products', label: 'Catalogue produits', resource: 'products', section: 'COMMANDES' },
   { path: '/pricing', label: 'Tarifs et remises', resource: 'pricing', section: 'COMMANDES' },
   { path: '/stock', label: 'Stocks & achats', resource: 'stock', section: 'ACHATS' },
@@ -202,6 +205,7 @@ export const MENU_ITEMS: MenuItem[] = [
   { path: '/marketplace', label: 'Marketplace B2B', resource: 'marketplace', section: 'COMMERCE' },
   { path: '/esg', label: 'Durabilité / ESG', resource: 'esg', section: 'DURABILITÉ' },
   { path: '/hr', label: 'Administration RH', resource: 'hr', section: 'PERSONNEL' },
+  { path: '/objectives', label: 'Objectifs agents', resource: 'objectives', section: 'PERSONNEL' },
   { path: '/activity', label: 'Rapports d’activité', resource: 'activity', section: 'PERSONNEL' },
   { path: '/payroll', label: 'Paie des agents', resource: 'payroll', section: 'PERSONNEL' },
   { path: '/users', label: 'Utilisateurs', resource: 'users', section: 'PERSONNEL' },

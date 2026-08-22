@@ -29,6 +29,7 @@ const STATUS_MAP: Record<string, { label: string; className: string }> = {
   ELEVEE: { label: 'Élevée', className: 'erp-pill erp-pill--orange' },
   CRITIQUE: { label: 'Critique', className: 'erp-pill erp-pill--red' },
   ACTIF: { label: 'Actif', className: 'erp-pill erp-pill--green' },
+  PAYEE: { label: 'Payée', className: 'erp-pill erp-pill--green' },
   HORS_LIGNE: { label: 'Hors ligne', className: 'erp-pill erp-pill--red' },
   MAINTENANCE: { label: 'Maintenance', className: 'erp-pill erp-pill--orange' },
   ANALYSEE: { label: 'Analysée', className: 'erp-pill erp-pill--blue' },

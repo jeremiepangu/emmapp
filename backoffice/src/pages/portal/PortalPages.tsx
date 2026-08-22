@@ -29,9 +29,17 @@ function priceForQty(item: PortalCatalogItem, quantity: number) {
   });
   const tier = matches[0];
   if (!tier) return { unit: item.basePrice, pct: 0, name: null as string | null };
-  const unit = tier.type === 'PERCENT'
-    ? Math.round(item.basePrice * (1 - tier.value / 100) * 100) / 100
-    : Number(tier.value);
+  if (tier.type === 'PERCENT') {
+    const step = Math.max(1, tier.stepQuantity ?? 10);
+    const billed = step > 1 ? Math.floor(qty / step) * step : qty;
+    const rest = qty - billed;
+    const discountedUnit = Math.round(item.basePrice * (1 - tier.value / 100) * 100) / 100;
+    const total = discountedUnit * billed + item.basePrice * rest;
+    const unit = Math.round((total / qty) * 100) / 100;
+    const pct = item.basePrice > 0 ? Math.round(((item.basePrice - unit) / item.basePrice) * 10000) / 100 : 0;
+    return { unit, pct, name: tier.name };
+  }
+  const unit = Number(tier.value);
   const pct = item.basePrice > 0 ? Math.round(((item.basePrice - unit) / item.basePrice) * 10000) / 100 : 0;
   return { unit, pct, name: tier.name };
 }
@@ -187,7 +195,7 @@ export function PortalCatalogPage() {
                         <div className="erp-muted">
                           {p.tiers.map((t) => (
                             <div key={t.id}>
-                              {t.minQuantity}{t.maxQuantity != null ? `-${t.maxQuantity}` : '+'} : {t.type === 'PERCENT' ? `${t.value} %` : `${t.value.toLocaleString('fr-FR')} CDF`}
+                              {t.minQuantity}{t.maxQuantity != null ? `-${t.maxQuantity}` : '+'} : {t.type === 'PERCENT' ? `${t.value} % tous les ${t.stepQuantity ?? 10}` : `${t.value.toLocaleString('fr-FR')} CDF`}
                             </div>
                           ))}
                         </div>

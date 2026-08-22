@@ -18,6 +18,7 @@ const emptyForm: CreatePricingRuleInput = {
   productId: null,
   minQuantity: 1,
   maxQuantity: null,
+  stepQuantity: 10,
   type: 'PERCENT',
   value: 5,
   priority: 0,
@@ -25,8 +26,9 @@ const emptyForm: CreatePricingRuleInput = {
 };
 
 function qtyLabel(rule: PricingRule): string {
-  if (rule.maxQuantity == null) return `dès ${rule.minQuantity} unités`;
-  return `${rule.minQuantity} à ${rule.maxQuantity}`;
+  const range = rule.maxQuantity == null ? `dès ${rule.minQuantity} unités` : `${rule.minQuantity} à ${rule.maxQuantity}`;
+  if (rule.type === 'PERCENT') return `${range} · lots de ${rule.stepQuantity ?? 10}`;
+  return range;
 }
 
 function valueLabel(rule: PricingRule): string {
@@ -88,6 +90,7 @@ export default function PricingPage() {
       productId: rule.productId ?? null,
       minQuantity: rule.minQuantity,
       maxQuantity: rule.maxQuantity ?? null,
+      stepQuantity: rule.stepQuantity ?? 10,
       type: rule.type,
       value: Number(rule.value),
       priority: rule.priority,
@@ -123,7 +126,7 @@ export default function PricingPage() {
     <div className="erp-page">
       <ErpPageHeader
         title="Tarifs et remises"
-        subtitle="Prix préférentiel et remise par catégorie, client, zone, livreur et quantité"
+        subtitle="Prix préférentiel et remise par catégorie, client, zone, livreur. La remise s'applique uniquement par lots de 10 articles vendus."
         actions={
           <>
             <DocButton label="Imprimer les règles" onClick={() => printPricingRules(rules)} />
@@ -238,6 +241,13 @@ export default function PricingPage() {
               />
             </div>
           </div>
+          {form.type === 'PERCENT' && (
+            <div className="form-group">
+              <label>Remise tous les N articles</label>
+              <input type="number" min={1} value={form.stepQuantity ?? 10} onChange={(e) => setForm({ ...form, stepQuantity: Number(e.target.value) })} required />
+              <p className="erp-muted">Exemple : lot de 10. Pour 23 articles, 20 sont remisés et 3 restent au tarif catalogue.</p>
+            </div>
+          )}
           <div className="form-group">
             <label>Type</label>
             <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as PricingRuleType, value: e.target.value === 'PERCENT' ? 5 : 0 })}>

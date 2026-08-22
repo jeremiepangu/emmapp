@@ -28,6 +28,8 @@ import { PreferencesModule } from './preferences/preferences.module';
 import { SearchModule } from './search/search.module';
 import { HrModule } from './hr/hr.module';
 import { PricingModule } from './pricing/pricing.module';
+import { ObjectivesModule } from './objectives/objectives.module';
+import { PosModule } from './pos/pos.module';
 import { PackagingModule } from './packaging/packaging.module';
 import { AuthorizationsModule } from './authorizations/authorizations.module';
 import { ContractsModule } from './contracts/contracts.module';
@@ -64,6 +66,8 @@ import { HealthController } from './health.controller';
     SearchModule,
     HrModule,
     PricingModule,
+    ObjectivesModule,
+    PosModule,
     PackagingModule,
     AuthorizationsModule,
     ContractsModule,

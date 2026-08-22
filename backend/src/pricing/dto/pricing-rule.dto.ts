@@ -62,6 +62,13 @@ export class CreatePricingRuleDto {
   @Min(1)
   maxQuantity?: number | null;
 
+  @ApiPropertyOptional({ default: 10, description: 'Remise appliquee par lots (tous les N articles vendus)' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  stepQuantity?: number;
+
   @ApiProperty({ enum: PricingRuleType })
   @IsEnum(PricingRuleType)
   type: PricingRuleType;

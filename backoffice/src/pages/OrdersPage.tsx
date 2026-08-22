@@ -158,6 +158,9 @@ export default function OrdersPage() {
               {' · '}
               Prix applique {preview.unitPrice.toLocaleString('fr-FR')} CDF
               {preview.discountPct > 0 ? ` · Remise ${preview.discountPct} %` : ''}
+              {preview.discountedQuantity != null && preview.fullPriceQuantity
+                ? ` · ${preview.discountedQuantity} articles remisés, ${preview.fullPriceQuantity} au tarif`
+                : ''}
               {' · '}
               Ligne {preview.lineTotal.toLocaleString('fr-FR')} CDF
               {preview.ruleName ? ` (${preview.ruleName})` : ''}

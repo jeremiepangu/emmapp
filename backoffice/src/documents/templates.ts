@@ -42,6 +42,8 @@ import type {
   HrDashboard,
   PerformanceObjective,
   PerformanceReview,
+  ActivityObjective,
+  PosSale,
   BusinessContract,
   Vehicle,
   PackagingSku,
@@ -132,7 +134,7 @@ export function printProductsCatalog(products: Product[]): void {
 export function printPricingRules(rules: PricingRule[]): void {
   printList(
     'Regles tarifaires',
-    ['Nom', 'Portee', 'Produit', 'Qte min', 'Qte max', 'Type', 'Valeur'],
+    ['Nom', 'Portee', 'Produit', 'Qte min', 'Qte max', 'Lot', 'Type', 'Valeur'],
     rules.map((r) => [
       r.name,
       [r.client?.name, r.zone ? `Zone ${r.zone}` : '', r.driver ? `${r.driver.firstName} ${r.driver.lastName}` : '', r.segment ?? '']
@@ -141,10 +143,49 @@ export function printPricingRules(rules: PricingRule[]): void {
       r.product?.name ?? 'Tous',
       String(r.minQuantity),
       r.maxQuantity == null ? 'Illimite' : String(r.maxQuantity),
+      r.type === 'PERCENT' ? `tous les ${r.stepQuantity ?? 10}` : 'ligne',
       r.type === 'PERCENT' ? 'Remise %' : 'Prix fixe',
       r.type === 'PERCENT' ? `${Number(r.value)} %` : formatMoney(r.value),
     ]),
   );
+}
+
+export function printActivityObjectivesList(rows: ActivityObjective[]): void {
+  printList(
+    'Objectifs de performance des agents',
+    ['Agent', 'Activite', 'Objectif', 'Periode', 'Cible', 'Realise', 'Avancement', 'Statut'],
+    rows.map((r) => [
+      r.user ? `${r.user.firstName} ${r.user.lastName}` : r.userId,
+      r.activity?.name ?? '',
+      r.title,
+      r.periodType === 'ANNUEL' ? String(r.year) : r.periodType === 'TRIMESTRIEL' ? `T${r.quarter} ${r.year}` : `${r.month}/${r.year}`,
+      String(r.targetValue),
+      String(r.actualValue),
+      `${r.progressPct} %`,
+      r.status,
+    ]),
+  );
+}
+
+export function printActivityObjectiveSheet(row: ActivityObjective): void {
+  printDocument({
+    kind: 'Fiche objectif agent',
+    reference: row.title,
+    subtitle: row.title,
+    fields: [
+      { label: 'Agent', value: row.user ? `${row.user.firstName} ${row.user.lastName}` : row.userId },
+      { label: 'Activite', value: row.activity?.name ?? '' },
+      { label: 'Fonction', value: row.activity?.jobFunction?.name ?? '' },
+      { label: 'Periode', value: row.periodType },
+      { label: 'Annee', value: String(row.year) },
+      { label: 'Cible', value: String(row.targetValue) },
+      { label: 'Realise', value: String(row.actualValue) },
+      { label: 'Restant', value: String(row.remaining) },
+      { label: 'Avancement', value: `${row.progressPct} %` },
+      { label: 'Statut', value: row.status },
+    ],
+    notes: row.notes ?? undefined,
+  });
 }
 
 export function printOrder(o: Order): void {
@@ -1273,5 +1314,68 @@ export function printAssistantSessionsList(rows: AssistantSession[]): void {
     'Sessions assistant',
     ['Canal', 'Début', 'Escaladée'],
     rows.map((s) => [s.channel, formatDate(s.startedAt), s.escalated ? 'Oui' : 'Non']),
+  );
+}
+
+const POS_METHOD: Record<string, string> = {
+  ESPECES: 'Especes',
+  CHEQUE: 'Cheque',
+  VIREMENT: 'Virement',
+  MOBILE_MONEY: 'Mobile Money',
+  MPESA: 'M-Pesa',
+  ORANGE_MONEY: 'Orange Money',
+  AIRTEL_MONEY: 'Airtel Money',
+  WAVE: 'Wave',
+  CREDIT: 'Credit',
+};
+
+export function printPosTicket(sale: PosSale): void {
+  const lines = sale.lines ?? [];
+  printDocument({
+    kind: 'Ticket de caisse',
+    reference: sale.saleNumber,
+    date: sale.createdAt,
+    subtitle: sale.client?.name ?? 'Comptoir',
+    fields: [
+      { label: 'Client', value: sale.client ? `${sale.client.name} (${sale.client.code})` : 'Comptoir' },
+      { label: 'Caissier', value: sale.cashier ? `${sale.cashier.firstName} ${sale.cashier.lastName}` : '—' },
+      { label: 'Mode', value: POS_METHOD[sale.method] ?? sale.method },
+      { label: 'Commande', value: sale.order?.orderNumber ?? '—' },
+      { label: 'Paiement', value: sale.payment?.paymentNumber ?? '—' },
+    ],
+    tables: [{
+      headers: ['Produit', 'Qte', 'P.U.', 'Remise', 'Total'],
+      rows: lines.map((l) => [
+        l.product?.name ?? l.productId,
+        String(l.quantity),
+        formatMoney(l.unitPrice),
+        formatMoney(l.discount),
+        formatMoney(Number(l.unitPrice) * l.quantity),
+      ]),
+    }],
+    totals: [
+      { label: 'Sous-total', value: formatMoney(sale.subtotal) },
+      { label: 'Remise', value: formatMoney(sale.discount) },
+      { label: 'A payer', value: formatMoney(sale.totalAmount) },
+      ...(sale.cashReceived != null ? [{ label: 'Recu', value: formatMoney(sale.cashReceived) }] : []),
+      ...(sale.changeGiven != null ? [{ label: 'Monnaie', value: formatMoney(sale.changeGiven) }] : []),
+    ],
+    notes: sale.notes || 'Merci pour votre achat. EMMANUEL SERVICES SARLU — eau potable.',
+    signatures: ['La caisse', 'Le client'],
+  });
+}
+
+export function printPosSalesList(sales: PosSale[]): void {
+  printList(
+    'Journal de caisse',
+    ['Ticket', 'Heure', 'Client', 'Mode', 'Montant', 'Statut'],
+    sales.map((s) => [
+      s.saleNumber,
+      formatDate(s.createdAt),
+      s.client?.name ?? '—',
+      POS_METHOD[s.method] ?? s.method,
+      formatMoney(s.totalAmount),
+      s.status,
+    ]),
   );
 }
