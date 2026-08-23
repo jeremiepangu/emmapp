@@ -292,7 +292,7 @@ html.ws-onepage body {
   position: absolute;
   inset: 0;
   background:
-    url('/hero-eau.jpg') center/cover no-repeat,
+    url('/emma-hero.png') center 58%/cover no-repeat,
     linear-gradient(160deg, #0b1f44, #1a4ba5 48%, #163816);
 }
 
@@ -300,7 +300,7 @@ html.ws-onepage body {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(180deg, rgba(8, 15, 28, 0.42) 0%, rgba(8, 15, 28, 0.58) 46%, rgba(8, 15, 28, 0.78) 100%);
+    linear-gradient(180deg, rgba(8, 22, 48, 0.28) 0%, rgba(8, 22, 48, 0.18) 38%, rgba(8, 22, 48, 0.55) 100%);
 }
 
 .ws-hero-copy {
@@ -314,6 +314,7 @@ html.ws-onepage body {
   margin: 8px auto 16px;
   max-width: 16ch;
   color: #fff;
+  text-shadow: 0 8px 28px rgba(8, 22, 48, 0.45);
 }
 
 .ws-lead,
@@ -326,7 +327,8 @@ html.ws-onepage body {
 
 .ws-lead {
   margin: 0 auto;
-  color: rgba(255, 255, 255, 0.86);
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 4px 18px rgba(8, 22, 48, 0.4);
 }
 
 .ws-hero-cta {
@@ -693,6 +695,9 @@ html.ws-onepage body {
 }
 
 @media (max-width: 640px) {
+  .ws-hero-media {
+    background-position: center 72%;
+  }
   .ws-stats,
   .ws-cards,
   .ws-mineral-grid,

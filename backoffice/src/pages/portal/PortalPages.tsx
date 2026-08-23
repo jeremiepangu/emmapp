@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { Link, Navigate, Outlet, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Navigate, Outlet, useNavigate } from 'react-router-dom';
 import { portalApi, DeliveryTracking, Order, PaymentMethod, PortalCatalogItem, PortalConsigne, PortalInvoice, PortalLoyalty } from '../../api';
 import { usePortal } from '../../PortalContext';
 import StatusPill from '../../components/ErpUi';
@@ -61,14 +61,14 @@ export function PortalLayout() {
           </div>
         </div>
         <nav>
-          <Link to="/portail">Accueil</Link>
-          <Link to="/portail/commander">Commander</Link>
-          <Link to="/portail/commandes">Mes commandes</Link>
-          <Link to="/portail/livraisons">Suivi</Link>
-          <Link to="/portail/factures">Factures</Link>
-          <Link to="/portail/fidelite">Fidélité</Link>
-          <Link to="/portail/consignes">Consignes</Link>
-          <Link to="/portail/assistant">Assistant</Link>
+          <NavLink to="/portail" end>Accueil</NavLink>
+          <NavLink to="/portail/commander">Commander</NavLink>
+          <NavLink to="/portail/commandes">Mes commandes</NavLink>
+          <NavLink to="/portail/livraisons">Suivi</NavLink>
+          <NavLink to="/portail/factures">Factures</NavLink>
+          <NavLink to="/portail/fidelite">Fidélité</NavLink>
+          <NavLink to="/portail/consignes">Consignes</NavLink>
+          <NavLink to="/portail/assistant">Assistant</NavLink>
         </nav>
         <button type="button" className="erp-btn erp-btn--ghost" onClick={logout}>Déconnexion</button>
       </aside>
