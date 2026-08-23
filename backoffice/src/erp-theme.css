@@ -74,7 +74,7 @@ body {
 }
 
 .erp-sidebar {
-  width: 240px;
+  width: 260px;
   background: var(--erp-sidebar);
   color: var(--erp-sidebar-fg);
   flex-shrink: 0;
@@ -222,7 +222,10 @@ body {
 
 .erp-nav {
   flex: 1;
-  padding: 4px 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px 16px;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
@@ -235,6 +238,20 @@ body {
 .erp-nav::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.15);
   border-radius: 2px;
+}
+
+.erp-nav-empty {
+  margin: 8px 6px 0;
+  color: var(--erp-sidebar-heading);
+  font-size: var(--erp-text-sm);
+  line-height: 1.4;
+}
+
+.erp-nav-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  flex-shrink: 0;
 }
 
 .erp-nav-section {
@@ -250,14 +267,20 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 9px 16px 9px 18px;
+  width: 100%;
+  padding: 10px 10px 10px 12px;
   margin: 0;
-  border-radius: 0;
+  border: 1px solid var(--erp-sidebar-border);
+  border-radius: var(--erp-radius);
+  background: var(--erp-sidebar-hover);
   color: var(--erp-sidebar-text);
+  font-family: inherit;
   font-size: var(--erp-text-sm);
-  font-weight: 400;
+  font-weight: 700;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
   transition: background var(--erp-transition), color var(--erp-transition);
-  border-left: 3px solid transparent;
 }
 
 .erp-nav-link:hover {
@@ -265,11 +288,11 @@ body {
   color: #fff;
 }
 
-.erp-nav-link.active {
+.erp-nav-link.active,
+.erp-nav-link.is-open,
+.erp-nav-link.is-current {
   background: rgba(0, 163, 255, 0.08);
   color: #fff;
-  border-left-color: var(--erp-brand);
-  font-weight: 600;
 }
 
 .erp-nav-icon {
@@ -286,6 +309,7 @@ body {
 }
 
 .erp-nav-link.active .erp-nav-icon,
+.erp-nav-link.is-open .erp-nav-icon,
 .erp-nav-link:hover .erp-nav-icon {
   background: transparent;
   color: inherit;
@@ -294,11 +318,50 @@ body {
 
 .erp-nav-label {
   flex: 1;
-  font-weight: 500;
+  min-width: 0;
+  font-weight: 700;
+  line-height: 1.25;
 }
 
 .erp-nav-chevron {
-  display: none;
+  display: inline-flex;
+  flex-shrink: 0;
+  color: inherit;
+  opacity: 0.7;
+  font-size: 16px;
+  line-height: 1;
+  transform: rotate(0deg);
+  transition: transform 0.18s ease;
+}
+
+.erp-nav-group.is-open .erp-nav-chevron {
+  transform: rotate(90deg);
+}
+
+.erp-nav-submenu {
+  display: flex;
+  flex-direction: column;
+  padding: 2px 4px 6px 30px;
+}
+
+.erp-nav-sublink {
+  display: block;
+  padding: 9px 4px 8px;
+  border-bottom: 1px solid var(--erp-sidebar-border);
+  color: var(--erp-sidebar-text);
+  font-size: var(--erp-text-sm);
+  font-weight: 700;
+  line-height: 1.3;
+  text-decoration: none;
+}
+
+.erp-nav-sublink:last-child {
+  border-bottom: 0;
+}
+
+.erp-nav-sublink:hover,
+.erp-nav-sublink.active {
+  color: #fff;
 }
 
 .erp-main-wrap {
@@ -1579,9 +1642,10 @@ body {
 @media (max-width: 900px) {
   .erp-sidebar {
     position: fixed;
-    left: -270px;
+    left: -280px;
     top: 0;
     bottom: 0;
+    width: 260px;
     transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
@@ -1776,12 +1840,17 @@ body {
   gap: 6px;
 }
 
+.portal-layout .erp-sidebar {
+  width: 240px;
+}
+
 .portal-layout .erp-sidebar nav {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 12px;
+  padding: 12px 10px 16px;
   flex: 1;
+  overflow-y: auto;
 }
 
 .portal-layout .erp-sidebar .erp-btn {
@@ -1804,19 +1873,28 @@ body {
   text-decoration: none;
   display: flex;
   align-items: center;
-  padding: 9px 16px 9px 18px;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
   margin: 0;
-  border-radius: 0;
+  border: 1px solid var(--erp-sidebar-border);
+  border-radius: var(--erp-radius);
+  background: var(--erp-sidebar-hover);
   font-size: 13px;
-  font-weight: 400;
-  border-left: 3px solid transparent;
+  font-weight: 700;
+}
+
+.portal-layout .erp-sidebar nav a::after {
+  content: '›';
+  opacity: 0.7;
+  font-size: 16px;
+  line-height: 1;
 }
 
 .portal-layout .erp-sidebar nav a:hover,
 .portal-layout .erp-sidebar nav a.active {
   background: rgba(0, 163, 255, 0.08);
   color: #fff;
-  border-left-color: var(--erp-brand);
 }
 
 [data-theme="sombre"] {
