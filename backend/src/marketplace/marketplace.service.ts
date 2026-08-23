@@ -74,7 +74,7 @@ export class MarketplaceService {
   async update(id: string, userId: string, data: { status?: QuoteRequestStatus; quotedAmount?: number }) {
     const existing = await this.prisma.quoteRequest.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Demande introuvable');
-    return this.prisma.quoteRequest.update({
+    const updated = await this.prisma.quoteRequest.update({
       where: { id },
       data: {
         status: data.status,
@@ -83,6 +83,19 @@ export class MarketplaceService {
       },
       include: { client: { select: { code: true, name: true } } },
     });
+    if (data.status === QuoteRequestStatus.ACCEPTEE || data.status === QuoteRequestStatus.REFUSEE) {
+      await this.notifications.notifyRoles(
+        [UserRole.COMMERCIAL, UserRole.DELEGUE_COMMERCIAL, UserRole.ADMIN],
+        {
+          title: data.status === QuoteRequestStatus.ACCEPTEE ? 'Cotation acceptee' : 'Cotation refusee',
+          message: `${updated.companyName} — ${updated.reference}`,
+          type: data.status === QuoteRequestStatus.ACCEPTEE ? NotificationType.SUCCESS : NotificationType.WARNING,
+          category: NotificationCategory.COMMANDE,
+          link: '/marketplace',
+        },
+      );
+    }
+    return updated;
   }
 
   async convert(id: string) {

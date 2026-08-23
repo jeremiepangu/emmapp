@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { LeaveStatus, Prisma, UserRole } from '@prisma/client';
+import { LeaveStatus, NotificationCategory, NotificationType, Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.module';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateActivityObjectiveDto, UpdateActivityObjectiveDto } from './dto/objective.dto';
 
 const INCLUDE = {
@@ -26,7 +27,10 @@ const MANAGERS: UserRole[] = [
 
 @Injectable()
 export class ObjectivesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   async list(actor: { id: string; role: UserRole }, query: { userId?: string; year?: number; month?: number }) {
     const year = query.year ?? new Date().getFullYear();
@@ -95,6 +99,15 @@ export class ObjectivesService {
       },
       include: INCLUDE,
     });
+    const payload = {
+      title: 'Objectif assigne',
+      message: `${created.title} — ${created.user.firstName} ${created.user.lastName}`,
+      type: NotificationType.INFO,
+      category: NotificationCategory.SUPERVISION,
+      link: '/objectives',
+    };
+    await this.notifications.create({ ...payload, userId: created.userId });
+    await this.notifications.notifyRoles(MANAGERS, payload);
     return this.withProgress(created);
   }
 

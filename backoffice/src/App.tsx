@@ -20,6 +20,7 @@ import StockPage from './pages/StockPage';
 import PackagingPage from './pages/PackagingPage';
 import DeliveriesPage from './pages/DeliveriesPage';
 import PaymentsPage from './pages/PaymentsPage';
+import FinancePage from './pages/FinancePage';
 import ProductionPage from './pages/ProductionPage';
 import QualityPage from './pages/QualityPage';
 import LoyaltyPage from './pages/LoyaltyPage';
@@ -157,6 +158,7 @@ function AppRoutes() {
         <Route path="/packaging" element={<GuardedRoute resource="packaging" element={<PackagingPage />} />} />
         <Route path="/deliveries" element={<GuardedRoute resource="deliveries" element={<DeliveriesPage />} />} />
         <Route path="/payments" element={<GuardedRoute resource="payments" element={<PaymentsPage />} />} />
+        <Route path="/finance" element={<GuardedRoute resource="finance" element={<FinancePage />} />} />
         <Route path="/production" element={<GuardedRoute resource="production" element={<ProductionPage />} />} />
         <Route path="/quality" element={<GuardedRoute resource="quality" element={<QualityPage />} />} />
         <Route path="/loyalty" element={<GuardedRoute resource="loyalty" element={<LoyaltyPage />} />} />

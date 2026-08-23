@@ -223,6 +223,172 @@ export type PaymentMethod =
   | 'WAVE'
   | 'CREDIT';
 
+export type FinanceAccountKind = 'CAISSE' | 'BANQUE';
+export type FinanceCategoryKind = 'RECETTE' | 'CHARGE' | 'TRANSFERT';
+export type FinanceMovementKind = 'ENTREE' | 'SORTIE' | 'TRANSFERT' | 'DEPENSE' | 'ENCAISSEMENT';
+export type FinanceMovementStatus = 'BROUILLON' | 'VALIDE' | 'ANNULE';
+export type FinanceInventoryStatus = 'BROUILLON' | 'VALIDE' | 'ANNULE';
+
+export interface FinanceUserRef {
+  id: string;
+  firstName: string;
+  lastName: string;
+}
+
+export interface FinanceAccount {
+  id: string;
+  code: string;
+  name: string;
+  kind: FinanceAccountKind;
+  currency: string;
+  openingBalance: number | string;
+  balance: number;
+  bankName?: string | null;
+  iban?: string | null;
+  isActive: boolean;
+  createdBy?: FinanceUserRef | null;
+}
+
+export interface FinanceCategory {
+  id: string;
+  code: string;
+  name: string;
+  kind: FinanceCategoryKind;
+  isActive: boolean;
+}
+
+export interface FinanceMovement {
+  id: string;
+  number: string;
+  kind: FinanceMovementKind;
+  status: FinanceMovementStatus;
+  accountId: string;
+  destAccountId?: string | null;
+  categoryId?: string | null;
+  paymentId?: string | null;
+  amount: number | string;
+  method: PaymentMethod;
+  date: string;
+  label: string;
+  reference?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  validatedAt?: string | null;
+  account?: { id: string; code: string; name: string; kind: FinanceAccountKind };
+  destAccount?: { id: string; code: string; name: string; kind: FinanceAccountKind } | null;
+  category?: { id: string; code: string; name: string; kind: FinanceCategoryKind } | null;
+  createdBy?: FinanceUserRef;
+  validatedBy?: FinanceUserRef | null;
+}
+
+export interface FinanceBudget {
+  id: string;
+  year: number;
+  month?: number | null;
+  categoryId: string;
+  plannedAmount: number | string;
+  actualAmount?: number;
+  remaining?: number;
+  progressPct?: number;
+  notes?: string | null;
+  category?: FinanceCategory;
+}
+
+export interface FinanceInventoryLine {
+  id?: string;
+  productId: string;
+  locationId: string;
+  productCode?: string;
+  productName?: string;
+  locationCode?: string;
+  locationName?: string;
+  theoreticalQty: number;
+  countedQty?: number;
+  unitValue: number | string;
+  theoreticalValue?: number;
+  product?: { code: string; name: string };
+}
+
+export interface FinanceInventory {
+  id: string;
+  number: string;
+  date: string;
+  status: FinanceInventoryStatus;
+  notes?: string | null;
+  createdAt: string;
+  validatedAt?: string | null;
+  createdBy?: FinanceUserRef;
+  validatedBy?: FinanceUserRef | null;
+  lines: FinanceInventoryLine[];
+  _count?: { lines: number };
+}
+
+export interface FinanceInventorySnapshot {
+  lines: FinanceInventoryLine[];
+  totalQty: number;
+  totalValue: number;
+}
+
+export interface FinanceSummary {
+  cashBalance: number;
+  bankBalance: number;
+  cashInHand: number;
+  totalTreasury: number;
+  monthIn: number;
+  monthOut: number;
+  monthExpenses: number;
+  monthCash: number;
+  monthBank: number;
+  netMonth: number;
+  inventoryValue: number;
+  inventorySku: number;
+  accounts: FinanceAccount[];
+  budgets: FinanceBudget[];
+}
+
+export interface CreateFinanceAccountInput {
+  code: string;
+  name: string;
+  kind: FinanceAccountKind;
+  currency?: string;
+  openingBalance?: number;
+  bankName?: string;
+  iban?: string;
+}
+
+export interface CreateFinanceMovementInput {
+  kind: FinanceMovementKind;
+  accountId: string;
+  destAccountId?: string;
+  categoryId?: string;
+  amount: number;
+  method?: PaymentMethod;
+  date: string;
+  label: string;
+  reference?: string;
+  notes?: string;
+}
+
+export interface CreateFinanceBudgetInput {
+  year: number;
+  month?: number | null;
+  categoryId: string;
+  plannedAmount: number;
+  notes?: string;
+}
+
+export interface CreateFinanceInventoryInput {
+  date: string;
+  notes?: string;
+  lines: Array<{
+    productId: string;
+    locationId: string;
+    theoreticalQty: number;
+    countedQty: number;
+    unitValue: number;
+  }>;
+}
+
 export type ClientSegment =
   | 'PARTICULIER'
   | 'BOUTIQUE'
@@ -500,6 +666,51 @@ export const api = {
   getPayments: () => request<Payment[]>('/payments'),
   createPayment: (data: CreatePaymentInput) =>
     request<Payment>('/payments', { method: 'POST', body: JSON.stringify(data) }),
+
+  getFinanceSummary: () => request<FinanceSummary>('/finance/summary'),
+  getFinanceAccounts: () => request<FinanceAccount[]>('/finance/accounts'),
+  createFinanceAccount: (data: CreateFinanceAccountInput) =>
+    request<FinanceAccount>('/finance/accounts', { method: 'POST', body: JSON.stringify(data) }),
+  updateFinanceAccount: (id: string, data: Partial<CreateFinanceAccountInput> & { isActive?: boolean }) =>
+    request<FinanceAccount>(`/finance/accounts/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  getFinanceCategories: () => request<FinanceCategory[]>('/finance/categories'),
+  createFinanceCategory: (data: { code: string; name: string; kind: FinanceCategoryKind }) =>
+    request<FinanceCategory>('/finance/categories', { method: 'POST', body: JSON.stringify(data) }),
+  getFinanceMovements: (params?: { kind?: string; status?: string; accountId?: string; from?: string; to?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.kind) q.set('kind', params.kind);
+    if (params?.status) q.set('status', params.status);
+    if (params?.accountId) q.set('accountId', params.accountId);
+    if (params?.from) q.set('from', params.from);
+    if (params?.to) q.set('to', params.to);
+    const qs = q.toString();
+    return request<FinanceMovement[]>(`/finance/movements${qs ? `?${qs}` : ''}`);
+  },
+  createFinanceMovement: (data: CreateFinanceMovementInput) =>
+    request<FinanceMovement>('/finance/movements', { method: 'POST', body: JSON.stringify(data) }),
+  validateFinanceMovement: (id: string) =>
+    request<FinanceMovement>(`/finance/movements/${id}/validate`, { method: 'POST' }),
+  cancelFinanceMovement: (id: string) =>
+    request<FinanceMovement>(`/finance/movements/${id}/cancel`, { method: 'POST' }),
+  getFinanceBudgets: (year?: number, month?: number) => {
+    const q = new URLSearchParams();
+    if (year) q.set('year', String(year));
+    if (month) q.set('month', String(month));
+    const qs = q.toString();
+    return request<FinanceBudget[]>(`/finance/budgets${qs ? `?${qs}` : ''}`);
+  },
+  createFinanceBudget: (data: CreateFinanceBudgetInput) =>
+    request<FinanceBudget>('/finance/budgets', { method: 'POST', body: JSON.stringify(data) }),
+  updateFinanceBudget: (id: string, data: Partial<CreateFinanceBudgetInput>) =>
+    request<FinanceBudget>(`/finance/budgets/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteFinanceBudget: (id: string) =>
+    request<{ id: string }>(`/finance/budgets/${id}`, { method: 'DELETE' }),
+  getFinanceInventorySnapshot: () => request<FinanceInventorySnapshot>('/finance/inventory/snapshot'),
+  getFinanceInventories: () => request<FinanceInventory[]>('/finance/inventory'),
+  createFinanceInventory: (data: CreateFinanceInventoryInput) =>
+    request<FinanceInventory>('/finance/inventory', { method: 'POST', body: JSON.stringify(data) }),
+  validateFinanceInventory: (id: string) =>
+    request<FinanceInventory>(`/finance/inventory/${id}/validate`, { method: 'POST' }),
 
   getPosCatalog: () => request<PosCatalog>('/pos/catalog'),
   getPosSales: (from?: string, to?: string) => {
@@ -885,7 +1096,12 @@ export const api = {
 
   // ------------------------------------ Préférences, vues, recherche globale
   getPreferences: () => request<UserPreference>('/preferences'),
-  updatePreferences: (data: { theme?: string; dashboardLayout?: DashboardPanelPref[] }) =>
+  updatePreferences: (data: {
+    theme?: string;
+    emailNotifications?: boolean;
+    whatsappNotifications?: boolean;
+    dashboardLayout?: DashboardPanelPref[];
+  }) =>
     request<UserPreference>('/preferences', { method: 'PATCH', body: JSON.stringify(data) }),
   getSavedViews: (resource?: string) =>
     request<SavedView[]>(`/saved-views${resource ? `?resource=${resource}` : ''}`),
@@ -2265,6 +2481,8 @@ export interface DashboardPanelPref {
 
 export interface UserPreference {
   theme: string;
+  emailNotifications: boolean;
+  whatsappNotifications: boolean;
   dashboardLayout?: DashboardPanelPref[];
 }
 

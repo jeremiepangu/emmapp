@@ -3,8 +3,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { TourStatus } from '@prisma/client';
+import { NotificationCategory, NotificationType, TourStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.module';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateTourDto, UpdateTourDto } from './dto/tour.dto';
 
 /** Champs du livreur exposables par l'API : exclut l'empreinte du mot de passe. */
@@ -18,7 +19,10 @@ const DRIVER_SELECT = {
 
 @Injectable()
 export class ToursService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   private async generateTourNumber(): Promise<string> {
     const count = await this.prisma.tour.count();
@@ -66,7 +70,7 @@ export class ToursService {
   }
 
   async create(dto: CreateTourDto) {
-    return this.prisma.tour.create({
+    const created = await this.prisma.tour.create({
       data: {
         tourNumber: await this.generateTourNumber(),
         zone: dto.zone,
@@ -84,6 +88,8 @@ export class ToursService {
         orders: true,
       },
     });
+    await this.notifyTour(created, 'Tournee planifiee', NotificationType.INFO);
+    return created;
   }
 
   async createLoadSheet(tourId: string, items: unknown[]) {
@@ -116,27 +122,32 @@ export class ToursService {
     });
 
     if (sheet.validatedByStore && sheet.validatedByDriver) {
-      await this.prisma.tour.update({
+      const tour = await this.prisma.tour.update({
         where: { id: tourId },
         data: { status: TourStatus.EN_COURS, startedAt: new Date() },
       });
+      await this.notifyTour(tour, 'Feuille de charge validee', NotificationType.SUCCESS);
     }
 
     return sheet;
   }
 
   async startTour(id: string) {
-    return this.prisma.tour.update({
+    const tour = await this.prisma.tour.update({
       where: { id },
       data: { status: TourStatus.EN_COURS, startedAt: new Date() },
     });
+    await this.notifyTour(tour, 'Tournee demarree', NotificationType.INFO);
+    return tour;
   }
 
   async completeTour(id: string) {
-    return this.prisma.tour.update({
+    const tour = await this.prisma.tour.update({
       where: { id },
       data: { status: TourStatus.TERMINEE, completedAt: new Date() },
     });
+    await this.notifyTour(tour, 'Tournee terminee', NotificationType.SUCCESS);
+    return tour;
   }
 
   async cancelTour(id: string) {
@@ -144,10 +155,12 @@ export class ToursService {
     if (tour.status === TourStatus.TERMINEE) {
       throw new BadRequestException('Tournée déjà terminée');
     }
-    return this.prisma.tour.update({
+    const updated = await this.prisma.tour.update({
       where: { id },
       data: { status: TourStatus.ANNULEE },
     });
+    await this.notifyTour(updated, 'Tournee annulee', NotificationType.WARNING);
+    return updated;
   }
 
   async update(id: string, dto: UpdateTourDto) {
@@ -188,5 +201,26 @@ export class ToursService {
       this.prisma.tour.delete({ where: { id } }),
     ]);
     return { id };
+  }
+
+  private async notifyTour(
+    tour: { tourNumber: string; zone: string; driverId?: string | null },
+    title: string,
+    type: NotificationType,
+  ) {
+    const payload = {
+      title,
+      message: `${tour.tourNumber} — ${tour.zone}`,
+      type,
+      category: NotificationCategory.TOURNEE,
+      link: '/tours',
+    };
+    if (tour.driverId) {
+      await this.notifications.create({ ...payload, userId: tour.driverId });
+    }
+    await this.notifications.notifyRoles(
+      [UserRole.ADMIN, UserRole.CHEF_EXPLOITATION, UserRole.CHARGE_EXPLOITATION],
+      payload,
+    );
   }
 }

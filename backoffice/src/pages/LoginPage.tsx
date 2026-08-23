@@ -13,6 +13,7 @@ const DEMO_ACCOUNTS = [
   { email: 'securite@emmapure.cd', role: 'Sécurité' },
   { email: 'durabilite@emmapure.cd', role: 'Durabilité' },
   { email: 'caissier@emmapure.cd', role: 'Caissier' },
+  { email: 'comptable@emmapure.cd', role: 'Comptable' },
   { email: 'livreur@emmapure.cd', role: 'Chargé livraison' },
 ];
 

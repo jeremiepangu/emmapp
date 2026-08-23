@@ -6,9 +6,13 @@ import {
   ContractLifecycle,
   ContractPartyKind,
   ContractType,
+  NotificationCategory,
+  NotificationType,
   Prisma,
+  UserRole,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.module';
+import { NotificationsService } from '../notifications/notifications.service';
 import {
   ArchiveDocumentDto,
   CreateAmendmentDto,
@@ -71,7 +75,10 @@ const INCLUDE = {
 
 @Injectable()
 export class ContractsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   private today() {
     const d = new Date();
@@ -290,6 +297,16 @@ export class ContractsService {
       include: INCLUDE,
     });
     await this.syncEmployee(created.employeeId ?? undefined, dto);
+    await this.notifications.notifyRoles(
+      [UserRole.ADMIN, UserRole.RH, UserRole.DG, UserRole.COMMERCIAL],
+      {
+        title: 'Nouveau contrat',
+        message: `${created.reference} — ${created.title}`,
+        type: NotificationType.INFO,
+        category: NotificationCategory.SYSTEME,
+        link: '/contracts',
+      },
+    );
     return created;
   }
 
@@ -350,7 +367,7 @@ export class ContractsService {
     if (current.status !== ContractLifecycle.BROUILLON && current.status !== ContractLifecycle.RENOUVELE) {
       throw new BadRequestException('Seuls un brouillon ou un renouvellement peuvent être validés');
     }
-    return this.prisma.contract.update({
+    const updated = await this.prisma.contract.update({
       where: { id },
       data: {
         status: ContractLifecycle.ACTIF,
@@ -360,6 +377,17 @@ export class ContractsService {
       },
       include: INCLUDE,
     });
+    await this.notifications.notifyRoles(
+      [UserRole.ADMIN, UserRole.RH, UserRole.DG, UserRole.COMMERCIAL],
+      {
+        title: 'Contrat valide',
+        message: `${updated.reference} — ${updated.title}`,
+        type: NotificationType.SUCCESS,
+        category: NotificationCategory.SYSTEME,
+        link: '/contracts',
+      },
+    );
+    return updated;
   }
 
   async suspend(id: string) {

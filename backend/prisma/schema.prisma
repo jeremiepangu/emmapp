@@ -189,6 +189,11 @@ model User {
   contractsValidated   Contract[]            @relation("ContractValidator")
   contractArchives     ContractDocument[]    @relation("ContractArchiver")
   posSales             PosSale[]             @relation("PosCashier")
+  financeAccountsCreated     FinanceAccount[]    @relation("FinanceAccountCreator")
+  financeMovementsCreated    FinanceMovement[]   @relation("FinanceMovementCreator")
+  financeMovementsValidated  FinanceMovement[]   @relation("FinanceMovementValidator")
+  financeInventoriesCreated  FinanceInventory[]  @relation("FinanceInventoryCreator")
+  financeInventoriesValidated FinanceInventory[] @relation("FinanceInventoryValidator")
 
   @@map("users")
 }
@@ -260,6 +265,7 @@ model Product {
   forecasts   DemandForecast[]
   pricingRules PricingRule[]
   posSaleLines PosSaleLine[]
+  financeInventoryLines FinanceInventoryLine[]
 
   @@map("products")
 }
@@ -494,6 +500,7 @@ model Payment {
   client    Client?   @relation(fields: [clientId], references: [id])
   collector User      @relation(fields: [collectedBy], references: [id])
   posSale   PosSale?
+  financeMovement FinanceMovement?
 
   @@map("payments")
 }
@@ -688,6 +695,7 @@ enum NotificationCategory {
   ESG
   SECURITE
   PORTAIL
+  COMPTABILITE
 }
 
 model Notification {
@@ -1101,6 +1109,10 @@ model UserPreference {
   id              String   @id @default(uuid())
   userId          String   @unique @map("user_id")
   theme           String   @default("clair")
+  /// Copie email des notifications internes (defaut active).
+  emailNotifications Boolean @default(true) @map("email_notifications")
+  /// Copie WhatsApp des notifications internes (defaut active, numero User.phone).
+  whatsappNotifications Boolean @default(true) @map("whatsapp_notifications")
   /// Ordre et visibilité des panneaux : [{ key, visible }].
   dashboardLayout Json?    @map("dashboard_layout")
   updatedAt       DateTime @updatedAt @map("updated_at")
@@ -1787,4 +1799,162 @@ model UserPermission {
   @@unique([userId, resource, action])
   @@index([userId])
   @@map("user_permissions")
+}
+
+enum FinanceAccountKind {
+  CAISSE
+  BANQUE
+}
+
+enum FinanceCategoryKind {
+  RECETTE
+  CHARGE
+  TRANSFERT
+}
+
+enum FinanceMovementKind {
+  ENTREE
+  SORTIE
+  TRANSFERT
+  DEPENSE
+  ENCAISSEMENT
+}
+
+enum FinanceMovementStatus {
+  BROUILLON
+  VALIDE
+  ANNULE
+}
+
+enum FinanceInventoryStatus {
+  BROUILLON
+  VALIDE
+  ANNULE
+}
+
+/// Compte de tresorerie : caisse especes ou compte bancaire.
+model FinanceAccount {
+  id             String             @id @default(uuid())
+  code           String             @unique
+  name           String
+  kind           FinanceAccountKind
+  currency       String             @default("CDF")
+  openingBalance Decimal            @default(0) @map("opening_balance") @db.Decimal(14, 2)
+  bankName       String?            @map("bank_name")
+  iban           String?
+  isActive       Boolean            @default(true) @map("is_active")
+  createdById    String?            @map("created_by_id")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+
+  createdBy    User?             @relation("FinanceAccountCreator", fields: [createdById], references: [id])
+  movementsIn  FinanceMovement[] @relation("FinanceAccountSource")
+  movementsOut FinanceMovement[] @relation("FinanceAccountDest")
+
+  @@index([kind, isActive])
+  @@map("finance_accounts")
+}
+
+/// Rubrique budgetaire / analytique (recette ou charge).
+model FinanceCategory {
+  id        String              @id @default(uuid())
+  code      String              @unique
+  name      String
+  kind      FinanceCategoryKind
+  isActive  Boolean             @default(true) @map("is_active")
+  createdAt DateTime            @default(now()) @map("created_at")
+
+  movements FinanceMovement[]
+  budgets   FinanceBudget[]
+
+  @@index([kind, isActive])
+  @@map("finance_categories")
+}
+
+/// Entree, sortie, transfert, depense ou encaissement de fonds.
+model FinanceMovement {
+  id            String                 @id @default(uuid())
+  number        String                 @unique
+  kind          FinanceMovementKind
+  status        FinanceMovementStatus  @default(BROUILLON)
+  accountId     String                 @map("account_id")
+  destAccountId String?                @map("dest_account_id")
+  categoryId    String?                @map("category_id")
+  paymentId     String?                @unique @map("payment_id")
+  amount        Decimal                @db.Decimal(14, 2)
+  method        PaymentMethod          @default(ESPECES)
+  date          DateTime               @db.Date
+  label         String
+  reference     String?
+  notes         String?
+  createdById   String                 @map("created_by_id")
+  validatedById String?                @map("validated_by_id")
+  validatedAt   DateTime?              @map("validated_at")
+  createdAt     DateTime               @default(now()) @map("created_at")
+
+  account     FinanceAccount    @relation("FinanceAccountSource", fields: [accountId], references: [id])
+  destAccount FinanceAccount?   @relation("FinanceAccountDest", fields: [destAccountId], references: [id])
+  category    FinanceCategory?  @relation(fields: [categoryId], references: [id])
+  payment     Payment?          @relation(fields: [paymentId], references: [id])
+  createdBy   User              @relation("FinanceMovementCreator", fields: [createdById], references: [id])
+  validatedBy User?             @relation("FinanceMovementValidator", fields: [validatedById], references: [id])
+
+  @@index([date, status])
+  @@index([accountId, status])
+  @@index([kind, status])
+  @@map("finance_movements")
+}
+
+/// Enveloppe budgetaire annuelle ou mensuelle par rubrique.
+model FinanceBudget {
+  id            String   @id @default(uuid())
+  year          Int
+  month         Int?
+  categoryId    String   @map("category_id")
+  plannedAmount Decimal  @map("planned_amount") @db.Decimal(14, 2)
+  notes         String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  category FinanceCategory @relation(fields: [categoryId], references: [id])
+
+  @@unique([year, month, categoryId])
+  @@index([year, month])
+  @@map("finance_budgets")
+}
+
+/// Session d'inventaire physique valorisee.
+model FinanceInventory {
+  id            String                  @id @default(uuid())
+  number        String                  @unique
+  date          DateTime                @db.Date
+  status        FinanceInventoryStatus  @default(BROUILLON)
+  notes         String?
+  createdById   String                  @map("created_by_id")
+  validatedById String?                 @map("validated_by_id")
+  validatedAt   DateTime?               @map("validated_at")
+  createdAt     DateTime                @default(now()) @map("created_at")
+
+  createdBy   User                    @relation("FinanceInventoryCreator", fields: [createdById], references: [id])
+  validatedBy User?                   @relation("FinanceInventoryValidator", fields: [validatedById], references: [id])
+  lines       FinanceInventoryLine[]
+
+  @@index([date, status])
+  @@map("finance_inventories")
+}
+
+model FinanceInventoryLine {
+  id              String @id @default(uuid())
+  inventoryId     String @map("inventory_id")
+  productId       String @map("product_id")
+  locationId      String @map("location_id")
+  theoreticalQty  Int    @map("theoretical_qty")
+  countedQty      Int    @map("counted_qty")
+  unitValue       Decimal @map("unit_value") @db.Decimal(12, 2)
+
+  inventory FinanceInventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
+  product   Product          @relation(fields: [productId], references: [id])
+
+  @@index([inventoryId])
+  @@map("finance_inventory_lines")
 }

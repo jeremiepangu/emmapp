@@ -1,15 +1,20 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   ClientSegment,
+  NotificationCategory,
+  NotificationType,
   OrderStatus,
   PaymentMethod,
   PosSaleStatus,
   Prisma,
   StockLocationType,
   SyncStatus,
+  UserRole,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.module';
 import { PricingService } from '../pricing/pricing.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { FinanceService } from '../finance/finance.service';
 import { PosCheckoutDto, PosLineDto } from './dto/pos.dto';
 
 const WALK_IN_CODE = 'CLI-POS';
@@ -27,6 +32,8 @@ export class PosService {
   constructor(
     private prisma: PrismaService,
     private pricing: PricingService,
+    private notifications: NotificationsService,
+    private finance: FinanceService,
   ) {}
 
   async catalog() {
@@ -230,6 +237,30 @@ export class PosService {
         });
       }
       return sale;
+    }).then(async (sale) => {
+      await this.notifications.notifyRoles(
+        [UserRole.ADMIN, UserRole.CAISSIER, UserRole.COMPTABLE, UserRole.COMMERCIAL],
+        {
+          title: 'Vente caisse',
+          message: `${sale.saleNumber} — ${sale.client.name} : ${sale.totalAmount}`,
+          type: NotificationType.SUCCESS,
+          category: NotificationCategory.PAIEMENT,
+          link: '/pos',
+        },
+      );
+      if (sale.payment) {
+        void this.finance
+          .postFromPayment({
+            paymentId: sale.payment.id,
+            amount: Number(sale.totalAmount),
+            method: sale.method,
+            reference: sale.payment.paymentNumber,
+            label: `Vente caisse ${sale.saleNumber}`,
+            collectedBy: sale.cashier.id,
+          })
+          .catch(() => undefined);
+      }
+      return sale;
     });
   }
 
@@ -255,6 +286,18 @@ export class PosService {
         data: { status: PosSaleStatus.ANNULEE },
         include: SALE_INCLUDE,
       });
+    }).then(async (updated) => {
+      await this.notifications.notifyRoles(
+        [UserRole.ADMIN, UserRole.CAISSIER, UserRole.COMPTABLE],
+        {
+          title: 'Vente caisse annulee',
+          message: `${updated.saleNumber} — ${updated.client.name}`,
+          type: NotificationType.WARNING,
+          category: NotificationCategory.PAIEMENT,
+          link: '/pos',
+        },
+      );
+      return updated;
     });
   }
 

@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { ClientSegment, Prisma, PricingRule, PricingRuleType, UserRole } from '@prisma/client';
+import { ClientSegment, NotificationCategory, NotificationType, Prisma, PricingRule, PricingRuleType, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.module';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreatePricingRuleDto, UpdatePricingRuleDto } from './dto/pricing-rule.dto';
 
 const RULE_INCLUDE = {
@@ -40,7 +41,10 @@ function normZone(value?: string | null): string {
 
 @Injectable()
 export class PricingService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   findAll() {
     return this.prisma.pricingRule.findMany({
@@ -64,10 +68,21 @@ export class PricingService {
     this.assertValue(dto.type, dto.value);
     this.assertStep(dto.stepQuantity ?? 10);
     await this.assertRefs(dto.clientId, dto.driverId);
-    return this.prisma.pricingRule.create({
+    const created = await this.prisma.pricingRule.create({
       data: this.toData(dto),
       include: RULE_INCLUDE,
     });
+    await this.notifications.notifyRoles(
+      [UserRole.ADMIN, UserRole.COMMERCIAL],
+      {
+        title: 'Regle tarifaire',
+        message: created.name,
+        type: NotificationType.INFO,
+        category: NotificationCategory.SYSTEME,
+        link: '/pricing',
+      },
+    );
+    return created;
   }
 
   async update(id: string, dto: UpdatePricingRuleDto) {

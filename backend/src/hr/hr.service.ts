@@ -11,10 +11,13 @@ import {
   LeaveType,
   PayrollPeriodStatus,
   PayslipStatus,
+  NotificationCategory,
+  NotificationType,
   Prisma,
   UserRole,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.module';
+import { NotificationsService } from '../notifications/notifications.service';
 
 const USER_SELECT = {
   id: true,
@@ -43,7 +46,10 @@ function daysInclusive(start: Date, end: Date): number {
 
 @Injectable()
 export class HrService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   listEmployees() {
     return this.prisma.employeeProfile.findMany({
@@ -251,7 +257,7 @@ export class HrService {
     const start = new Date(body.startDate);
     const end = new Date(body.endDate);
     if (end < start) throw new BadRequestException('La date de fin précède la date de début');
-    return this.prisma.leaveRequest.create({
+    const created = await this.prisma.leaveRequest.create({
       data: {
         userId: body.userId,
         type: body.type,
@@ -263,6 +269,17 @@ export class HrService {
       },
       include: { user: { select: USER_SELECT } },
     });
+    await this.notifications.notifyRoles(
+      [UserRole.ADMIN, UserRole.RH, UserRole.SUPERVISEUR],
+      {
+        title: 'Demande de conge',
+        message: `${created.user.firstName} ${created.user.lastName} — ${created.type} (${created.days} j)`,
+        type: NotificationType.INFO,
+        category: NotificationCategory.RH,
+        link: '/hr',
+      },
+    );
+    return created;
   }
 
   async updateLeave(
@@ -358,17 +375,15 @@ export class HrService {
         manager: { select: { firstName: true, lastName: true } },
       },
     });
-    await this.prisma.notification.create({
-      data: {
-        userId: leave.userId,
-        title: approve ? 'Conge valide' : 'Conge rejete',
-        message: approve
-          ? 'Votre demande de conge a ete traitee favorablement.'
-          : `Votre demande de conge a ete rejetee : ${reason}`,
-        type: approve ? 'SUCCESS' : 'WARNING',
-        category: 'RH',
-        link: '/hr',
-      },
+    await this.notifications.create({
+      userId: leave.userId,
+      title: approve ? 'Conge valide' : 'Conge rejete',
+      message: approve
+        ? 'Votre demande de conge a ete traitee favorablement.'
+        : `Votre demande de conge a ete rejetee : ${reason}`,
+      type: approve ? NotificationType.SUCCESS : NotificationType.WARNING,
+      category: NotificationCategory.RH,
+      link: '/hr',
     });
     return updated;
   }
@@ -377,11 +392,20 @@ export class HrService {
     const leave = await this.prisma.leaveRequest.findUnique({ where: { id } });
     if (!leave) throw new NotFoundException('Demande introuvable');
     if (leave.status === LeaveStatus.ANNULEE) throw new BadRequestException('Déjà annulée');
-    return this.prisma.leaveRequest.update({
+    const updated = await this.prisma.leaveRequest.update({
       where: { id },
       data: { status: LeaveStatus.ANNULEE },
       include: { user: { select: USER_SELECT } },
     });
+    await this.notifications.create({
+      userId: leave.userId,
+      title: 'Conge annule',
+      message: `Votre demande de conge ${leave.type} a ete annulee.`,
+      type: NotificationType.WARNING,
+      category: NotificationCategory.RH,
+      link: '/hr',
+    });
+    return updated;
   }
 
   listPeriods() {
@@ -537,11 +561,20 @@ export class HrService {
   async validatePayslip(id: string) {
     const slip = await this.prisma.payslip.findUnique({ where: { id } });
     if (!slip) throw new NotFoundException('Bulletin introuvable');
-    return this.prisma.payslip.update({
+    const updated = await this.prisma.payslip.update({
       where: { id },
       data: { status: PayslipStatus.VALIDEE },
       include: { user: { select: USER_SELECT }, employee: true },
     });
+    await this.notifications.create({
+      userId: slip.userId,
+      title: 'Bulletin valide',
+      message: `Votre bulletin de paie a ete valide.`,
+      type: NotificationType.SUCCESS,
+      category: NotificationCategory.RH,
+      link: '/hr',
+    });
+    return updated;
   }
 
   async payPayslip(id: string, paymentReference?: string) {

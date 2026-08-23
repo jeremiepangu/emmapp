@@ -1,6 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { NotificationCategory, NotificationType, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.module';
+import { EmailService } from './email.service';
+import { WhatsappService } from './whatsapp.service';
 
 /** La base locale Windows est en WIN1252 : tout caractère hors de cet encodage fait échouer l'INSERT. */
 function toWin1252Safe(text: string): string {
@@ -21,7 +23,13 @@ function toWin1252Safe(text: string): string {
 
 @Injectable()
 export class NotificationsService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(NotificationsService.name);
+
+  constructor(
+    private prisma: PrismaService,
+    private email: EmailService,
+    private whatsapp: WhatsappService,
+  ) {}
 
   findForUser(userId: string, unreadOnly = false) {
     return this.prisma.notification.findMany({
@@ -49,7 +57,7 @@ export class NotificationsService {
     });
   }
 
-  create(data: {
+  async create(data: {
     userId: string;
     title: string;
     message: string;
@@ -57,13 +65,20 @@ export class NotificationsService {
     category?: NotificationCategory;
     link?: string;
   }) {
-    return this.prisma.notification.create({
+    const created = await this.prisma.notification.create({
       data: {
         ...data,
         title: toWin1252Safe(data.title),
         message: toWin1252Safe(data.message),
       },
     });
+    void this.email.sendNotification(created).catch((err) => {
+      this.logger.warn(`Email notification ignoree: ${err instanceof Error ? err.message : err}`);
+    });
+    void this.whatsapp.sendNotification(created).catch((err) => {
+      this.logger.warn(`WhatsApp notification ignoree: ${err instanceof Error ? err.message : err}`);
+    });
+    return created;
   }
 
   async notifyRoles(

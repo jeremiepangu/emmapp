@@ -1,10 +1,14 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { ProductFormat } from '@prisma/client';
+import { NotificationCategory, NotificationType, ProductFormat, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.module';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class ConsignesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   async recordMovement(params: {
     clientId: string;
@@ -27,7 +31,7 @@ export class ConsignesService {
       data: { consigneBalance: balanceAfter },
     });
 
-    return this.prisma.consigneMovement.create({
+    const movement = await this.prisma.consigneMovement.create({
       data: {
         clientId: params.clientId,
         deliveryId: params.deliveryId,
@@ -38,6 +42,19 @@ export class ConsignesService {
         notes: params.notes,
       },
     });
+    if (client.consigneLimit > 0 && balanceAfter >= client.consigneLimit * 0.9) {
+      await this.notifications.notifyRoles(
+        [UserRole.ADMIN, UserRole.COMMERCIAL, UserRole.CHEF_EXPLOITATION],
+        {
+          title: 'Plafond consignes',
+          message: `${client.name} : ${balanceAfter}/${client.consigneLimit}`,
+          type: NotificationType.WARNING,
+          category: NotificationCategory.CONSIGNE,
+          link: '/consignes',
+        },
+      );
+    }
+    return movement;
   }
 
   getClientHistory(clientId: string) {

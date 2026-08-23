@@ -1,11 +1,17 @@
 import { Injectable } from '@nestjs/common';
-import { PaymentMethod, SyncStatus } from '@prisma/client';
+import { NotificationCategory, NotificationType, PaymentMethod, SyncStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.module';
+import { NotificationsService } from '../notifications/notifications.service';
+import { FinanceService } from '../finance/finance.service';
 import { CreatePaymentDto } from './dto/payment.dto';
 
 @Injectable()
 export class PaymentsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+    private finance: FinanceService,
+  ) {}
 
   private async generatePaymentNumber(): Promise<string> {
     const count = await this.prisma.payment.count();
@@ -32,7 +38,7 @@ export class PaymentsService {
       if (existing) return existing;
     }
 
-    return this.prisma.payment.create({
+    const created = await this.prisma.payment.create({
       data: {
         paymentNumber: await this.generatePaymentNumber(),
         deliveryId: dto.deliveryId,
@@ -44,7 +50,29 @@ export class PaymentsService {
         localId: dto.localId,
         syncStatus: dto.localId ? SyncStatus.SYNCED : SyncStatus.SYNCED,
       },
+      include: { client: { select: { name: true } } },
     });
+    await this.notifications.notifyRoles(
+      [UserRole.ADMIN, UserRole.COMPTABLE, UserRole.CAISSIER, UserRole.COMMERCIAL],
+      {
+        title: 'Paiement recu',
+        message: `${created.paymentNumber} — ${created.client?.name ?? created.clientId} : ${created.amount} (${created.method})`,
+        type: NotificationType.SUCCESS,
+        category: NotificationCategory.PAIEMENT,
+        link: '/payments',
+      },
+    );
+    void this.finance
+      .postFromPayment({
+        paymentId: created.id,
+        amount: Number(created.amount),
+        method: created.method,
+        reference: created.reference,
+        label: `Encaissement ${created.paymentNumber}`,
+        collectedBy,
+      })
+      .catch(() => undefined);
+    return created;
   }
 
   async update(id: string, data: Partial<{ amount: number; method: PaymentMethod; reference: string }>) {

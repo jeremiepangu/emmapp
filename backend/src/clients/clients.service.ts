@@ -1,11 +1,15 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, ClientSegment } from '@prisma/client';
+import { Prisma, ClientSegment, NotificationCategory, NotificationType, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.module';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateClientDto, UpdateClientDto } from './dto/client.dto';
 
 @Injectable()
 export class ClientsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   findAll(params?: { zone?: string; search?: string }) {
     const where: Prisma.ClientWhereInput = { isActive: true };
@@ -39,8 +43,21 @@ export class ClientsService {
     return client;
   }
 
-  create(dto: CreateClientDto) {
-    return this.prisma.client.create({ data: this.normalizeIdentity(dto) as Prisma.ClientUncheckedCreateInput });
+  async create(dto: CreateClientDto) {
+    const created = await this.prisma.client.create({
+      data: this.normalizeIdentity(dto) as Prisma.ClientUncheckedCreateInput,
+    });
+    await this.notifications.notifyRoles(
+      [UserRole.ADMIN, UserRole.COMMERCIAL],
+      {
+        title: 'Nouveau client',
+        message: `${created.code} — ${created.name}`,
+        type: NotificationType.SUCCESS,
+        category: NotificationCategory.SYSTEME,
+        link: '/clients',
+      },
+    );
+    return created;
   }
 
   update(id: string, dto: UpdateClientDto) {

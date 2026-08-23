@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { PackagingKind, PackagingMovementType, PackagingPackFormat, Prisma } from '@prisma/client';
+import { NotificationCategory, NotificationType, PackagingKind, PackagingMovementType, PackagingPackFormat, Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.module';
+import { NotificationsService } from '../notifications/notifications.service';
 import {
   CreatePackagingMovementDto,
   CreatePackagingSkuDto,
@@ -12,7 +13,10 @@ const INBOUND: PackagingMovementType[] = [PackagingMovementType.ACHAT];
 
 @Injectable()
 export class PackagingService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   listSkus(kind?: PackagingKind, format?: PackagingPackFormat) {
     return this.prisma.packagingSku.findMany({
@@ -23,7 +27,7 @@ export class PackagingService {
   }
 
   async createSku(dto: CreatePackagingSkuDto) {
-    return this.prisma.packagingSku.create({
+    const created = await this.prisma.packagingSku.create({
       data: {
         code: dto.code.trim().toUpperCase(),
         name: dto.name.trim(),
@@ -34,6 +38,17 @@ export class PackagingService {
       },
       include: { stock: true },
     });
+    await this.notifications.notifyRoles(
+      [UserRole.ADMIN, UserRole.MAGASINIER, UserRole.CHEF_PRODUCTION],
+      {
+        title: 'Nouvel emballage',
+        message: `${created.code} — ${created.name}`,
+        type: NotificationType.INFO,
+        category: NotificationCategory.STOCK,
+        link: '/packaging',
+      },
+    );
+    return created;
   }
 
   async updateSku(id: string, dto: UpdatePackagingSkuDto) {
@@ -106,7 +121,7 @@ export class PackagingService {
   }
 
   async recordMovement(dto: CreatePackagingMovementDto, userId?: string) {
-    return this.prisma.$transaction(async (tx) => {
+    const movement = await this.prisma.$transaction(async (tx) => {
       const sku = await tx.packagingSku.findUnique({
         where: { id: dto.skuId },
         include: { stock: true },
@@ -153,6 +168,20 @@ export class PackagingService {
         },
       });
     });
+    const qty = movement.sku.stock?.quantity ?? 0;
+    if (qty <= movement.sku.minStock) {
+      await this.notifications.notifyRoles(
+        [UserRole.ADMIN, UserRole.MAGASINIER, UserRole.CHEF_PRODUCTION],
+        {
+          title: 'Stock emballage bas',
+          message: `${movement.sku.code} ${movement.sku.name} : ${qty}/${movement.sku.minStock}`,
+          type: NotificationType.WARNING,
+          category: NotificationCategory.STOCK,
+          link: '/packaging',
+        },
+      );
+    }
+    return movement;
   }
 
   async removeMovement(id: string) {

@@ -17,6 +17,7 @@ const ICONS: Record<string, string> = {
   '/packaging': '⬡',
   '/deliveries': '➚',
   '/payments': '€',
+  '/finance': '¥',
   '/production': '⚙',
   '/quality': '✓',
   '/loyalty': '★',

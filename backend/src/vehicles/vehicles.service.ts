@@ -1,5 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { NotificationCategory, NotificationType, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.module';
+import { NotificationsService } from '../notifications/notifications.service';
 
 export interface CreateVehicleDto {
   plate: string;
@@ -11,7 +13,10 @@ export interface CreateVehicleDto {
 
 @Injectable()
 export class VehiclesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   findAll() {
     return this.prisma.vehicle.findMany({
@@ -25,8 +30,8 @@ export class VehiclesService {
     return vehicle;
   }
 
-  create(dto: CreateVehicleDto) {
-    return this.prisma.vehicle.create({
+  async create(dto: CreateVehicleDto) {
+    const created = await this.prisma.vehicle.create({
       data: {
         plate: dto.plate.trim().toUpperCase(),
         name: dto.name.trim(),
@@ -35,6 +40,17 @@ export class VehiclesService {
         co2FactorKgPerKm: dto.co2FactorKgPerKm,
       },
     });
+    await this.notifications.notifyRoles(
+      [UserRole.ADMIN, UserRole.CHEF_EXPLOITATION],
+      {
+        title: 'Nouveau vehicule',
+        message: `${created.plate} — ${created.name}`,
+        type: NotificationType.INFO,
+        category: NotificationCategory.SYSTEME,
+        link: '/vehicles',
+      },
+    );
+    return created;
   }
 
   async update(id: string, dto: Partial<CreateVehicleDto> & { isActive?: boolean }) {

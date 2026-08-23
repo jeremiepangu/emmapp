@@ -40,6 +40,7 @@ export const ACL_RESOURCES: {
   { id: 'deliveries', label: 'Livraisons', section: 'LIVRAISON', path: '/deliveries', description: 'Preuves de livraison' },
   { id: 'iot', label: 'Capteurs & télémétrie', section: 'OBJETS CONNECTÉS', path: '/iot', description: 'Capteurs ligne, véhicules, fontaines' },
   { id: 'payments', label: 'Factures & paiements', section: 'FACTURES', path: '/payments', description: 'Encaissements' },
+  { id: 'finance', label: 'Comptabilité', section: 'FACTURES', path: '/finance', description: 'Caisse, banque, dépenses, inventaire et budget' },
   { id: 'loyalty', label: 'Fidélité', section: 'COMMERCE', path: '/loyalty', description: 'Points, paliers, wallet' },
   { id: 'consignes', label: 'Consignes circulaires', section: 'COMMERCE', path: '/consignes', description: 'Emballages consignés et fontaines' },
   { id: 'marketplace', label: 'Marketplace B2B', section: 'COMMERCE', path: '/marketplace', description: 'Demandes de cotation' },
@@ -73,7 +74,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, AclMatrix> = {
   ADMIN: Object.fromEntries(ALL_RESOURCES.map((id) => [id, FULL])),
   DG: withActivity({
     dashboard: R, clients: R, orders: R, products: R, tours: R, stock: R, deliveries: R,
-    payments: R, production: R, quality: R, loyalty: R, consignes: R, hr: R, payroll: R,
+    payments: R, finance: RUV, production: R, quality: R, loyalty: R, consignes: R, hr: R, payroll: R,
     observability: R, users: R, notifications: R, authorizations: R, contracts: RUV,
     ai: R, assistant: RC, iot: R, routing: R, esg: R, security: R, portal: R, marketplace: R, pricing: R, packaging: R, vehicles: R, objectives: R, pos: R,
   }, RCUV),
@@ -83,7 +84,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, AclMatrix> = {
   }, RCUV),
   CHEF_EXPLOITATION: withActivity({
     dashboard: R, orders: FULL, tours: FULL, deliveries: RUV, stock: R, packaging: R, vehicles: FULL, clients: R, notifications: R,
-    ai: R, assistant: RC, routing: RCUV, iot: R, esg: R, hr: RUV, contracts: R, objectives: RCUV, pos: R,
+    ai: R, assistant: RC, routing: RCUV, iot: R, esg: R, hr: RUV, contracts: R, objectives: RCUV, pos: R, finance: R,
   }, RCUV),
   CHARGE_EXPLOITATION: withActivity({
     dashboard: R, orders: R, tours: RU, deliveries: R, stock: R, vehicles: R, notifications: R,
@@ -95,7 +96,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, AclMatrix> = {
   }, RC),
   MAGASINIER: withActivity({
     dashboard: R, stock: FULL, packaging: FULL, vehicles: FULL, tours: RC, consignes: FULL, products: R, notifications: R,
-    assistant: RC, hr: R, contracts: RCU,
+    assistant: RC, hr: R, contracts: RCU, finance: RCU,
   }, RC),
   AGENT_CHARGEUR: withActivity({
     dashboard: R, tours: RU, stock: R, deliveries: R, notifications: R,
@@ -111,7 +112,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, AclMatrix> = {
   }, RC),
   COMMERCIAL: withActivity({
     dashboard: R, clients: FULL, orders: FULL, loyalty: RCU, products: R, payments: RCU, notifications: R,
-    ai: R, assistant: RC, portal: RCU, marketplace: RCUV, pricing: FULL, hr: R, contracts: RCUV, objectives: RCU, pos: FULL,
+    ai: R, assistant: RC, portal: RCU, marketplace: RCUV, pricing: FULL, hr: R, contracts: RCUV, objectives: RCU, pos: FULL, finance: R,
   }, RC),
   DELEGUE_COMMERCIAL: withActivity({
     dashboard: R, clients: RC, orders: RC, loyalty: R, products: R, notifications: R,
@@ -119,10 +120,10 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, AclMatrix> = {
   }, RC),
   CAISSIER: withActivity({
     dashboard: R, payments: FULL, clients: R, orders: R, notifications: R,
-    assistant: RC, hr: R, pos: FULL,
+    assistant: RC, hr: R, pos: FULL, finance: RCU,
   }, RC),
   COMPTABLE: withActivity({
-    payments: RCU, clients: R, orders: R, dashboard: R, notifications: R,
+    payments: RCU, finance: FULL, clients: R, orders: R, dashboard: R, notifications: R,
     ai: R, assistant: RC, payroll: RCUV, hr: R, contracts: RCUV, pos: R,
   }, RCUV),
   RH: withActivity({
@@ -140,7 +141,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, AclMatrix> = {
   DATA_ANALYST: withActivity({
     dashboard: R, notifications: R, observability: R, assistant: RC,
     ai: RCUV, esg: R, iot: R, routing: R, clients: R, orders: R, products: R,
-    payments: R, production: R, quality: R, stock: R, packaging: R, vehicles: R, deliveries: R, tours: R, loyalty: R, contracts: R,
+    payments: R, finance: R, production: R, quality: R, stock: R, packaging: R, vehicles: R, deliveries: R, tours: R, loyalty: R, contracts: R,
   }, RC),
   RESP_SECURITE: withActivity({
     dashboard: R, notifications: R, observability: R, assistant: RC, authorizations: RCU,
@@ -236,6 +237,7 @@ const PATH_MAP: Array<[string, string]> = [
   ['/packaging', 'packaging'],
   ['/deliveries', 'deliveries'],
   ['/payments', 'payments'],
+  ['/finance', 'finance'],
   ['/consignes', 'consignes'],
   ['/users', 'users'],
   ['/ai', 'ai'],

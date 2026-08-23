@@ -1,11 +1,15 @@
 import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
-import { UserRole } from '@prisma/client';
+import { NotificationCategory, NotificationType, UserRole } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.module';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   findAll() {
     return this.prisma.user.findMany({
@@ -47,7 +51,7 @@ export class UsersService {
     const existing = await this.prisma.user.findUnique({ where: { email: data.email } });
     if (existing) throw new ConflictException('Email déjà utilisé');
     const passwordHash = await bcrypt.hash(data.password, 10);
-    return this.prisma.user.create({
+    const created = await this.prisma.user.create({
       data: {
         email: data.email,
         passwordHash,
@@ -67,6 +71,25 @@ export class UsersService {
         createdAt: true,
       },
     });
+    await this.notifications.create({
+      userId: created.id,
+      title: 'Compte cree',
+      message: `Bienvenue ${created.firstName}. Votre acces EMMAPP est pret.`,
+      type: NotificationType.SUCCESS,
+      category: NotificationCategory.SYSTEME,
+      link: '/app',
+    });
+    await this.notifications.notifyRoles(
+      [UserRole.ADMIN, UserRole.RH],
+      {
+        title: 'Nouvel utilisateur',
+        message: `${created.firstName} ${created.lastName} (${created.role})`,
+        type: NotificationType.INFO,
+        category: NotificationCategory.SYSTEME,
+        link: '/users',
+      },
+    );
+    return created;
   }
 
   async update(
