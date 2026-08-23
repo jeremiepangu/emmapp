@@ -5,6 +5,7 @@ import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
 import DocButton from '../components/DocButton';
 import { printQualityList, printQualityReport } from '../documents/templates';
+import { sheetQuality } from '../excel/specs';
 
 export default function QualityPage() {
   const { can } = usePermissions();
@@ -30,6 +31,7 @@ export default function QualityPage() {
       <ErpPageHeader
         title="Contrôle qualité"
         subtitle="Analyses physico-chimiques et microbiologiques — workflow quarantaine / libération"
+        excel={{ filename: 'qualite', sheets: [sheetQuality(checks, can('quality', 'create'))], onImported: load }}
         actions={
           <>
             <DocButton label="Imprimer le registre" onClick={() => printQualityList(checks)} />

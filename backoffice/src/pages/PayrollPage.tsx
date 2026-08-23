@@ -5,6 +5,7 @@ import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
 import DocButton from '../components/DocButton';
 import { printPayrollPeriodsList, printPayrollRegister, printPayslip } from '../documents/templates';
+import { exportSheet } from '../excel/specs';
 
 const MONTHS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
 
@@ -61,6 +62,18 @@ export default function PayrollPage() {
       <ErpPageHeader
         title="Paie des agents"
         subtitle="Périodes mensuelles, calcul CNSS / IPRF, validation et paiement des bulletins"
+        excel={{
+          filename: 'paie',
+          sheets: [
+            exportSheet('Periodes', [['year', 'Annee'], ['month', 'Mois'], ['status', 'Statut'], ['expectedDays', 'Jours']], periods.map((row) => ({ year: row.year, month: row.month, status: row.status, expectedDays: row.expectedDays }))),
+            exportSheet('Bulletins', [['agent', 'Agent'], ['gross', 'Brut'], ['net', 'Net'], ['status', 'Statut']], payslips.map((row) => ({
+              agent: row.user ? `${row.user.firstName} ${row.user.lastName}` : row.employee?.matricule ?? '',
+              gross: Number(row.grossPay),
+              net: Number(row.netPay),
+              status: row.status,
+            }))),
+          ],
+        }}
         actions={(
           <>
             <DocButton

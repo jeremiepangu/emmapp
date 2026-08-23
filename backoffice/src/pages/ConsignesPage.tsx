@@ -5,6 +5,7 @@ import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
 import DocButton from '../components/DocButton';
 import { printConsigneMovement, printConsignesList, printFountainsList, printPackagingList } from '../documents/templates';
+import { exportSheet, sheetConsignes } from '../excel/specs';
 
 const FORMATS = ['BIDON_5L', 'BIDON_10L', 'BIDON_25L', 'BONBONNE_19L'];
 
@@ -34,6 +35,15 @@ export default function ConsignesPage() {
       <ErpPageHeader
         title="Consignes"
         subtitle="Éco-traçabilité emballages, mouvements clients et fontaines"
+        excel={{
+          filename: 'consignes',
+          sheets: [
+            sheetConsignes(movements, clients, can('consignes', 'create')),
+            exportSheet('Emballages circulaires', [['barcode', 'Code-barres'], ['productFormat', 'Format'], ['rotationCount', 'Rotations'], ['status', 'Statut']], packaging.map((row) => ({ barcode: row.barcode, productFormat: row.productFormat, rotationCount: row.rotationCount, status: row.status }))),
+            exportSheet('Fontaines', [['serialNumber', 'Serie'], ['model', 'Modele'], ['contractType', 'Contrat']], fountains.map((row) => ({ serialNumber: row.serialNumber, model: row.model ?? '', contractType: row.contractType ?? '' }))),
+          ],
+          onImported: load,
+        }}
         actions={
           <>
             <DocButton label="Mouvements" onClick={() => printConsignesList(movements)} />

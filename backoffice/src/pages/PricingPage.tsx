@@ -6,6 +6,7 @@ import StatusPill from '../components/ErpUi';
 import Modal from '../components/Modal';
 import DocButton from '../components/DocButton';
 import { printPricingRules } from '../documents/templates';
+import { sheetPricing } from '../excel/specs';
 
 const SEGMENTS: ClientSegment[] = ['PARTICULIER', 'BOUTIQUE', 'DETAILLANT', 'SUPERMARCHE', 'ENTREPRISE', 'HOTEL_RESTAURANT'];
 
@@ -127,6 +128,7 @@ export default function PricingPage() {
       <ErpPageHeader
         title="Tarifs et remises"
         subtitle="Prix préférentiel et remise par catégorie, client, zone, livreur. La remise s'applique uniquement par lots de 10 articles vendus."
+        excel={{ filename: 'tarifs', sheets: [sheetPricing(rules, can('pricing', 'create'))], onImported: load }}
         actions={
           <>
             <DocButton label="Imprimer les règles" onClick={() => printPricingRules(rules)} />

@@ -7,6 +7,7 @@ import Modal from '../components/Modal';
 import SavedViewsBar from '../components/SavedViewsBar';
 import DocButton from '../components/DocButton';
 import { printClientSheet, printClientsList } from '../documents/templates';
+import { sheetClients } from '../excel/specs';
 import {
   KINSHASA_DISTRICTS,
   KINSHASA_PROVINCE,
@@ -179,6 +180,7 @@ export default function ClientsPage() {
       <ErpPageHeader
         title="Clients"
         subtitle="Identité, adresse Kinshasa et consignes"
+        excel={{ filename: 'clients', sheets: [sheetClients(clients, can('clients', 'create'))], onImported: load }}
         actions={
           <>
             <DocButton label="Imprimer la liste" onClick={() => printClientsList(clients)} />

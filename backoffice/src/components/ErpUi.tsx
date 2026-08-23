@@ -1,4 +1,6 @@
 import { ReactNode } from 'react';
+import ExcelButtons from './ExcelButtons';
+import type { ExcelBundle } from '../excel/excel';
 
 const STATUS_MAP: Record<string, { label: string; className: string }> = {
   BROUILLON: { label: 'Brouillon', className: 'erp-pill erp-pill--gray' },
@@ -64,10 +66,12 @@ export function ErpPageHeader({
   title,
   subtitle,
   actions,
+  excel,
 }: {
   title: string;
   subtitle?: string;
   actions?: ReactNode;
+  excel?: ExcelBundle | null;
 }) {
   return (
     <div className="erp-page-title">
@@ -75,7 +79,14 @@ export function ErpPageHeader({
         <h1>{title}</h1>
         {subtitle && <p className="erp-page-subtitle">{subtitle}</p>}
       </div>
-      {actions && <div className="erp-page-title-right">{actions}</div>}
+      {(excel || actions) && (
+        <div className="erp-page-title-right">
+          {excel && excel.sheets.length > 0 && (
+            <ExcelButtons filename={excel.filename} sheets={excel.sheets} onImported={excel.onImported} />
+          )}
+          {actions}
+        </div>
+      )}
     </div>
   );
 }

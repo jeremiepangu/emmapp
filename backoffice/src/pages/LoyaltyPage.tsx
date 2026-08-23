@@ -5,6 +5,7 @@ import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
 import DocButton from '../components/DocButton';
 import { printLoyaltyList, printLoyaltySheet } from '../documents/templates';
+import { sheetLoyalty } from '../excel/specs';
 
 const tierLabel: Record<string, string> = { BRONZE: 'Bronze', ARGENT: 'Argent', OR: 'Or', PLATINE: 'Platine' };
 
@@ -27,6 +28,7 @@ export default function LoyaltyPage() {
       <ErpPageHeader
         title="Fidélité"
         subtitle="Barème : Bonbonne 19L = 10 pts · Bidon 25L = 8 pts · Bidon 10L = 4 pts · Wallet prépayé"
+        excel={{ filename: 'fidelite', sheets: [sheetLoyalty(clients, can('loyalty', 'update'))], onImported: load }}
         actions={<DocButton label="Imprimer le registre" onClick={() => printLoyaltyList(clients)} />}
       />
       <ErpPanel title={`Clients fidélité (${clients.length})`}>

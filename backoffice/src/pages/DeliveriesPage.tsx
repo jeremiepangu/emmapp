@@ -5,6 +5,7 @@ import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
 import DocButton from '../components/DocButton';
 import { printDeliveriesList, printDeliveryNote } from '../documents/templates';
+import { sheetDeliveries } from '../excel/specs';
 
 export default function DeliveriesPage() {
   const { can } = usePermissions();
@@ -17,6 +18,7 @@ export default function DeliveriesPage() {
       <ErpPageHeader
         title="Livraisons"
         subtitle="Preuves de livraison, validation et historique"
+        excel={{ filename: 'livraisons', sheets: [sheetDeliveries(deliveries)] }}
         actions={<DocButton label="Imprimer la liste" onClick={() => printDeliveriesList(deliveries)} />}
       />
       <ErpPanel title={`Historique (${deliveries.length})`}>

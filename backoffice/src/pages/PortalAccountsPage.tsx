@@ -5,6 +5,7 @@ import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
 import DocButton from '../components/DocButton';
 import { printPortalAccountsList, printPortalAccountSheet } from '../documents/templates';
+import { sheetPortalAccounts } from '../excel/specs';
 
 export default function PortalAccountsPage() {
   const { can } = usePermissions();
@@ -33,6 +34,7 @@ export default function PortalAccountsPage() {
       <ErpPageHeader
         title="Comptes portail client"
         subtitle="Accès self-service distinct des comptes internes — commande, suivi, consigne et fidélité"
+        excel={{ filename: 'comptes-portail', sheets: [sheetPortalAccounts(accounts, can('portal', 'create'))], onImported: load }}
         actions={
           <>
             <DocButton label="Imprimer la liste" onClick={() => printPortalAccountsList(accounts)} />

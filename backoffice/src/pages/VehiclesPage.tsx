@@ -6,6 +6,7 @@ import StatusPill from '../components/ErpUi';
 import Modal from '../components/Modal';
 import DocButton from '../components/DocButton';
 import { printVehicleSheet, printVehiclesList } from '../documents/templates';
+import { sheetVehicles } from '../excel/specs';
 
 const emptyForm = { plate: '', name: '', capacity: 100, fuelType: 'DIESEL', co2FactorKgPerKm: 0.31 };
 
@@ -47,6 +48,7 @@ export default function VehiclesPage() {
       <ErpPageHeader
         title="Véhicules"
         subtitle="Parc de livraison — plaques, capacité et facteur CO₂"
+        excel={{ filename: 'vehicules', sheets: [sheetVehicles(vehicles, can('vehicles', 'create'))], onImported: load }}
         actions={
           <>
             <DocButton label="Imprimer le parc" onClick={() => printVehiclesList(vehicles)} />

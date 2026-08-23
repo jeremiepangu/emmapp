@@ -5,6 +5,7 @@ import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
 import DocButton from '../components/DocButton';
 import { printList } from '../documents/printDocument';
+import { exportSheet, sheetApiKeys, sheetWebhooks } from '../excel/specs';
 
 const EVENTS = [
   'commande.creee',
@@ -61,6 +62,24 @@ export default function IntegrationsPage() {
       <ErpPageHeader
         title="API publique & webhooks"
         subtitle="Clés partenaires, événements métier et intégration des opérateurs de monnaie électronique"
+        excel={{
+          filename: 'integrations',
+          sheets: [
+            sheetApiKeys(keys, can('integrations', 'create')),
+            sheetWebhooks(hooks, can('integrations', 'create')),
+            exportSheet('Livraisons webhook', [
+              ['evenement', 'Evenement'], ['statut', 'Code HTTP'], ['erreurs', 'Erreur'],
+              ['tentatives', 'Tentatives'], ['date', 'Date'],
+            ], deliveries.map((row) => ({
+              evenement: row.event,
+              statut: row.statusCode ?? '',
+              erreurs: row.error ?? '',
+              tentatives: row.attempts,
+              date: row.deliveredAt ? new Date(row.deliveredAt).toLocaleString('fr-FR') : new Date(row.createdAt).toLocaleString('fr-FR'),
+            }))),
+          ],
+          onImported: load,
+        }}
         actions={
           <>
             <DocButton

@@ -12,6 +12,7 @@ import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
 import DocButton from '../components/DocButton';
 import { printPosSalesList, printPosTicket } from '../documents/templates';
+import { exportSheet } from '../excel/specs';
 
 const METHOD_LABEL: Record<PaymentMethod, string> = {
   ESPECES: 'Especes',
@@ -151,6 +152,17 @@ export default function PosPage() {
       <ErpPageHeader
         title="Point de vente"
         subtitle="Caisse comptoir : panier, tarif, encaissement et ticket"
+        excel={{
+          filename: 'caisse',
+          sheets: [exportSheet('Tickets', [['saleNumber', 'Ticket'], ['client', 'Client'], ['method', 'Mode'], ['total', 'Montant'], ['status', 'Statut'], ['date', 'Date']], sales.map((row) => ({
+            saleNumber: row.saleNumber,
+            client: row.client?.name ?? '',
+            method: row.method,
+            total: Number(row.totalAmount),
+            status: row.status,
+            date: new Date(row.createdAt).toLocaleString('fr-FR'),
+          })))],
+        }}
         actions={
           <>
             <DocButton label="Journal du jour" onClick={() => printPosSalesList(sales)} />

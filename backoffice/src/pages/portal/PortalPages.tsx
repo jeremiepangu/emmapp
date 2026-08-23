@@ -7,6 +7,7 @@ import { ErpPageHeader, ErpPanel } from '../../components/ErpUi';
 import DocButton from '../../components/DocButton';
 import { printClientSheet, printDeliveryTracking, printOrder, printOrdersList, printPortalConsignes, printPortalInvoice, printPortalLoyalty } from '../../documents/templates';
 import { printDocument, formatMoney } from '../../documents/printDocument';
+import { exportSheet, sheetOrders } from '../../excel/specs';
 
 const PAY_METHODS: { value: PaymentMethod; label: string }[] = [
   { value: 'MPESA', label: 'M-Pesa' },
@@ -92,6 +93,20 @@ export function PortalHomePage() {
       <ErpPageHeader
         title={`Bonjour ${me.account.fullName}`}
         subtitle={me.client.name}
+        excel={{
+          filename: 'portail-accueil',
+          sheets: [
+            exportSheet('Synthese', [['indicateur', 'Indicateur'], ['valeur', 'Valeur']], [
+              { indicateur: 'Client', valeur: me.client.name },
+              { indicateur: 'Code', valeur: me.client.code },
+              { indicateur: 'Encours', valeur: me.outstandingAmount },
+              { indicateur: 'Commandes en cours', valeur: me.openOrders },
+              { indicateur: 'Consigne', valeur: `${me.consigneBalance} / ${me.consigneLimit}` },
+              { indicateur: 'Points fidelite', valeur: me.client.loyaltyPoints },
+              { indicateur: 'Niveau', valeur: me.client.loyaltyTier },
+            ]),
+          ],
+        }}
         actions={
           <DocButton
             label="Fiche client"
@@ -161,6 +176,22 @@ export function PortalCatalogPage() {
       <ErpPageHeader
         title="Commander"
         subtitle="Tarif de votre segment, même cycle que les commandes internes"
+        excel={{
+          filename: 'portail-catalogue',
+          sheets: [
+            exportSheet('Catalogue', [
+              ['code', 'Code'], ['produit', 'Produit'], ['format', 'Format'],
+              ['prix', 'Prix catalogue'], ['prixSegment', 'Prix segment'], ['remise', 'Remise %'],
+            ], items.map((row) => ({
+              code: row.code,
+              produit: row.name,
+              format: row.format,
+              prix: row.basePrice,
+              prixSegment: row.segmentPrice,
+              remise: row.discountPct,
+            }))),
+          ],
+        }}
         actions={
           <DocButton
             label="Tarif"
@@ -227,6 +258,7 @@ export function PortalOrdersPage() {
     <div className="erp-page">
       <ErpPageHeader
         title="Mes commandes"
+        excel={{ filename: 'portail-commandes', sheets: [sheetOrders(orders)] }}
         actions={<DocButton label="Imprimer" onClick={() => printOrdersList(orders)} />}
       />
       <ErpPanel title={`${orders.length} commandes`}>
@@ -263,6 +295,24 @@ export function PortalDeliveriesPage() {
     <div className="erp-page">
       <ErpPageHeader
         title="Suivi de livraison"
+        excel={{
+          filename: 'portail-livraisons',
+          sheets: [
+            exportSheet('Livraison', [['champ', 'Champ'], ['valeur', 'Valeur']], tracking ? [
+              { champ: 'Numero', valeur: tracking.deliveryNumber },
+              { champ: 'Statut', valeur: tracking.status },
+              { champ: 'Chauffeur', valeur: tracking.driverName ?? '' },
+              { champ: 'Vehicule', valeur: tracking.vehiclePlate ?? '' },
+              { champ: 'ETA min', valeur: tracking.etaMinutes ?? '' },
+              { champ: 'Arrets restants', valeur: tracking.stopsRemaining ?? '' },
+            ] : []),
+            exportSheet('Chronologie', [['etape', 'Etape'], ['fait', 'Fait'], ['date', 'Date']], (tracking?.timeline ?? []).map((row) => ({
+              etape: row.label,
+              fait: row.done ? 'Oui' : 'Non',
+              date: row.at ? new Date(row.at).toLocaleString('fr-FR') : '',
+            }))),
+          ],
+        }}
         actions={tracking ? <DocButton label="Bon de suivi" onClick={() => printDeliveryTracking(tracking)} /> : undefined}
       />
       <ErpPanel title="Livraisons" padded>
@@ -309,6 +359,21 @@ export function PortalInvoicesPage() {
     <div className="erp-page">
       <ErpPageHeader
         title="Factures & paiement mobile"
+        excel={{
+          filename: 'portail-factures',
+          sheets: [
+            exportSheet('Factures', [
+              ['commande', 'Commande'], ['total', 'Total'], ['paye', 'Paye'],
+              ['solde', 'Solde'], ['statut', 'Statut'],
+            ], invoices.map((row) => ({
+              commande: row.orderNumber,
+              total: row.totalAmount,
+              paye: row.paidAmount,
+              solde: row.balance,
+              statut: row.status,
+            }))),
+          ],
+        }}
         actions={<DocButton label="Imprimer les factures" onClick={() => printDocument({
           kind: 'Relevé de factures',
           tables: [{
@@ -370,6 +435,24 @@ export function PortalLoyaltyPage() {
       <ErpPageHeader
         title="Fidélité"
         subtitle={`Niveau ${loyalty.tier} · ${loyalty.points} points`}
+        excel={{
+          filename: 'portail-fidelite',
+          sheets: [
+            exportSheet('Synthese', [['indicateur', 'Indicateur'], ['valeur', 'Valeur']], [
+              { indicateur: 'Niveau', valeur: loyalty.tier },
+              { indicateur: 'Points', valeur: loyalty.points },
+              { indicateur: 'Portefeuille', valeur: loyalty.walletBalance },
+              { indicateur: 'Niveau suivant', valeur: loyalty.nextTier ?? '' },
+              { indicateur: 'Points restants', valeur: loyalty.pointsToNextTier ?? '' },
+            ]),
+            exportSheet('Avantages', [['avantage', 'Avantage']], loyalty.benefits.map((avantage) => ({ avantage }))),
+            exportSheet('Historique', [['date', 'Date'], ['libelle', 'Libelle'], ['points', 'Points']], loyalty.history.map((row) => ({
+              date: new Date(row.at).toLocaleString('fr-FR'),
+              libelle: row.label,
+              points: row.points,
+            }))),
+          ],
+        }}
         actions={<DocButton label="Relevé" onClick={() => printPortalLoyalty(loyalty)} />}
       />
       <ErpPanel title="Avantages" padded>
@@ -391,6 +474,19 @@ export function PortalConsignesPage() {
     <div className="erp-page">
       <ErpPageHeader
         title="Solde de consignes"
+        excel={{
+          filename: 'portail-consignes',
+          sheets: [
+            exportSheet('Mouvements', [
+              ['type', 'Type'], ['quantite', 'Quantite'], ['produit', 'Produit'], ['date', 'Date'],
+            ], rows.map((row) => ({
+              type: row.type,
+              quantite: row.quantity,
+              produit: row.productName ?? '',
+              date: new Date(row.createdAt).toLocaleString('fr-FR'),
+            }))),
+          ],
+        }}
         actions={<DocButton label="Relevé" onClick={() => printPortalConsignes(rows)} />}
       />
       <ErpPanel title="Mouvements">
@@ -428,6 +524,15 @@ export function PortalAssistantPage() {
       <ErpPageHeader
         title="Assistant client"
         subtitle="Commandes, livraisons et consignes"
+        excel={{
+          filename: 'portail-assistant',
+          sheets: [
+            exportSheet('Conversation', [['auteur', 'Auteur'], ['message', 'Message']], log.flatMap((row) => [
+              { auteur: 'Client', message: row.q },
+              { auteur: 'Assistant', message: row.a },
+            ])),
+          ],
+        }}
         actions={
           <DocButton
             label="Conversation"

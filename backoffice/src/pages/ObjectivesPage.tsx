@@ -12,6 +12,7 @@ import StatusPill from '../components/ErpUi';
 import Modal from '../components/Modal';
 import DocButton from '../components/DocButton';
 import { printActivityObjectiveSheet, printActivityObjectivesList } from '../documents/templates';
+import { exportSheet } from '../excel/specs';
 
 const PERIODS = [
   { id: 'MENSUEL', label: 'Mensuel' },
@@ -143,6 +144,17 @@ export default function ObjectivesPage() {
       <ErpPageHeader
         title="Objectifs de performance"
         subtitle="Cibles chiffrees par agent et par activite de fonction, avec suivi du realise"
+        excel={{
+          filename: 'objectifs',
+          sheets: [exportSheet('Objectifs', [['agent', 'Agent'], ['title', 'Objectif'], ['period', 'Periode'], ['target', 'Cible'], ['actual', 'Realise'], ['status', 'Statut']], rows.map((row) => ({
+            agent: `${row.user?.firstName ?? ''} ${row.user?.lastName ?? ''}`.trim(),
+            title: row.title,
+            period: `${row.year}-${row.month ?? row.quarter ?? ''}`,
+            target: row.targetValue,
+            actual: row.actualValue ?? '',
+            status: row.status,
+          })))],
+        }}
         actions={
           <>
             <DocButton label="Imprimer les objectifs" onClick={() => printActivityObjectivesList(rows)} />

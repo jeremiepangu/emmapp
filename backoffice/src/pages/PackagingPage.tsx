@@ -16,6 +16,7 @@ import StatusPill from '../components/ErpUi';
 import Modal from '../components/Modal';
 import DocButton from '../components/DocButton';
 import { printPackagingMovementSheet, printPackagingMovements, printPackagingSkuSheet, printPackagingSkus } from '../documents/templates';
+import { sheetPackagingMovements, sheetPackagingSkus } from '../excel/specs';
 
 const KIND_TABS: { id: PackagingKind | 'TOUS'; label: string }[] = [
   { id: 'TOUS', label: 'Tous' },
@@ -134,6 +135,11 @@ export default function PackagingPage() {
       <ErpPageHeader
         title="Emballages"
         subtitle="Stock des bidons 5 / 10 / 25 L, bonbonnes 5 gallons, étiquettes et bouchons — achat, utilisation, vente, déclassement"
+        excel={{
+          filename: 'emballages',
+          sheets: [sheetPackagingSkus(skus, can('packaging', 'create')), sheetPackagingMovements(movements)],
+          onImported: load,
+        }}
         actions={
           <>
             <DocButton label="Articles" onClick={() => printPackagingSkus(skus)} />

@@ -7,6 +7,7 @@ import StatusPill from '../components/ErpUi';
 import Modal from '../components/Modal';
 import DocButton from '../components/DocButton';
 import { printUserSheet, printUsersList } from '../documents/templates';
+import { sheetUsers } from '../excel/specs';
 
 const ROLES = Object.keys(ROLE_LABELS);
 
@@ -63,6 +64,7 @@ export default function UsersPage() {
       <ErpPageHeader
         title="Utilisateurs"
         subtitle="Gestion des comptes et rôles CRUDVN"
+        excel={{ filename: 'utilisateurs', sheets: [sheetUsers(users, can('users', 'create'))], onImported: load }}
         actions={
           <>
             <DocButton label="Imprimer la liste" onClick={() => printUsersList(users)} />

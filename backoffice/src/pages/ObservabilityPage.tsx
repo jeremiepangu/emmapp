@@ -4,6 +4,7 @@ import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
 import DocButton from '../components/DocButton';
 import { printObservabilityReport } from '../documents/templates';
+import { exportSheet } from '../excel/specs';
 
 export default function ObservabilityPage() {
   const [data, setData] = useState<ObservabilityStatus | null>(null);
@@ -19,6 +20,21 @@ export default function ObservabilityPage() {
       <ErpPageHeader
         title="Observabilité"
         subtitle="Disponibilité services, sync offline et alertes qualité / production"
+        excel={{
+          filename: 'observabilite',
+          sheets: [
+            exportSheet('Indicateurs', [['indicateur', 'Indicateur'], ['valeur', 'Valeur']], [
+              { indicateur: 'Sync en attente', valeur: data.pendingSync },
+              { indicateur: 'Lots bloques', valeur: data.blockedLots },
+              { indicateur: 'Controles qualite ouverts', valeur: data.openQualityChecks },
+              { indicateur: 'Shifts a valider', valeur: data.pendingShiftValidations },
+            ]),
+            exportSheet('Services', [['service', 'Service'], ['statut', 'Statut']], data.services.map((row) => ({
+              service: row.name,
+              statut: row.status,
+            }))),
+          ],
+        }}
         actions={<DocButton label="Synthèse" onClick={() => printObservabilityReport(data)} />}
       />
       <div className="erp-kpi-mini-row">

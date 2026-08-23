@@ -5,6 +5,7 @@ import DocButton from '../components/DocButton';
 import { printAssistantSessionsList } from '../documents/templates';
 import { printDocument } from '../documents/printDocument';
 import StatusPill from '../components/ErpUi';
+import { exportSheet } from '../excel/specs';
 
 export default function AssistantPage() {
   const [sessions, setSessions] = useState<AssistantSession[]>([]);
@@ -51,6 +52,26 @@ export default function AssistantPage() {
       <ErpPageHeader
         title="Assistant conversationnel"
         subtitle="Questions sur commandes, livraisons, consignes, stock et fidélité — français et lingala"
+        excel={{
+          filename: 'assistant',
+          sheets: [
+            exportSheet('Sessions', [
+              ['id', 'Session'], ['canal', 'Canal'], ['debut', 'Debut'],
+              ['dernier', 'Dernier message'], ['escaladee', 'Escaladee'],
+            ], sessions.map((row) => ({
+              id: row.id,
+              canal: row.channel,
+              debut: new Date(row.startedAt).toLocaleString('fr-FR'),
+              dernier: new Date(row.lastMessageAt).toLocaleString('fr-FR'),
+              escaladee: row.escalated ? 'Oui' : 'Non',
+            }))),
+            exportSheet('Conversation', [['auteur', 'Auteur'], ['message', 'Message'], ['date', 'Date']], (active?.messages ?? []).map((row) => ({
+              auteur: row.author,
+              message: row.content,
+              date: new Date(row.createdAt).toLocaleString('fr-FR'),
+            }))),
+          ],
+        }}
         actions={
           <>
             <DocButton label="Sessions" onClick={() => printAssistantSessionsList(sessions)} />

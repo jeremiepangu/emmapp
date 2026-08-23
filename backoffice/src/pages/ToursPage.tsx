@@ -6,6 +6,7 @@ import StatusPill from '../components/ErpUi';
 import Modal from '../components/Modal';
 import DocButton from '../components/DocButton';
 import { printTourSheet, printToursList } from '../documents/templates';
+import { sheetTours } from '../excel/specs';
 
 const emptyForm = {
   zone: '',
@@ -94,6 +95,7 @@ export default function ToursPage() {
       <ErpPageHeader
         title="Tournées"
         subtitle="Planification et suivi des livraisons"
+        excel={{ filename: 'tournees', sheets: [sheetTours(tours)] }}
         actions={
           <>
             <DocButton label="Imprimer la liste" onClick={() => printToursList(tours)} />

@@ -17,6 +17,7 @@ import StatusPill from '../components/ErpUi';
 import Modal from '../components/Modal';
 import DocButton from '../components/DocButton';
 import { printContractSheet, printContractsList } from '../documents/templates';
+import { exportSheet } from '../excel/specs';
 
 type Tab = 'ALL' | ContractPartyKind | 'SUPPLIERS' | 'ALERTS' | 'TEMPLATES' | 'ARCHIVES';
 
@@ -255,6 +256,15 @@ export default function ContractsPage() {
       <ErpPageHeader
         title="Contrats"
         subtitle="Modèles Word, signature, archives — agents, fournisseurs et grands clients"
+        excel={{
+          filename: 'contrats',
+          sheets: [
+            exportSheet('Contrats', [['reference', 'Reference'], ['title', 'Titre'], ['kind', 'Type'], ['status', 'Statut'], ['startDate', 'Debut'], ['amount', 'Montant']], contracts.map((row) => ({
+              reference: row.reference, title: row.title, kind: row.kind, status: row.status, startDate: row.startDate?.slice(0, 10), amount: row.amount ?? '',
+            }))),
+            exportSheet('Fournisseurs', [['name', 'Nom'], ['phone', 'Telephone'], ['email', 'Email']], suppliers.map((row) => ({ name: row.name, phone: row.phone ?? '', email: row.email ?? '' }))),
+          ],
+        }}
         actions={(
           <>
             <DocButton label="Registre" onClick={() => printContractsList(contracts)} />

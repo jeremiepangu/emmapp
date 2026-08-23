@@ -6,6 +6,7 @@ import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import Modal from '../components/Modal';
 import DocButton from '../components/DocButton';
 import { printProductSheet, printProductsCatalog } from '../documents/templates';
+import { sheetProducts } from '../excel/specs';
 
 const FORMATS = ['BIDON_5L', 'BIDON_10L', 'BIDON_25L', 'BONBONNE_19L'];
 
@@ -33,6 +34,7 @@ export default function ProductsPage() {
       <ErpPageHeader
         title="Produits"
         subtitle="Catalogue bidons et bonbonnes — formats étiquetés EMMANUEL SERVICES SARLU"
+        excel={{ filename: 'produits', sheets: [sheetProducts(products, can('products', 'create'))], onImported: load }}
         actions={
           <>
             <DocButton label="Catalogue" onClick={() => printProductsCatalog(products)} />

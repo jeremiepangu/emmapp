@@ -42,6 +42,7 @@ import {
   printWorkCertificate,
   printGenericReport,
 } from '../documents/templates';
+import { exportSheet, sheetEmployees, sheetLeaves } from '../excel/specs';
 import {
   KINSHASA_DISTRICTS,
   KINSHASA_PROVINCE,
@@ -202,6 +203,17 @@ export default function HrPage() {
       <ErpPageHeader
         title="Administration RH"
         subtitle="SIRH — personnel, congés, activités, évaluations, formations et documents"
+        excel={{
+          filename: 'rh',
+          sheets: [
+            sheetEmployees(employees, can('hr', 'update')),
+            sheetLeaves(leaves),
+            exportSheet('Fonctions', [['name', 'Fonction'], ['department', 'Service']], functions.map((row) => ({ name: row.name, department: row.department ?? '' }))),
+            exportSheet('Declarations', [['agent', 'Agent'], ['status', 'Statut'], ['date', 'Date']], declarations.map((row) => ({ agent: `${row.user?.firstName ?? ''} ${row.user?.lastName ?? ''}`.trim(), status: row.status, date: row.date ?? '' }))),
+            exportSheet('Objectifs RH', [['title', 'Objectif'], ['year', 'Annee'], ['weight', 'Poids']], objectives.map((row) => ({ title: row.title, year: row.year, weight: row.weight }))),
+            exportSheet('Formations', [['title', 'Formation'], ['kind', 'Type']], courses.map((row) => ({ title: row.title, kind: row.kind ?? '' }))),
+          ],
+        }}
         actions={
           <>
             <select value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)}>

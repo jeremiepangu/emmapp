@@ -8,6 +8,7 @@ import StatusPill from '../components/ErpUi';
 import Modal from '../components/Modal';
 import DocButton from '../components/DocButton';
 import { printActivityOverview, printActivitySheet } from '../documents/templates';
+import { exportSheet } from '../excel/specs';
 
 type Tab = 'overview' | 'mine';
 
@@ -79,6 +80,23 @@ export default function ActivityPage() {
       <ErpPageHeader
         title="Rapports d’activité"
         subtitle={isManager ? 'Suivi quotidien des agents et validation managers' : 'Votre rapport d’activité du jour'}
+        excel={{
+          filename: 'activite',
+          sheets: [
+            exportSheet('Synthese', [['indicateur', 'Indicateur'], ['valeur', 'Valeur']], overview ? [
+              { indicateur: 'Agents', valeur: overview.totals.agents },
+              { indicateur: 'Soumis', valeur: overview.totals.submitted },
+              { indicateur: 'Valides', valeur: overview.totals.validated },
+              { indicateur: 'Livraisons', valeur: overview.totals.deliveries },
+            ] : []),
+            exportSheet('Agents', [['agent', 'Agent'], ['deliveries', 'Livraisons'], ['tours', 'Tournees'], ['submitted', 'Soumis']], (overview?.rows ?? []).map((row) => ({
+              agent: `${row.user.firstName} ${row.user.lastName}`,
+              deliveries: row.deliveries,
+              tours: row.tours,
+              submitted: row.submitted ? 'Oui' : 'Non',
+            }))),
+          ],
+        }}
         actions={
           <>
             <label className="form-group" style={{ margin: 0 }}>

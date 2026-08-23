@@ -12,6 +12,7 @@ import { ROLE_LABELS } from '../permissions';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import DocButton from '../components/DocButton';
 import { printAuthorizationMatrix, printUserAuthorizationSheet } from '../documents/templates';
+import { exportSheet } from '../excel/specs';
 
 type Tab = 'profils' | 'exceptions';
 const ACTIONS: AclAction[] = ['read', 'create', 'update', 'delete', 'validate'];
@@ -180,6 +181,37 @@ export default function AuthorizationsPage() {
       <ErpPageHeader
         title="Habilitations"
         subtitle="Paramétrage des droits par profil sur tous les modules, menus et fonctions CRUDVN"
+        excel={{
+          filename: 'habilitations',
+          sheets: [
+            exportSheet('Matrice', [
+              ['profil', 'Profil'], ['module', 'Module'], ['section', 'Section'], ['droits', 'Droits'],
+            ], catalog
+              ? catalog.resources.flatMap((resource) => catalog.roles.map((item) => ({
+                profil: item.label,
+                module: resource.label,
+                section: resource.section,
+                droits: (matrix[item.id]?.[resource.id] ?? []).join(', '),
+              })))
+              : []),
+            exportSheet('Profil courant', [
+              ['module', 'Module'], ['droits', 'Droits'],
+            ], catalog
+              ? catalog.resources.map((resource) => ({
+                module: resource.label,
+                droits: (draft[resource.id] ?? []).join(', '),
+              }))
+              : []),
+            exportSheet('Exceptions', [
+              ['utilisateur', 'Utilisateur'], ['module', 'Module'], ['action', 'Action'], ['effet', 'Effet'],
+            ], (detail?.overrides ?? []).map((row) => ({
+              utilisateur: detail ? `${detail.user.firstName} ${detail.user.lastName}` : '',
+              module: catalog?.resources.find((item) => item.id === row.resource)?.label ?? row.resource,
+              action: row.action,
+              effet: row.effect,
+            }))),
+          ],
+        }}
         actions={
           <>
             {tab === 'profils' && catalog && (

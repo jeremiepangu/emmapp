@@ -5,6 +5,7 @@ import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
 import DocButton from '../components/DocButton';
 import { printInventory } from '../documents/templates';
+import { sheetStockItems, sheetStockLocations } from '../excel/specs';
 
 const LOCATION_TYPES: { id: StockLocationType; label: string }[] = [
   { id: 'PRODUITS_FINIS', label: 'Produits finis' },
@@ -78,6 +79,14 @@ export default function StockPage() {
       <ErpPageHeader
         title="Stocks"
         subtitle="Produits finis, emplacements, ajustements et stock embarqué"
+        excel={{
+          filename: 'stocks',
+          sheets: [
+            sheetStockItems(items, can('stock', 'create')),
+            sheetStockLocations(locations, can('stock', 'create')),
+          ],
+          onImported: () => { load(); loadLocations(); },
+        }}
         actions={
           <>
             <DocButton label="État d'inventaire" onClick={() => printInventory(items)} />

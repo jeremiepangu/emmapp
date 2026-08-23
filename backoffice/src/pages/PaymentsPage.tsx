@@ -6,6 +6,7 @@ import StatusPill from '../components/ErpUi';
 import Modal from '../components/Modal';
 import DocButton from '../components/DocButton';
 import { printPaymentReceipt, printPaymentsList } from '../documents/templates';
+import { sheetPayments } from '../excel/specs';
 
 const methodLabel: Record<string, string> = {
   ESPECES: 'Espèces', CHEQUE: 'Chèque', VIREMENT: 'Virement', MOBILE_MONEY: 'Mobile Money',
@@ -39,6 +40,7 @@ export default function PaymentsPage() {
   return (
     <div className="erp-page">
       <ErpPageHeader
+        excel={{ filename: 'paiements', sheets: [sheetPayments(payments, clients, can('payments', 'create'))], onImported: load }}
         title="Paiements"
         subtitle={`Encaissements et suivi des règlements · Total : ${total.toLocaleString('fr-FR')} CDF`}
         actions={

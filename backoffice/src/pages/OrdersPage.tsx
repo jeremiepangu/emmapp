@@ -6,6 +6,7 @@ import StatusPill from '../components/ErpUi';
 import Modal from '../components/Modal';
 import DocButton from '../components/DocButton';
 import { printOrder, printOrdersList } from '../documents/templates';
+import { sheetOrders } from '../excel/specs';
 
 export default function OrdersPage() {
   const { can } = usePermissions();
@@ -74,6 +75,7 @@ export default function OrdersPage() {
       <ErpPageHeader
         title="Commandes"
         subtitle="Création et suivi des commandes clients"
+        excel={{ filename: 'commandes', sheets: [sheetOrders(orders)] }}
         actions={
           <>
             <DocButton label="Imprimer la liste" onClick={() => printOrdersList(orders)} />

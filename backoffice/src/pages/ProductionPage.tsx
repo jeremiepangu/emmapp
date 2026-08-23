@@ -9,6 +9,7 @@ import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
 import DocButton from '../components/DocButton';
 import { printProductionList, printProductionOrder } from '../documents/templates';
+import { sheetProduction } from '../excel/specs';
 
 
 
@@ -55,6 +56,7 @@ export default function ProductionPage() {
       <ErpPageHeader
 
         title="Production"
+        excel={{ filename: 'fabrication', sheets: [sheetProduction(orders, can('production', 'create'))], onImported: load }}
 
         subtitle="Ordres de fabrication et traçabilité lots (format LOT-AAAAMMJJ-LIGNE-FORMAT)"
 

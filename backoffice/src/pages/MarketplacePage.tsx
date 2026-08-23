@@ -5,6 +5,7 @@ import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
 import DocButton from '../components/DocButton';
 import { printQuote, printQuotesList } from '../documents/templates';
+import { sheetQuotes } from '../excel/specs';
 
 export default function MarketplacePage() {
   const { can } = usePermissions();
@@ -41,6 +42,7 @@ export default function MarketplacePage() {
   return (
     <div className="erp-page">
       <ErpPageHeader
+        excel={{ filename: 'marketplace', sheets: [sheetQuotes(quotes)] }}
         title="Marketplace B2B"
         subtitle="Demandes de cotation des grossistes et détaillants, conversion en commande interne"
         actions={

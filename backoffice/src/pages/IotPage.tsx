@@ -13,6 +13,7 @@ import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
 import DocButton from '../components/DocButton';
 import { printIotReport, printIotSensorSheet } from '../documents/templates';
+import { sheetSensors } from '../excel/specs';
 
 const EMPTY: CreateSensorInput = {
   code: '',
@@ -61,6 +62,7 @@ export default function IotPage() {
       <ErpPageHeader
         title="Capteurs & télémétrie"
         subtitle="Qualité en ligne, véhicules et fontaines connectées — alerte automatique hors plage"
+        excel={{ filename: 'capteurs', sheets: [sheetSensors(sensors, can('iot', 'create'))], onImported: load }}
         actions={
           <>
             <DocButton label="Rapport capteurs" onClick={() => printIotReport(sensors)} />

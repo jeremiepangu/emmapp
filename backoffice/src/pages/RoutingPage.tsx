@@ -5,6 +5,7 @@ import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
 import DocButton from '../components/DocButton';
 import { printOptimizedRoutesList, printRouteSheet } from '../documents/templates';
+import { exportSheet } from '../excel/specs';
 
 export default function RoutingPage() {
   const { can } = usePermissions();
@@ -50,6 +51,37 @@ export default function RoutingPage() {
       <ErpPageHeader
         title="Itinéraires optimisés"
         subtitle="Plus proche voisin + 2-opt, priorités clients et trafic horaire — ajustable avant validation"
+        excel={{
+          filename: 'itineraires',
+          sheets: [
+            exportSheet('Itineraires', [
+              ['tournee', 'Tournee'], ['zone', 'Zone'], ['distanceKm', 'Distance km'],
+              ['dureeMin', 'Duree min'], ['algo', 'Algorithme'], ['ajuste', 'Ajuste'],
+            ], routes.map((row) => ({
+              tournee: row.tour?.tourNumber ?? row.tourId,
+              zone: row.tour?.zone ?? '',
+              distanceKm: row.totalDistanceKm,
+              dureeMin: row.estimatedDurationMin,
+              algo: row.algorithm,
+              ajuste: row.manuallyAdjusted ? 'Oui' : 'Non',
+            }))),
+            exportSheet('Arrets', [
+              ['ordre', 'Ordre'], ['client', 'Client'], ['priorite', 'Priorite'],
+              ['lat', 'Latitude'], ['lng', 'Longitude'],
+            ], stops.map((row) => ({
+              ordre: row.order,
+              client: row.clientName,
+              priorite: row.priority,
+              lat: row.latitude,
+              lng: row.longitude,
+            }))),
+            exportSheet('Tournees', [['numero', 'Numero'], ['zone', 'Zone'], ['statut', 'Statut']], tours.map((row) => ({
+              numero: row.tourNumber,
+              zone: row.zone,
+              statut: row.status,
+            }))),
+          ],
+        }}
         actions={
           <>
             <DocButton label="Liste des itinéraires" onClick={() => printOptimizedRoutesList(routes)} />

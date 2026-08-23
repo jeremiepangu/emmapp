@@ -5,6 +5,7 @@ import { ErpPageHeader, ErpPanel, RingGauge } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
 import DocButton from '../components/DocButton';
 import { printSecurityReport, printGenericReport } from '../documents/templates';
+import { exportSheet } from '../excel/specs';
 
 export default function SecurityPage() {
   const { can } = usePermissions();
@@ -49,6 +50,43 @@ export default function SecurityPage() {
       <ErpPageHeader
         title="Centre de sécurité"
         subtitle="Alertes, conformité, couverture MFA des comptes sensibles et journal d'audit"
+        excel={{
+          filename: 'securite',
+          sheets: [
+            exportSheet('Synthese', [['indicateur', 'Indicateur'], ['valeur', 'Valeur']], summary ? [
+              { indicateur: 'Alertes ouvertes', valeur: summary.openAlerts },
+              { indicateur: 'Alertes critiques', valeur: summary.criticalAlerts },
+              { indicateur: 'Echecs login 24h', valeur: summary.failedLoginsLast24h },
+              { indicateur: 'Comptes MFA', valeur: summary.mfaEnabledCount },
+              { indicateur: 'Comptes sensibles', valeur: summary.sensitiveAccountsCount },
+              { indicateur: 'Couverture MFA %', valeur: summary.mfaCoveragePct },
+              { indicateur: 'Evenements audit 24h', valeur: summary.auditEventsLast24h },
+            ] : []),
+            exportSheet('Alertes', [
+              ['date', 'Date'], ['type', 'Type'], ['severite', 'Severite'],
+              ['statut', 'Statut'], ['source', 'Source'], ['message', 'Message'], ['utilisateur', 'Utilisateur'],
+            ], alerts.map((row) => ({
+              date: new Date(row.createdAt).toLocaleString('fr-FR'),
+              type: row.kind,
+              severite: row.severity,
+              statut: row.status,
+              source: row.source,
+              message: row.message,
+              utilisateur: row.user ? `${row.user.firstName} ${row.user.lastName}` : (row.email ?? ''),
+            }))),
+            exportSheet('Audit', [
+              ['date', 'Date'], ['action', 'Action'], ['entite', 'Entite'],
+              ['id', 'Identifiant'], ['ip', 'IP'], ['utilisateur', 'Utilisateur'],
+            ], audit.map((row) => ({
+              date: new Date(row.createdAt).toLocaleString('fr-FR'),
+              action: row.action,
+              entite: row.entityType,
+              id: row.entityId,
+              ip: row.ipAddress ?? '',
+              utilisateur: row.user ? `${row.user.firstName} ${row.user.lastName}` : '',
+            }))),
+          ],
+        }}
         actions={<DocButton label="Rapport" onClick={() => printSecurityReport(summary, alerts, audit)} />}
       />
       {error && <p className="error-msg">{error}</p>}
