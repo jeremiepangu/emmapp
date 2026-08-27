@@ -1,4 +1,6 @@
 import { ReactNode } from 'react';
+import ExcelButtons from './ExcelButtons';
+import type { ExcelBundle } from '../excel/excel';
 
 const STATUS_MAP: Record<string, { label: string; className: string }> = {
   BROUILLON: { label: 'Brouillon', className: 'erp-pill erp-pill--gray' },
@@ -29,6 +31,7 @@ const STATUS_MAP: Record<string, { label: string; className: string }> = {
   ELEVEE: { label: 'Élevée', className: 'erp-pill erp-pill--orange' },
   CRITIQUE: { label: 'Critique', className: 'erp-pill erp-pill--red' },
   ACTIF: { label: 'Actif', className: 'erp-pill erp-pill--green' },
+  PAYEE: { label: 'Payée', className: 'erp-pill erp-pill--green' },
   HORS_LIGNE: { label: 'Hors ligne', className: 'erp-pill erp-pill--red' },
   MAINTENANCE: { label: 'Maintenance', className: 'erp-pill erp-pill--orange' },
   ANALYSEE: { label: 'Analysée', className: 'erp-pill erp-pill--blue' },
@@ -37,11 +40,21 @@ const STATUS_MAP: Record<string, { label: string; className: string }> = {
   EN_NEGOCIATION: { label: 'En négociation', className: 'erp-pill erp-pill--orange' },
   ACCEPTEE: { label: 'Acceptée', className: 'erp-pill erp-pill--green' },
   REFUSEE: { label: 'Refusée', className: 'erp-pill erp-pill--red' },
+  SUSPENDU: { label: 'Suspendu', className: 'erp-pill erp-pill--orange' },
+  EXPIRE: { label: 'Expiré', className: 'erp-pill erp-pill--red' },
+  RESILIE: { label: 'Résilié', className: 'erp-pill erp-pill--red' },
+  RENOUVELE: { label: 'Renouvelé', className: 'erp-pill erp-pill--blue' },
+  WORD_SIGNATURE: { label: 'Word à signer', className: 'erp-pill erp-pill--blue' },
+  SIGNED_ARCHIVE: { label: 'Archivé signé', className: 'erp-pill erp-pill--green' },
   STOCK: { label: 'Stock', className: 'erp-pill erp-pill--orange' },
   CONSIGNE: { label: 'Consigne', className: 'erp-pill erp-pill--blue' },
   ENCAISSEMENT: { label: 'Encaissement', className: 'erp-pill erp-pill--green' },
   PRODUCTION: { label: 'Production', className: 'erp-pill erp-pill--blue' },
   CAPTEUR: { label: 'Capteur', className: 'erp-pill erp-pill--orange' },
+  ACHAT: { label: 'Achat', className: 'erp-pill erp-pill--green' },
+  UTILISATION: { label: 'Utilisation', className: 'erp-pill erp-pill--blue' },
+  VENTE: { label: 'Vente', className: 'erp-pill erp-pill--blue' },
+  DECLASSEMENT: { label: 'Déclassement', className: 'erp-pill erp-pill--red' },
 };
 
 export default function StatusPill({ status, label }: { status: string; label?: string }) {
@@ -53,10 +66,12 @@ export function ErpPageHeader({
   title,
   subtitle,
   actions,
+  excel,
 }: {
   title: string;
   subtitle?: string;
   actions?: ReactNode;
+  excel?: ExcelBundle | null;
 }) {
   return (
     <div className="erp-page-title">
@@ -64,7 +79,14 @@ export function ErpPageHeader({
         <h1>{title}</h1>
         {subtitle && <p className="erp-page-subtitle">{subtitle}</p>}
       </div>
-      {actions && <div className="erp-page-title-right">{actions}</div>}
+      {(excel || actions) && (
+        <div className="erp-page-title-right">
+          {excel && excel.sheets.length > 0 && (
+            <ExcelButtons filename={excel.filename} sheets={excel.sheets} onImported={excel.onImported} />
+          )}
+          {actions}
+        </div>
+      )}
     </div>
   );
 }
@@ -91,7 +113,7 @@ export function ErpPanel({
   );
 }
 
-export function RingGauge({ value, label, color = '#5cb85c' }: { value: number; label: string; color?: string }) {
+export function RingGauge({ value, label, color = '#00a3ff' }: { value: number; label: string; color?: string }) {
   const pct = Math.min(100, Math.max(0, value));
   return (
     <div className="erp-ring-gauge">
@@ -105,4 +127,4 @@ export function RingGauge({ value, label, color = '#5cb85c' }: { value: number; 
     </div>
   );
 }
-
+

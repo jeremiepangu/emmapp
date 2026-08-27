@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { ProductFormat } from '@prisma/client';
+import { NotificationCategory, NotificationType, ProductFormat, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.module';
+import { NotificationsService } from '../notifications/notifications.service';
 
 export interface CreateProductDto {
   code: string;
@@ -17,7 +18,10 @@ export type UpdateProductDto = Partial<CreateProductDto>;
 
 @Injectable()
 export class ProductsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   findAll() {
     return this.prisma.product.findMany({
@@ -32,8 +36,19 @@ export class ProductsService {
     return product;
   }
 
-  create(dto: CreateProductDto) {
-    return this.prisma.product.create({ data: dto });
+  async create(dto: CreateProductDto) {
+    const created = await this.prisma.product.create({ data: dto });
+    await this.notifications.notifyRoles(
+      [UserRole.ADMIN, UserRole.MAGASINIER, UserRole.CHEF_PRODUCTION, UserRole.COMMERCIAL],
+      {
+        title: 'Nouveau produit',
+        message: `${created.code} — ${created.name}`,
+        type: NotificationType.INFO,
+        category: NotificationCategory.STOCK,
+        link: '/products',
+      },
+    );
+    return created;
   }
 
   async update(id: string, dto: UpdateProductDto) {

@@ -1,18 +1,23 @@
 import { FormEvent, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { usePortal } from '../../PortalContext';
+import LoginShell from '../../components/LoginShell';
 
 export default function PortalLoginPage() {
   const [email, setEmail] = useState('client@boutique-kintambo.cd');
   const [password, setPassword] = useState('password123');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(
     new URLSearchParams(window.location.search).has('expired')
       ? 'Session expirée — veuillez vous reconnecter.'
       : '',
   );
   const [loading, setLoading] = useState(false);
-  const { login } = usePortal();
+  const { account, isLoading, login } = usePortal();
   const navigate = useNavigate();
+
+  if (isLoading) return <div className="loading-screen">Chargement...</div>;
+  if (account) return <Navigate to="/portail/commander" replace />;
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -20,7 +25,7 @@ export default function PortalLoginPage() {
     setError('');
     try {
       await login(email, password);
-      navigate('/portail');
+      navigate('/portail/commander');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Identifiants invalides');
     } finally {
@@ -29,34 +34,61 @@ export default function PortalLoginPage() {
   };
 
   return (
-    <div className="erp-login-page">
-      <div className="erp-login-left">
-        <div className="erp-login-brand">EMMAS</div>
-        <p className="erp-login-tag">Portail client — commande, suivi, consigne</p>
-        <ul className="erp-login-features">
-          <li>Commander en autonomie</li>
-          <li>Suivre la livraison</li>
-          <li>Consulter consignes et fidélité</li>
-          <li>Régler par monnaie électronique</li>
-        </ul>
-      </div>
-      <div className="erp-login-right">
-        <div className="erp-login-box">
-          <h2>Espace client</h2>
-          <p className="erp-login-box-desc">Connexion au portail self-service EMMAPURE</p>
-          <form onSubmit={submit}>
-            <div className="form-group"><label>Email</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
-            <div className="form-group"><label>Mot de passe</label><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required /></div>
-            {error && <p className="error-msg">{error}</p>}
-            <button type="submit" className="erp-btn" disabled={loading}>{loading ? 'Connexion…' : 'Entrer'}</button>
-          </form>
-          <p className="erp-muted" style={{ marginTop: 16 }}>
-            Compte démo : client@boutique-kintambo.cd / password123
-            {' · '}
-            <Link to="/login">Espace interne</Link>
-          </p>
+    <LoginShell extras={(
+      <>
+        <p className="es-login-hint">Compte démo : client@boutique-kintambo.cd / password123</p>
+        <p className="es-login-hint"><Link to="/portail/inscription">Nouveau client ? Créer un compte</Link></p>
+      </>
+    )}>
+      <form className="es-login-form" onSubmit={submit}>
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Nom d'utilisateur"
+          required
+          autoComplete="username"
+        />
+        <div className="es-login-field">
+          <input
+            type={showPassword ? 'text' : 'password'}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Mot de passe"
+            required
+            autoComplete="current-password"
+          />
+          <button
+            type="button"
+            className="es-login-eye"
+            onClick={() => setShowPassword((v) => !v)}
+            aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+          >
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8">
+              {showPassword ? (
+                <>
+                  <path d="M3 3l18 18" />
+                  <path d="M9.9 5.1A10.6 10.6 0 0 1 12 5c7 0 10 7 10 7a18.4 18.4 0 0 1-3.2 3.8" />
+                  <path d="M6.1 6.1C3.6 8 2 12 2 12s3 7 10 7a9.8 9.8 0 0 0 4.2-.9" />
+                </>
+              ) : (
+                <>
+                  <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12z" />
+                  <circle cx="12" cy="12" r="3" />
+                </>
+              )}
+            </svg>
+          </button>
         </div>
-      </div>
-    </div>
+        {error && <p className="es-login-error">{error}</p>}
+        <button type="submit" className="es-login-submit" disabled={loading}>
+          {loading ? 'Connexion…' : 'Se connecter'}
+        </button>
+        <div className="es-login-foot">
+          <a href="mailto:contact@emmas.cd?subject=Mot%20de%20passe%20oubli%C3%A9">Mot de passe oublié ?</a>
+          <Link to="/portail/inscription">Créer un compte</Link>
+        </div>
+      </form>
+    </LoginShell>
   );
 }

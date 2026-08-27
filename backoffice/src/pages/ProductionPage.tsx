@@ -7,6 +7,9 @@ import { usePermissions } from '../hooks/usePermissions';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 
 import StatusPill from '../components/ErpUi';
+import DocButton from '../components/DocButton';
+import { printProductionList, printProductionOrder } from '../documents/templates';
+import { sheetProduction } from '../excel/specs';
 
 
 
@@ -53,8 +56,20 @@ export default function ProductionPage() {
       <ErpPageHeader
 
         title="Production"
+        excel={{ filename: 'fabrication', sheets: [sheetProduction(orders, can('production', 'create'))], onImported: load }}
 
         subtitle="Ordres de fabrication et traçabilité lots (format LOT-AAAAMMJJ-LIGNE-FORMAT)"
+
+        actions={
+          <>
+            <DocButton label="Imprimer le registre" onClick={() => printProductionList(orders)} />
+            {can('production', 'create') && (
+              <button type="button" className="erp-btn" onClick={() => document.getElementById('production-form')?.scrollIntoView({ behavior: 'smooth' })}>
+                + Nouvel ordre
+              </button>
+            )}
+          </>
+        }
 
       />
 
@@ -62,7 +77,7 @@ export default function ProductionPage() {
 
         <ErpPanel title="Nouvel ordre de fabrication" padded>
 
-          <form onSubmit={handleSubmit} className="form-row">
+          <form id="production-form" onSubmit={handleSubmit} className="form-row">
 
             <div className="form-group">
 
@@ -150,17 +165,43 @@ export default function ProductionPage() {
 
                 <td>{o.plannedQty}</td>
 
-                <td>{o.producedQty}</td>
+                <td>
+                  {can('production', 'update') && o.lotStatus !== 'LIBERE' ? (
+                    <input
+                      type="number"
+                      defaultValue={o.producedQty}
+                      style={{ width: 80 }}
+                      onBlur={(e) => {
+                        const qty = Number(e.target.value);
+                        if (qty !== o.producedQty) api.updateProductionOrder(o.id, { producedQty: qty }).then(load);
+                      }}
+                    />
+                  ) : (
+                    o.producedQty
+                  )}
+                </td>
 
                 <td><StatusPill status={o.lotStatus} /></td>
 
-                <td>
+                <td className="erp-row-actions">
+
+                  <DocButton onClick={() => printProductionOrder(o)} />
 
                   {can('production', 'validate') && o.lotStatus !== 'LIBERE' && (
 
                     <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => api.validateProductionOrder(o.id).then(load)}>
 
                       Libérer lot
+
+                    </button>
+
+                  )}
+
+                  {can('production', 'delete') && (
+
+                    <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => api.deleteProductionOrder(o.id).then(load)}>
+
+                      Supprimer
 
                     </button>
 

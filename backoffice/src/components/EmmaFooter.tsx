@@ -6,7 +6,7 @@ export default function EmmaFooter() {
       </p>
       <div className="emma-footer-grid">
         <div>
-          <strong>EMMAS</strong> — Kinshasa, Bandalungwa, RDC
+          <strong>EMMANUEL SERVICES SARLU</strong> — Kinshasa, Bandalungwa, RDC
         </div>
         <div>
           <a href="tel:+243813170215">+243 813 170 215</a>

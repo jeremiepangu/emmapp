@@ -6,6 +6,9 @@ import { usePermissions } from '../hooks/usePermissions';
 import { useTheme } from '../ThemeContext';
 import { ErpPanel, ErpPageHeader, RingGauge } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
+import DocButton from '../components/DocButton';
+import { printDashboardReport } from '../documents/templates';
+import { exportSheet } from '../excel/specs';
 
 /** Un panneau refusé au profil connecté ne doit pas faire échouer la page entière. */
 function optional<T>(promise: Promise<T>, fallback: T): Promise<T> {
@@ -52,8 +55,39 @@ export default function DashboardPage() {
       <ErpPageHeader
         title="Tableau de bord"
         subtitle={`Vue d'ensemble · ${user?.firstName} ${user?.lastName}`}
+        excel={{
+          filename: 'tableau-de-bord',
+          sheets: [
+            exportSheet('Indicateurs', [['indicateur', 'Indicateur'], ['valeur', 'Valeur']], [
+              { indicateur: 'Clients', valeur: data.clientsCount },
+              { indicateur: 'Commandes du jour', valeur: data.ordersToday },
+              { indicateur: 'Livraisons du jour', valeur: data.deliveriesToday },
+              { indicateur: 'CA du jour', valeur: Number(data.revenueToday) },
+              { indicateur: 'Tournees actives', valeur: data.activeTours },
+              { indicateur: 'Stock total', valeur: data.totalStock },
+              { indicateur: 'Produits sous seuil', valeur: stockLow },
+            ]),
+            exportSheet('Stock', [['produit', 'Produit'], ['quantite', 'Quantite']], Object.entries(data.stockByProduct).map(([produit, quantite]) => ({
+              produit,
+              quantite,
+            }))),
+            exportSheet('Commandes', [['numero', 'Numero'], ['client', 'Client'], ['statut', 'Statut'], ['montant', 'Montant']], orders.map((row) => ({
+              numero: row.orderNumber,
+              client: row.client?.name ?? '',
+              statut: row.status,
+              montant: Number(row.totalAmount),
+            }))),
+            exportSheet('Paiements', [['date', 'Date'], ['client', 'Client'], ['methode', 'Methode'], ['montant', 'Montant']], payments.map((row) => ({
+              date: new Date(row.createdAt).toLocaleString('fr-FR'),
+              client: row.client?.name ?? '',
+              methode: row.method,
+              montant: Number(row.amount),
+            }))),
+          ],
+        }}
         actions={
           <>
+            <DocButton label="Synthèse" onClick={() => printDashboardReport(data)} />
             <select className="erp-select" defaultValue={user?.id} aria-label="Profil utilisateur">
               <option>{user?.firstName} {user?.lastName} — {roleLabel}</option>
             </select>
@@ -204,8 +238,9 @@ export default function DashboardPage() {
         <div className="erp-dashboard-col erp-dashboard-col--charts">
           <ErpPanel title="Vos objectifs">
             <div className="erp-rings-row">
-              <RingGauge value={orderGoal} label="Objectif commandes / mois" color="#5cb85c" />
-              <RingGauge value={revenueGoal} label="Objectif CA / mois" color="#5bc0de" />
+              <RingGauge value={orderGoal} label="Objectif commandes / mois" color="#1abc9c" />
+              <RingGauge value={revenueGoal} label="Objectif CA / mois" color="#00a3ff" />
+              <RingGauge value={Math.max(8, 100 - stockLow * 18)} label="Disponibilité stock" color="#9b59b6" />
             </div>
           </ErpPanel>
 

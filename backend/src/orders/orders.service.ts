@@ -3,13 +3,19 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { OrderStatus, Prisma } from '@prisma/client';
+import { NotificationCategory, NotificationType, OrderStatus, Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.module';
+import { PricingService } from '../pricing/pricing.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateOrderDto } from './dto/order.dto';
 
 @Injectable()
 export class OrdersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private pricing: PricingService,
+    private notifications: NotificationsService,
+  ) {}
 
   private async generateOrderNumber(): Promise<string> {
     const count = await this.prisma.order.count();
@@ -48,18 +54,27 @@ export class OrdersService {
     return order;
   }
 
-  async create(dto: CreateOrderDto) {
+  async create(dto: CreateOrderDto, actor?: { id: string; role: string }) {
     const client = await this.prisma.client.findUnique({
       where: { id: dto.clientId },
     });
     if (!client) throw new NotFoundException('Client introuvable');
+
+    let driverId = dto.driverId || null;
+    if (dto.tourId) {
+      const tour = await this.prisma.tour.findUnique({ where: { id: dto.tourId } });
+      if (tour) driverId = tour.driverId;
+    } else if (!driverId && actor && (actor.role === 'LIVREUR' || actor.role === 'CHARGE_LIVRAISON')) {
+      driverId = actor.id;
+    }
+    const ctx = this.pricing.ctxFromClient(client, driverId);
 
     let totalAmount = new Prisma.Decimal(0);
     const linesData: Array<{
       productId: string;
       quantity: number;
       unitPrice: Prisma.Decimal;
-      discount: number;
+      discount: Prisma.Decimal;
     }> = [];
 
     for (const line of dto.lines) {
@@ -69,19 +84,19 @@ export class OrdersService {
       if (!product) {
         throw new NotFoundException(`Produit ${line.productId} introuvable`);
       }
-      const lineTotal = product.unitPrice
-        .mul(line.quantity)
-        .sub(line.discount ?? 0);
-      totalAmount = totalAmount.add(lineTotal);
+      const priced = await this.pricing.priceLine(ctx, product, line.quantity);
+      const extra = new Prisma.Decimal(line.discount ?? 0);
+      const discount = priced.discount.add(extra);
+      totalAmount = totalAmount.add(priced.unitPrice.mul(line.quantity).sub(extra));
       linesData.push({
         productId: line.productId,
         quantity: line.quantity,
-        unitPrice: product.unitPrice,
-        discount: line.discount ?? 0,
+        unitPrice: priced.unitPrice,
+        discount,
       });
     }
 
-    return this.prisma.order.create({
+    const created = await this.prisma.order.create({
       data: {
         orderNumber: await this.generateOrderNumber(),
         clientId: dto.clientId,
@@ -96,6 +111,17 @@ export class OrdersService {
         lines: { include: { product: true } },
       },
     });
+    await this.notifications.notifyRoles(
+      [UserRole.ADMIN, UserRole.COMMERCIAL, UserRole.CHEF_EXPLOITATION],
+      {
+        title: 'Nouvelle commande',
+        message: `${created.orderNumber} — ${created.client.name}`,
+        type: NotificationType.SUCCESS,
+        category: NotificationCategory.COMMANDE,
+        link: '/orders',
+      },
+    );
+    return created;
   }
 
   async validate(id: string) {
@@ -103,10 +129,21 @@ export class OrdersService {
     if (order.status !== OrderStatus.BROUILLON) {
       throw new BadRequestException('Commande déjà validée');
     }
-    return this.prisma.order.update({
+    const updated = await this.prisma.order.update({
       where: { id },
       data: { status: OrderStatus.VALIDEE },
     });
+    await this.notifications.notifyRoles(
+      [UserRole.ADMIN, UserRole.COMMERCIAL, UserRole.CHEF_EXPLOITATION],
+      {
+        title: 'Commande validee',
+        message: `${order.orderNumber} — ${order.client.name}`,
+        type: NotificationType.SUCCESS,
+        category: NotificationCategory.COMMANDE,
+        link: '/orders',
+      },
+    );
+    return updated;
   }
 
   async cancel(id: string) {
@@ -114,9 +151,37 @@ export class OrdersService {
     if (order.status === OrderStatus.LIVREE || order.status === OrderStatus.ANNULEE) {
       throw new BadRequestException('Impossible d\'annuler cette commande');
     }
-    return this.prisma.order.update({
+    const updated = await this.prisma.order.update({
       where: { id },
       data: { status: OrderStatus.ANNULEE },
     });
+    await this.notifications.notifyRoles(
+      [UserRole.ADMIN, UserRole.COMMERCIAL, UserRole.CHEF_EXPLOITATION],
+      {
+        title: 'Commande annulee',
+        message: `${order.orderNumber} — ${order.client.name}`,
+        type: NotificationType.WARNING,
+        category: NotificationCategory.COMMANDE,
+        link: '/orders',
+      },
+    );
+    return updated;
+  }
+
+  async updateNotes(id: string, notes: string) {
+    await this.findOne(id);
+    return this.prisma.order.update({
+      where: { id },
+      data: { notes },
+      include: { client: true, lines: { include: { product: true } } },
+    });
+  }
+
+  async remove(id: string) {
+    const order = await this.findOne(id);
+    if (order.status === OrderStatus.LIVREE) {
+      throw new BadRequestException('Impossible de supprimer une commande livrée');
+    }
+    return this.prisma.order.delete({ where: { id } });
   }
 }

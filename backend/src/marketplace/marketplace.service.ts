@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { NotificationCategory, NotificationType, OrderStatus, Prisma, QuoteRequestStatus, UserRole } from '@prisma/client';
 import { NotificationsService } from '../notifications/notifications.service';
+import { PricingService } from '../pricing/pricing.service';
 import { PrismaService } from '../prisma/prisma.module';
 import { WebhooksService } from '../integrations/webhooks.service';
 
@@ -10,6 +11,7 @@ export class MarketplaceService {
     private prisma: PrismaService,
     private notifications: NotificationsService,
     private webhooks: WebhooksService,
+    private pricing: PricingService,
   ) {}
 
   findAll(status?: string) {
@@ -72,7 +74,7 @@ export class MarketplaceService {
   async update(id: string, userId: string, data: { status?: QuoteRequestStatus; quotedAmount?: number }) {
     const existing = await this.prisma.quoteRequest.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Demande introuvable');
-    return this.prisma.quoteRequest.update({
+    const updated = await this.prisma.quoteRequest.update({
       where: { id },
       data: {
         status: data.status,
@@ -81,6 +83,19 @@ export class MarketplaceService {
       },
       include: { client: { select: { code: true, name: true } } },
     });
+    if (data.status === QuoteRequestStatus.ACCEPTEE || data.status === QuoteRequestStatus.REFUSEE) {
+      await this.notifications.notifyRoles(
+        [UserRole.COMMERCIAL, UserRole.DELEGUE_COMMERCIAL, UserRole.ADMIN],
+        {
+          title: data.status === QuoteRequestStatus.ACCEPTEE ? 'Cotation acceptee' : 'Cotation refusee',
+          message: `${updated.companyName} — ${updated.reference}`,
+          type: data.status === QuoteRequestStatus.ACCEPTEE ? NotificationType.SUCCESS : NotificationType.WARNING,
+          category: NotificationCategory.COMMANDE,
+          link: '/marketplace',
+        },
+      );
+    }
+    return updated;
   }
 
   async convert(id: string) {
@@ -95,16 +110,24 @@ export class MarketplaceService {
       clientId = byEmail?.id ?? null;
     }
     if (!clientId) throw new BadRequestException('Aucun client rattaché à cette demande');
+    const client = await this.prisma.client.findUnique({ where: { id: clientId } });
+    if (!client) throw new BadRequestException('Client introuvable');
     const lines = quote.lines as Array<{ productId: string; quantity: number }>;
     const count = await this.prisma.order.count();
     const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     let total = new Prisma.Decimal(0);
-    const linesData: Array<{ productId: string; quantity: number; unitPrice: Prisma.Decimal; discount: number }> = [];
+    const linesData: Array<{ productId: string; quantity: number; unitPrice: Prisma.Decimal; discount: Prisma.Decimal }> = [];
     for (const line of lines) {
       const product = await this.prisma.product.findUnique({ where: { id: line.productId } });
       if (!product) continue;
-      total = total.add(product.unitPrice.mul(line.quantity));
-      linesData.push({ productId: product.id, quantity: line.quantity, unitPrice: product.unitPrice, discount: 0 });
+      const priced = await this.pricing.priceLine(this.pricing.ctxFromClient(client), product, line.quantity);
+      total = total.add(priced.unitPrice.mul(line.quantity));
+      linesData.push({
+        productId: product.id,
+        quantity: line.quantity,
+        unitPrice: priced.unitPrice,
+        discount: priced.discount,
+      });
     }
     const order = await this.prisma.order.create({
       data: {
@@ -122,12 +145,21 @@ export class MarketplaceService {
       [UserRole.CHEF_EXPLOITATION, UserRole.ADMIN],
       {
         title: 'Cotation convertie',
-        message: `${quote.reference} → ${order.orderNumber}`,
+        message: `${quote.reference} -> ${order.orderNumber}`,
         type: NotificationType.SUCCESS,
         category: NotificationCategory.COMMANDE,
         link: '/orders',
       },
     );
     return order;
+  }
+
+  async remove(id: string) {
+    const quote = await this.prisma.quoteRequest.findUnique({ where: { id } });
+    if (!quote) throw new NotFoundException('Demande introuvable');
+    if (quote.status !== QuoteRequestStatus.NOUVELLE && quote.status !== QuoteRequestStatus.REFUSEE) {
+      throw new BadRequestException('Seules les demandes nouvelles ou refusées peuvent être supprimées');
+    }
+    return this.prisma.quoteRequest.delete({ where: { id } });
   }
 }

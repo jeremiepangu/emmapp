@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import {
   IsEmail,
   IsEnum,
@@ -30,6 +31,36 @@ export class CreateClientDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  avenue?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  avenueNumber?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  quartier?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  commune?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  district?: string;
+
+  @ApiPropertyOptional({ default: 'KINSHASA' })
+  @IsOptional()
+  @IsString()
+  province?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   city?: string;
 
   @ApiPropertyOptional()
@@ -54,6 +85,27 @@ export class CreateClientDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @IsString()
+  idDocumentType?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  idDocumentNumber?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  logoUrl?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  profession?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Transform(({ value }) => (value === '' ? undefined : value))
   @IsEmail()
   email?: string;
 

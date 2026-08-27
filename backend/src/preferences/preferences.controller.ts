@@ -18,7 +18,12 @@ export class PreferencesController {
   @Patch()
   update(
     @Req() req: { user: { id: string } },
-    @Body() body: { theme?: string; dashboardLayout?: unknown },
+    @Body() body: {
+      theme?: string;
+      emailNotifications?: boolean;
+      whatsappNotifications?: boolean;
+      dashboardLayout?: unknown;
+    },
   ) {
     return this.preferencesService.updatePreferences(req.user.id, body);
   }

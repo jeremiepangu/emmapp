@@ -1,14 +1,17 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  Param,
+  Patch,
   Post,
   Query,
   Request,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { UserRole } from '@prisma/client';
+import { PaymentMethod, UserRole } from '@prisma/client';
 import { PaymentsService } from './payments.service';
 import { CreatePaymentDto } from './dto/payment.dto';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -33,5 +36,20 @@ export class PaymentsController {
     @Request() req: { user: { id: string } },
   ) {
     return this.paymentsService.create(dto, req.user.id);
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.CAISSIER, UserRole.COMPTABLE)
+  @Patch(':id')
+  update(
+    @Param('id') id: string,
+    @Body() body: Partial<{ amount: number; method: PaymentMethod; reference: string }>,
+  ) {
+    return this.paymentsService.update(id, body);
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.CAISSIER)
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.paymentsService.remove(id);
   }
 }

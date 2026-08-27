@@ -35,7 +35,7 @@ export default function GlobalSearch() {
       <input
         id="global-search"
         type="search"
-        placeholder="Client, commande, lot…"
+        placeholder="Rechercher un client, une commande ou un lot"
         value={q}
         onChange={(e) => { setQ(e.target.value); setOpen(true); }}
         onFocus={() => setOpen(true)}

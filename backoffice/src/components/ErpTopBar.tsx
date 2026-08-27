@@ -11,7 +11,6 @@ interface Props {
 }
 
 const QUICK_ACTIONS = [
-  { icon: '👤', label: 'Utilisateurs', to: '/users' },
   { icon: '🧮', label: 'Paiements', to: '/payments' },
   { icon: '📝', label: 'Commandes', to: '/orders' },
   { icon: '📦', label: 'Stock', to: '/stock' },
@@ -61,16 +60,19 @@ export default function ErpTopBar({ onMenuToggle, onLogout, userName, showNotifi
             </Link>
           ))}
         </div>
-        <GlobalSearch />
       </div>
+      <GlobalSearch />
       <div className="erp-topbar-right">
+        <TooltipBtn tooltip="Utilisateurs" to="/users" className="erp-icon-btn--primary">
+          👤+
+        </TooltipBtn>
         <TooltipBtn
           tooltip={theme === 'sombre' ? 'Mode clair' : 'Mode sombre'}
           onClick={() => setTheme(theme === 'sombre' ? 'clair' : 'sombre')}
         >
           {theme === 'sombre' ? '☀' : '☾'}
         </TooltipBtn>
-        <TooltipBtn tooltip="Tableau de bord" to="/">▣</TooltipBtn>
+        <TooltipBtn tooltip="Tableau de bord" to="/app">▣</TooltipBtn>
         <TooltipBtn tooltip="Notifications" to="/notifications">✉</TooltipBtn>
         <TooltipBtn tooltip="Synchronisation">☁</TooltipBtn>
         {showNotifications && <NotificationBell />}

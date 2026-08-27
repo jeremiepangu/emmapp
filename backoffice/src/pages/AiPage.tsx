@@ -11,6 +11,9 @@ import {
 import { usePermissions } from '../hooks/usePermissions';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
+import DocButton from '../components/DocButton';
+import { printAnomalies, printForecasts } from '../documents/templates';
+import { exportSheet } from '../excel/specs';
 
 function Factors({ factors }: { factors: Array<{ label: string; weight: number; detail?: string }> }) {
   if (!factors?.length) return <span className="erp-muted">—</span>;
@@ -92,17 +95,81 @@ export default function AiPage() {
       <ErpPageHeader
         title="IA prédictive & analytics"
         subtitle="Prévision de demande, anomalies, maintenance et scoring — chaque résultat affiche ses facteurs (EF-IA-04)"
-        actions={can('ai', 'validate') && (
+        excel={{
+          filename: 'ia',
+          sheets: [
+            exportSheet('Previsions', [
+              ['produit', 'Produit'], ['zone', 'Zone'], ['date', 'Horizon'],
+              ['quantite', 'Quantite'], ['confiance', 'Confiance'], ['modele', 'Modele'],
+            ], forecasts.map((row) => ({
+              produit: row.product?.name ?? row.productId,
+              zone: row.zone,
+              date: row.horizonDate.slice(0, 10),
+              quantite: row.forecastQty,
+              confiance: row.confidence,
+              modele: row.modelVersion,
+            }))),
+            exportSheet('Anomalies', [
+              ['date', 'Date'], ['type', 'Type'], ['severite', 'Severite'],
+              ['statut', 'Statut'], ['titre', 'Titre'], ['score', 'Score'],
+            ], anomalies.map((row) => ({
+              date: new Date(row.detectedAt).toLocaleString('fr-FR'),
+              type: row.kind,
+              severite: row.severity,
+              statut: row.status,
+              titre: row.title,
+              score: row.score,
+            }))),
+            exportSheet('Maintenance', [
+              ['equipement', 'Equipement'], ['ligne', 'Ligne'], ['risque', 'Score'],
+              ['panne', 'Panne predite'],
+            ], risks.map((row) => ({
+              equipement: row.equipmentCode,
+              ligne: row.lineCode,
+              risque: row.riskScore,
+              panne: row.predictedFailureAt ? new Date(row.predictedFailureAt).toLocaleString('fr-FR') : '',
+            }))),
+            exportSheet('Modeles', [
+              ['nom', 'Modele'], ['version', 'Version'], ['echantillons', 'Echantillons'],
+              ['mape', 'MAPE %'], ['date', 'Date'],
+            ], runs.map((row) => ({
+              nom: row.modelName,
+              version: row.modelVersion,
+              echantillons: row.samples,
+              mape: row.mapePct ?? '',
+              date: new Date(row.ranAt).toLocaleString('fr-FR'),
+            }))),
+            exportSheet('Scoring', [['indicateur', 'Indicateur'], ['valeur', 'Valeur']], score ? [
+              { indicateur: 'Client', valeur: score.clientName },
+              { indicateur: 'Score', valeur: score.score },
+              { indicateur: 'Note', valeur: score.rating },
+              { indicateur: 'Limite recommandee', valeur: score.recommendedLimit },
+              { indicateur: 'Credit autorise', valeur: score.creditAllowed ? 'Oui' : 'Non' },
+            ] : []),
+            exportSheet('Recommandations', [['titre', 'Titre'], ['detail', 'Detail'], ['quantite', 'Quantite']], recs.map((row) => ({
+              titre: row.title,
+              detail: row.detail,
+              quantite: row.suggestedQty ?? '',
+            }))),
+          ],
+        }}
+        actions={(
           <>
-            <button type="button" className="erp-btn" disabled={!!busy} onClick={() => run('prévision', () => api.runDemandForecast())}>
-              {busy === 'prévision' ? 'Calcul…' : 'Actualiser les prévisions'}
-            </button>
-            <button type="button" className="erp-btn erp-btn--ghost" disabled={!!busy} onClick={() => run('anomalies', () => api.runAnomalyDetection())}>
-              {busy === 'anomalies' ? 'Analyse…' : 'Détecter les anomalies'}
-            </button>
-            <button type="button" className="erp-btn erp-btn--ghost" disabled={!!busy} onClick={() => run('maintenance', () => api.runMaintenanceRisk())}>
-              {busy === 'maintenance' ? 'Analyse…' : 'Score de panne'}
-            </button>
+            <DocButton label="Prévisions" onClick={() => printForecasts(forecasts)} />
+            <DocButton label="Anomalies" onClick={() => printAnomalies(anomalies)} />
+            {can('ai', 'validate') && (
+              <>
+                <button type="button" className="erp-btn" disabled={!!busy} onClick={() => run('prévision', () => api.runDemandForecast())}>
+                  {busy === 'prévision' ? 'Calcul…' : 'Actualiser les prévisions'}
+                </button>
+                <button type="button" className="erp-btn erp-btn--ghost" disabled={!!busy} onClick={() => run('anomalies', () => api.runAnomalyDetection())}>
+                  {busy === 'anomalies' ? 'Analyse…' : 'Détecter les anomalies'}
+                </button>
+                <button type="button" className="erp-btn erp-btn--ghost" disabled={!!busy} onClick={() => run('maintenance', () => api.runMaintenanceRisk())}>
+                  {busy === 'maintenance' ? 'Analyse…' : 'Score de panne'}
+                </button>
+              </>
+            )}
           </>
         )}
       />

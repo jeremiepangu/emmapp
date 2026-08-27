@@ -3,9 +3,10 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { DeliveryStatus, ProductFormat, SyncStatus } from '@prisma/client';
+import { DeliveryStatus, NotificationCategory, NotificationType, ProductFormat, SyncStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.module';
 import { ConsignesService } from '../consignes/consignes.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateDeliveryDto } from './dto/delivery.dto';
 
 @Injectable()
@@ -13,6 +14,7 @@ export class DeliveriesService {
   constructor(
     private prisma: PrismaService,
     private consignesService: ConsignesService,
+    private notifications: NotificationsService,
   ) {}
 
   private async generateDeliveryNumber(): Promise<string> {
@@ -131,6 +133,16 @@ export class DeliveriesService {
       }
     }
 
+    await this.notifications.notifyRoles(
+      [UserRole.ADMIN, UserRole.CHEF_EXPLOITATION, UserRole.COMMERCIAL],
+      {
+        title: 'Livraison enregistree',
+        message: `${delivery.deliveryNumber} — ${delivery.client.name}`,
+        type: NotificationType.SUCCESS,
+        category: NotificationCategory.LIVRAISON,
+        link: '/deliveries',
+      },
+    );
     return delivery;
   }
 
@@ -166,5 +178,37 @@ export class DeliveriesService {
       },
       loadSheets: tour?.loadSheets ?? [],
     };
+  }
+
+  async updateStatus(id: string, status: DeliveryStatus, notes?: string) {
+    const delivery = await this.findOne(id);
+    const updated = await this.prisma.delivery.update({
+      where: { id: delivery.id },
+      data: {
+        status,
+        notes: notes ?? delivery.notes,
+        deliveredAt: status === DeliveryStatus.LIVREE ? new Date() : delivery.deliveredAt,
+      },
+      include: { client: true, order: true, lines: { include: { product: true } } },
+    });
+    await this.notifications.notifyRoles(
+      [UserRole.ADMIN, UserRole.CHEF_EXPLOITATION, UserRole.COMMERCIAL],
+      {
+        title: 'Statut livraison',
+        message: `${updated.deliveryNumber} — ${updated.client.name} : ${status}`,
+        type: status === DeliveryStatus.LIVREE ? NotificationType.SUCCESS : NotificationType.INFO,
+        category: NotificationCategory.LIVRAISON,
+        link: '/deliveries',
+      },
+    );
+    return updated;
+  }
+
+  async remove(id: string) {
+    const delivery = await this.findOne(id);
+    if (delivery.status === DeliveryStatus.LIVREE) {
+      throw new BadRequestException('Impossible de supprimer une livraison déjà effectuée');
+    }
+    return this.prisma.delivery.delete({ where: { id } });
   }
 }
