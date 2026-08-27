@@ -1,5 +1,13 @@
-import { FormEvent, useEffect, useState } from 'react';
-import { api, ActivityOverview, ActivityReportDetail } from '../api';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
+import {
+  api,
+  ActivityDeclaration,
+  ActivityObjective,
+  ActivityOverview,
+  ActivityReportDetail,
+  JobFunction,
+  JobFunctionActivity,
+} from '../api';
 import { useAuth } from '../AuthContext';
 import { usePermissions } from '../hooks/usePermissions';
 import { ROLE_LABELS } from '../permissions';
@@ -7,10 +15,24 @@ import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
 import Modal from '../components/Modal';
 import DocButton from '../components/DocButton';
-import { printActivityOverview, printActivitySheet } from '../documents/templates';
+import {
+  printActivityOverview,
+  printActivitySheet,
+  printAgentActivityCanvas,
+  printJobActivityCanvas,
+  printManagerActivityCanvas,
+} from '../documents/templates';
 import { exportSheet } from '../excel/specs';
 
 type Tab = 'overview' | 'mine';
+
+function activityOf(d: ActivityDeclaration): string | undefined {
+  return d.activityId ?? d.activity?.id ?? undefined;
+}
+
+function userOf(d: ActivityDeclaration): string | undefined {
+  return d.userId ?? d.user?.id ?? undefined;
+}
 
 export default function ActivityPage() {
   const { user } = useAuth();
@@ -25,6 +47,22 @@ export default function ActivityPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [detail, setDetail] = useState<ActivityReportDetail | null>(null);
+  const [functions, setFunctions] = useState<JobFunction[]>([]);
+  const [objectives, setObjectives] = useState<ActivityObjective[]>([]);
+  const [declarations, setDeclarations] = useState<ActivityDeclaration[]>([]);
+  const [agentId, setAgentId] = useState('');
+  const [activityId, setActivityId] = useState('');
+  const [busyPdf, setBusyPdf] = useState(false);
+
+  const activities = useMemo(
+    () => functions.flatMap((fn) => (fn.activities ?? []).map((a): JobFunctionActivity => ({
+      ...a,
+      jobFunction: a.jobFunction ?? { id: fn.id, name: fn.name, department: fn.department },
+    }))),
+    [functions],
+  );
+
+  const selectedActivity = activities.find((a) => a.id === activityId);
 
   const loadMine = () => {
     api.getMyActivityReport(date).then((data) => {
@@ -43,6 +81,18 @@ export default function ActivityPage() {
     loadMine();
     loadOverview();
   }, [date, isManager]);
+
+  useEffect(() => {
+    api.getJobFunctions().then(setFunctions).catch(() => setFunctions([]));
+    api.getActivityDeclarations().then(setDeclarations).catch(() => setDeclarations([]));
+  }, []);
+
+  useEffect(() => {
+    const d = new Date(date);
+    const year = Number.isNaN(d.getTime()) ? new Date().getFullYear() : d.getFullYear();
+    const month = Number.isNaN(d.getTime()) ? new Date().getMonth() + 1 : d.getMonth() + 1;
+    api.getActivityObjectives({ year, month }).then(setObjectives).catch(() => setObjectives([]));
+  }, [date]);
 
   const saveMine = async (e: FormEvent) => {
     e.preventDefault();
@@ -63,6 +113,38 @@ export default function ActivityPage() {
   const openAgent = async (userId: string) => {
     const data = await api.getAgentActivityReport(userId, date);
     setDetail(data);
+  };
+
+  const extrasFor = (userId: string): { objectives: ActivityObjective[]; declarations: ActivityDeclaration[] } => ({
+    objectives: objectives.filter((o) => o.userId === userId),
+    declarations: declarations.filter((d) => userOf(d) === userId),
+  });
+
+  const exportAgentCanvas = async (userId?: string) => {
+    const id = userId || agentId;
+    if (!id) return;
+    setBusyPdf(true);
+    try {
+      const data = await api.getAgentActivityReport(id, date);
+      printAgentActivityCanvas(data, extrasFor(id));
+    } finally {
+      setBusyPdf(false);
+    }
+  };
+
+  const exportActivityCanvas = () => {
+    if (!selectedActivity) return;
+    printJobActivityCanvas({
+      activity: selectedActivity,
+      date,
+      declarations: declarations.filter((d) => activityOf(d) === selectedActivity.id),
+      objectives: objectives.filter((o) => o.activityId === selectedActivity.id),
+    });
+  };
+
+  const exportMineCanvas = () => {
+    if (!mine) return;
+    printAgentActivityCanvas(mine, extrasFor(user?.id ?? mine.user.id));
   };
 
   const validate = async (reportId: string) => {
@@ -103,10 +185,16 @@ export default function ActivityPage() {
               <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </label>
             {tab === 'overview' && overview && (
-              <DocButton label="Synthèse" onClick={() => printActivityOverview(overview)} />
+              <>
+                <DocButton label="Synthèse" onClick={() => printActivityOverview(overview)} />
+                <DocButton label="Canvas managers" onClick={() => printManagerActivityCanvas(overview, { objectives, declarations })} />
+              </>
             )}
             {tab === 'mine' && mine && (
-              <DocButton label="Mon rapport" onClick={() => printActivitySheet(mine)} />
+              <>
+                <DocButton label="Mon rapport" onClick={() => printActivitySheet(mine)} />
+                <DocButton label="Mon canvas PDF" onClick={exportMineCanvas} />
+              </>
             )}
             {tab === 'mine' && (
               <button type="button" className="erp-btn" onClick={() => document.getElementById('activity-form')?.scrollIntoView({ behavior: 'smooth' })}>
@@ -133,6 +221,39 @@ export default function ActivityPage() {
             <div className="erp-kpi erp-kpi--orange"><div className="erp-kpi-label">Livraisons</div><div className="erp-kpi-value">{overview.totals.deliveries}</div></div>
             <div className="erp-kpi"><div className="erp-kpi-label">Encaissements</div><div className="erp-kpi-value">{money(overview.totals.paymentsAmount)}</div></div>
           </div>
+          <ErpPanel title="Canvas PDF" padded>
+            <p className="erp-muted">Générer un canvas visuel (KPI et barres) à en-tête EMMANUEL SERVICES, puis imprimer ou télécharger le PDF.</p>
+            <div className="form-row">
+              <div className="form-group">
+                <label>Agent</label>
+                <select value={agentId} onChange={(e) => setAgentId(e.target.value)}>
+                  <option value="">Choisir un agent</option>
+                  {overview.rows.map((row) => (
+                    <option key={row.user.id} value={row.user.id}>{row.user.firstName} {row.user.lastName}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group" style={{ alignSelf: 'end' }}>
+                <DocButton label="Canvas agent" onClick={() => exportAgentCanvas()} />
+              </div>
+              <div className="form-group">
+                <label>Activité de fonction</label>
+                <select value={activityId} onChange={(e) => setActivityId(e.target.value)}>
+                  <option value="">Choisir une activité</option>
+                  {activities.map((a) => (
+                    <option key={a.id} value={a.id}>{a.jobFunction?.name ? `${a.jobFunction.name} — ` : ''}{a.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group" style={{ alignSelf: 'end' }}>
+                <DocButton label="Canvas activité" onClick={exportActivityCanvas} />
+              </div>
+              <div className="form-group" style={{ alignSelf: 'end' }}>
+                <DocButton label="Canvas managers" ghost={false} onClick={() => printManagerActivityCanvas(overview, { objectives, declarations })} />
+              </div>
+            </div>
+            {busyPdf && <p className="erp-muted">Préparation du canvas…</p>}
+          </ErpPanel>
           <ErpPanel title={`Activité du ${date}`}>
             <table className="erp-table">
               <thead>
@@ -161,6 +282,7 @@ export default function ActivityPage() {
                     </td>
                     <td className="erp-row-actions">
                       <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => openAgent(row.user.id)}>Détail</button>
+                      <DocButton label="Canvas" onClick={() => exportAgentCanvas(row.user.id)} />
                       {row.reportId && !row.validated && (
                         <button type="button" className="erp-btn erp-btn--sm" onClick={() => validate(row.reportId!)}>Valider</button>
                       )}
@@ -214,6 +336,7 @@ export default function ActivityPage() {
             <p><strong>Résumé :</strong> {detail.summary || '—'}</p>
             <p><strong>Incidents :</strong> {detail.incidents || 'Aucun'}</p>
             <DocButton label="Fiche agent" onClick={() => printActivitySheet(detail)} />
+            <DocButton label="Canvas PDF" onClick={() => printAgentActivityCanvas(detail, extrasFor(detail.user.id))} />
             {detail.report && !detail.report.validated && (
               <button type="button" className="erp-btn" onClick={() => validate(detail.report!.id)}>Valider ce rapport</button>
             )}

@@ -2,6 +2,7 @@ import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
 import {
   api,
   ActivityDeclaration,
+  ActivityObjective,
   EmployeeProfile,
   HrDashboard,
   HrDocument,
@@ -34,6 +35,7 @@ import {
   printHrEnrollmentsList,
   printHrFunctionsList,
   printHrObjectivesList,
+  printJobActivityCanvas,
   printLeaveCertificate,
   printLeaveRequest,
   printLeavesList,
@@ -110,6 +112,7 @@ export default function HrPage() {
   const [functions, setFunctions] = useState<JobFunction[]>([]);
   const [myActs, setMyActs] = useState<{ id: string; name: string }[]>([]);
   const [declarations, setDeclarations] = useState<ActivityDeclaration[]>([]);
+  const [activityObjectives, setActivityObjectives] = useState<ActivityObjective[]>([]);
   const [objectives, setObjectives] = useState<PerformanceObjective[]>([]);
   const [reviews, setReviews] = useState<PerformanceReview[]>([]);
   const [courses, setCourses] = useState<TrainingCourse[]>([]);
@@ -147,6 +150,7 @@ export default function HrPage() {
     api.getJobFunctions().then(setFunctions).catch(() => setFunctions([]));
     api.getMyJobActivities().then(setMyActs).catch(() => setMyActs([]));
     api.getActivityDeclarations().then(setDeclarations).catch(() => setDeclarations([]));
+    api.getActivityObjectives().then(setActivityObjectives).catch(() => setActivityObjectives([]));
     api.getObjectives(undefined, new Date().getFullYear()).then(setObjectives).catch(() => setObjectives([]));
     api.getReviews(new Date().getFullYear()).then(setReviews).catch(() => setReviews([]));
     api.getTrainings().then(setCourses).catch(() => setCourses([]));
@@ -454,6 +458,43 @@ export default function HrPage() {
 
       {tab === 'activites' && (
         <>
+          <ErpPanel title="Canvas PDF par activité">
+            <table className="erp-table">
+              <thead>
+                <tr>
+                  <th>Fonction</th>
+                  <th>Activité</th>
+                  <th>Déclarations</th>
+                  <th>Objectifs</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {functions.flatMap((f) => (f.activities ?? []).map((a) => {
+                  const decls = declarations.filter((d) => (d.activityId ?? d.activity?.id) === a.id);
+                  const objs = activityObjectives.filter((o) => o.activityId === a.id);
+                  return (
+                    <tr key={a.id}>
+                      <td>{f.name}</td>
+                      <td><strong>{a.name}</strong></td>
+                      <td>{decls.length}</td>
+                      <td>{objs.length}</td>
+                      <td className="erp-row-actions">
+                        <DocButton label="Canvas PDF" onClick={() => printJobActivityCanvas({
+                          activity: { ...a, jobFunction: { id: f.id, name: f.name, department: f.department } },
+                          declarations: decls,
+                          objectives: objs,
+                        })} />
+                      </td>
+                    </tr>
+                  );
+                }))}
+                {!functions.some((f) => (f.activities ?? []).length) && (
+                  <tr><td colSpan={5} className="erp-table-empty">Aucune activité de fonction.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </ErpPanel>
           {writeMaster && (
             <ErpPanel title="Référentiel des fonctions" padded>
               <form id="hr-function-form" className="form-row" onSubmit={async (e) => {

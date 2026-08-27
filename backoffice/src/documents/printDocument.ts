@@ -22,12 +22,26 @@ export interface DocTable {
   rows: string[][];
 }
 
+export interface DocKpi {
+  label: string;
+  value: string;
+  hint?: string;
+}
+
+export interface DocBar {
+  label: string;
+  pct: number;
+  caption?: string;
+}
+
 export interface DocSpec {
   kind: string;
   reference?: string;
   date?: string;
   subtitle?: string;
   fields?: DocField[];
+  kpis?: DocKpi[];
+  bars?: DocBar[];
   tables?: DocTable[];
   notes?: string;
   totals?: DocField[];
@@ -58,6 +72,19 @@ export function formatDate(value?: string | Date | null): string {
 function fieldsHtml(fields?: DocField[]): string {
   if (!fields?.length) return '';
   return `<div class="meta">${fields.map((f) => `<div><span>${esc(f.label)}</span><strong>${esc(f.value)}</strong></div>`).join('')}</div>`;
+}
+
+function kpisHtml(kpis?: DocKpi[]): string {
+  if (!kpis?.length) return '';
+  return `<div class="kpis">${kpis.map((k) => `<div class="kpi"><span>${esc(k.label)}</span><strong>${esc(k.value)}</strong>${k.hint ? `<em>${esc(k.hint)}</em>` : ''}</div>`).join('')}</div>`;
+}
+
+function barsHtml(bars?: DocBar[]): string {
+  if (!bars?.length) return '';
+  return `<div class="bars">${bars.map((b) => {
+    const pct = Math.max(0, Math.min(100, Number.isFinite(b.pct) ? Math.round(b.pct) : 0));
+    return `<div class="bar-row"><div class="bar-lab"><span>${esc(b.label)}</span><em>${esc(b.caption ?? `${pct} %`)}</em></div><div class="bar"><i style="width:${pct}%"></i></div></div>`;
+  }).join('')}</div>`;
 }
 
 function tableHtml(table: DocTable): string {
@@ -110,6 +137,17 @@ export function buildDocumentHtml(spec: DocSpec, autoPdf = false): string {
     th, td { border: 1px solid #e8eef2; padding: 7px 8px; text-align: left; }
     th { background: #f4f7f9; color: #5d6d7e; text-transform: uppercase; letter-spacing: 0.04em; font-size: 11px; }
     h3 { margin: 16px 0 6px; font-size: 12px; color: #5d6d7e; text-transform: uppercase; letter-spacing: 0.08em; }
+    .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 16px 0; }
+    .kpi { border: 1px solid #e8eef2; background: #f8f9fb; padding: 10px 12px; border-radius: 6px; }
+    .kpi span { display: block; font-size: 11px; color: #7f8c8d; text-transform: uppercase; letter-spacing: 0.06em; }
+    .kpi strong { display: block; font-size: 18px; margin-top: 4px; color: #2c3e50; }
+    .kpi em { display: block; font-size: 11px; color: #7f8c8d; font-style: normal; margin-top: 2px; }
+    .bars { margin: 16px 0; }
+    .bar-row { margin: 0 0 10px; }
+    .bar-lab { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; margin-bottom: 4px; }
+    .bar-lab em { font-style: normal; color: #7f8c8d; white-space: nowrap; }
+    .bar { height: 10px; background: #e8eef2; border-radius: 99px; overflow: hidden; }
+    .bar i { display: block; height: 100%; background: #40bfff; border-radius: 99px; }
     .notes { background: #f8f9fb; border: 1px solid #e8eef2; padding: 10px 12px; font-size: 12.5px; }
     .totals { margin-left: auto; width: 280px; }
     .sign { display: flex; justify-content: space-between; gap: 40px; margin-top: 40px; }
@@ -144,6 +182,8 @@ export function buildDocumentHtml(spec: DocSpec, autoPdf = false): string {
       </div>
     </div>
     ${fieldsHtml(spec.fields)}
+    ${kpisHtml(spec.kpis)}
+    ${barsHtml(spec.bars)}
     ${(spec.tables ?? []).map(tableHtml).join('')}
     ${spec.totals?.length ? `<table class="totals">${spec.totals.map((t) => `<tr><th>${esc(t.label)}</th><td>${esc(t.value)}</td></tr>`).join('')}</table>` : ''}
     ${spec.notes ? `<div class="notes">${esc(spec.notes)}</div>` : ''}
@@ -167,6 +207,11 @@ export function buildDocumentHtml(spec: DocSpec, autoPdf = false): string {
   </script>
 </body>
 </html>`;
+}
+
+export function downloadDocumentPdf(spec: DocSpec): void {
+  setDocumentOutput('pdf');
+  printDocument(spec);
 }
 
 export function printDocument(spec: DocSpec): void {

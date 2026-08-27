@@ -1465,6 +1465,8 @@ export interface JobFunction {
 
 export interface ActivityDeclaration {
   id: string;
+  userId?: string;
+  activityId?: string | null;
   date: string;
   comment?: string;
   status: string;

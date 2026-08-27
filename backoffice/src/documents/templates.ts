@@ -50,6 +50,7 @@ import type {
   PackagingMovement,
   AuthorizationCatalog,
   JobFunction,
+  JobFunctionActivity,
   ActivityDeclaration,
   TrainingCourse,
   TrainingEnrollment,
@@ -1023,6 +1024,247 @@ export function printActivityOverview(o: ActivityOverview): void {
       ],
     },
   );
+}
+
+function clampPct(n: number): number {
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
+
+function personName(u?: { firstName?: string; lastName?: string } | null, fallback = '—'): string {
+  if (!u) return fallback;
+  return `${u.firstName ?? ''} ${u.lastName ?? ''}`.trim() || fallback;
+}
+
+export type ActivityCanvasExtra = {
+  objectives?: ActivityObjective[];
+  declarations?: ActivityDeclaration[];
+};
+
+export function printAgentActivityCanvas(d: ActivityReportDetail, extra?: ActivityCanvasExtra): void {
+  const name = personName(d.user);
+  const objectives = extra?.objectives ?? [];
+  const declarations = extra?.declarations ?? [];
+  const deliveryPct = d.metrics.deliveries
+    ? clampPct((d.metrics.delivered / d.metrics.deliveries) * 100)
+    : 0;
+  const avgObj = objectives.length
+    ? Math.round(objectives.reduce((s, o) => s + o.progressPct, 0) / objectives.length)
+    : 0;
+  printDocument({
+    kind: 'Canvas agent',
+    reference: `${d.user.lastName}-${d.date}`,
+    subtitle: `${name} · ${d.date}`,
+    fields: [
+      { label: 'Agent', value: name },
+      { label: 'Profil', value: d.user.role },
+      { label: 'Date', value: d.date },
+      { label: 'Statut rapport', value: d.report?.validated ? 'Validé' : d.report ? 'Soumis' : 'Non soumis' },
+    ],
+    kpis: [
+      { label: 'Livraisons', value: String(d.metrics.deliveries), hint: `${d.metrics.delivered} livrées` },
+      { label: 'Tournées', value: String(d.metrics.tours) },
+      { label: 'Encaissé', value: formatMoney(d.metrics.paymentsAmount) },
+      { label: 'Objectifs', value: `${avgObj} %`, hint: `${objectives.length} cible(s)` },
+    ],
+    bars: [
+      { label: 'Livraisons réussies', pct: deliveryPct, caption: `${d.metrics.delivered}/${d.metrics.deliveries}` },
+      ...objectives.slice(0, 14).map((o) => ({
+        label: o.title,
+        pct: clampPct(o.progressPct),
+        caption: `${o.actualValue}/${o.targetValue} · ${o.progressPct} %`,
+      })),
+    ],
+    tables: [
+      {
+        title: 'Livraisons du jour',
+        headers: ['N°', 'Client', 'Statut', 'Qté'],
+        rows: d.deliveries.map((x) => [x.deliveryNumber, x.clientName ?? '—', x.status, String(x.qtyDelivered)]),
+      },
+      {
+        title: 'Tournées',
+        headers: ['N°', 'Zone', 'Statut'],
+        rows: d.tours.map((x) => [x.tourNumber, x.zone, x.status]),
+      },
+      ...(objectives.length ? [{
+        title: 'Objectifs de performance',
+        headers: ['Objectif', 'Activité', 'Cible', 'Réalisé', 'Avancement', 'Statut'],
+        rows: objectives.map((o) => [
+          o.title,
+          o.activity?.name ?? '—',
+          String(o.targetValue),
+          String(o.actualValue),
+          `${o.progressPct} %`,
+          o.status,
+        ]),
+      }] : []),
+      ...(declarations.length ? [{
+        title: 'Déclarations d’activité',
+        headers: ['Activité', 'Date', 'Statut', 'Commentaire'],
+        rows: declarations.map((x) => [
+          x.activity?.name ?? '—',
+          formatDate(x.date),
+          x.status,
+          x.comment ?? '—',
+        ]),
+      }] : []),
+    ],
+    notes: `Résumé : ${d.summary || '—'}\nIncidents : ${d.incidents || 'Aucun'}`,
+    signatures: ['Agent', 'Manager'],
+  });
+}
+
+export function printJobActivityCanvas(input: {
+  activity: JobFunctionActivity;
+  declarations?: ActivityDeclaration[];
+  objectives?: ActivityObjective[];
+  date?: string;
+}): void {
+  const declarations = input.declarations ?? [];
+  const objectives = input.objectives ?? [];
+  const validated = declarations.filter((d) => d.status === 'VALIDEE').length;
+  const agentIds = new Set(
+    [...declarations.map((d) => d.userId ?? d.user?.id ?? ''), ...objectives.map((o) => o.userId)].filter(Boolean),
+  );
+  const avg = objectives.length
+    ? Math.round(objectives.reduce((s, o) => s + o.progressPct, 0) / objectives.length)
+    : 0;
+  const byAgent = new Map<string, { name: string; pcts: number[] }>();
+  for (const o of objectives) {
+    const name = personName(o.user, o.userId);
+    const cur = byAgent.get(o.userId) ?? { name, pcts: [] };
+    cur.pcts.push(o.progressPct);
+    byAgent.set(o.userId, cur);
+  }
+  printDocument({
+    kind: 'Canvas activité',
+    reference: input.activity.name,
+    subtitle: [input.activity.jobFunction?.name, input.date].filter(Boolean).join(' · ') || input.activity.name,
+    fields: [
+      { label: 'Activité', value: input.activity.name },
+      { label: 'Fonction', value: input.activity.jobFunction?.name ?? '—' },
+      { label: 'Agents concernés', value: String(agentIds.size) },
+    ],
+    kpis: [
+      { label: 'Déclarations', value: String(declarations.length) },
+      { label: 'Validées', value: String(validated) },
+      { label: 'Objectifs', value: String(objectives.length) },
+      { label: 'Avancement', value: `${avg} %` },
+    ],
+    bars: [...byAgent.values()].map((a) => {
+      const pct = a.pcts.length ? Math.round(a.pcts.reduce((s, n) => s + n, 0) / a.pcts.length) : 0;
+      return { label: a.name, pct: clampPct(pct), caption: `${pct} %` };
+    }),
+    tables: [
+      {
+        title: 'Déclarations',
+        headers: ['Agent', 'Date', 'Statut', 'Commentaire'],
+        rows: declarations.map((d) => [
+          personName(d.user),
+          formatDate(d.date),
+          d.status,
+          d.comment ?? '—',
+        ]),
+      },
+      {
+        title: 'Objectifs par agent',
+        headers: ['Agent', 'Objectif', 'Cible', 'Réalisé', 'Avancement', 'Statut'],
+        rows: objectives.map((o) => [
+          personName(o.user, o.userId),
+          o.title,
+          String(o.targetValue),
+          String(o.actualValue),
+          `${o.progressPct} %`,
+          o.status,
+        ]),
+      },
+    ],
+    notes: input.activity.description,
+    signatures: ['Responsable activité', 'Direction'],
+  });
+}
+
+export function printManagerActivityCanvas(o: ActivityOverview, extra?: ActivityCanvasExtra): void {
+  const maxDel = Math.max(1, ...o.rows.map((r) => r.deliveries), 1);
+  const submittedPct = o.totals.agents ? clampPct((o.totals.submitted / o.totals.agents) * 100) : 0;
+  const validatedPct = o.totals.agents ? clampPct((o.totals.validated / o.totals.agents) * 100) : 0;
+  const objectives = extra?.objectives ?? [];
+  const avgObj = objectives.length
+    ? Math.round(objectives.reduce((s, x) => s + x.progressPct, 0) / objectives.length)
+    : 0;
+  const incidents = o.rows
+    .filter((r) => r.incidents)
+    .map((r) => `${personName(r.user)} : ${r.incidents}`);
+  printDocument({
+    kind: 'Canvas managers',
+    reference: `VUE-${o.date}`,
+    subtitle: `Vue générale · ${o.date}`,
+    kpis: [
+      { label: 'Agents', value: String(o.totals.agents), hint: `${o.totals.submitted} rapports` },
+      { label: 'Validés', value: String(o.totals.validated), hint: `${validatedPct} %` },
+      { label: 'Livraisons', value: String(o.totals.deliveries) },
+      { label: 'Encaissements', value: formatMoney(o.totals.paymentsAmount) },
+    ],
+    bars: [
+      { label: 'Rapports soumis', pct: submittedPct, caption: `${o.totals.submitted}/${o.totals.agents}` },
+      { label: 'Rapports validés', pct: validatedPct, caption: `${o.totals.validated}/${o.totals.agents}` },
+      ...(avgObj ? [{ label: 'Avancement objectifs', pct: clampPct(avgObj), caption: `${avgObj} %` }] : []),
+      ...o.rows.map((r) => ({
+        label: personName(r.user),
+        pct: clampPct((r.deliveries / maxDel) * 100),
+        caption: `${r.deliveries} liv. · ${formatMoney(r.paymentsAmount)}`,
+      })),
+    ],
+    tables: [{
+      title: 'Agents',
+      headers: ['Agent', 'Profil', 'Livraisons', 'Tournées', 'Encaissements', 'Rapport'],
+      rows: o.rows.map((r) => [
+        personName(r.user),
+        r.user.role,
+        `${r.deliveries} (${r.delivered} livrées)`,
+        String(r.tours),
+        formatMoney(r.paymentsAmount),
+        r.validated ? 'Validé' : r.submitted ? 'Soumis' : 'Absent',
+      ]),
+    }],
+    notes: incidents.length ? `Incidents :\n${incidents.join('\n')}` : 'Aucun incident signalé.',
+    signatures: ['Superviseur', 'Direction'],
+  });
+}
+
+export function printObjectivesManagerCanvas(rows: ActivityObjective[], subtitle?: string, kind = 'Canvas managers'): void {
+  const reached = rows.filter((r) => r.status === 'ATTEINT').length;
+  const late = rows.filter((r) => r.status === 'EN_RETARD').length;
+  const avg = rows.length ? Math.round(rows.reduce((s, r) => s + r.progressPct, 0) / rows.length) : 0;
+  printDocument({
+    kind,
+    reference: 'OBJECTIFS',
+    subtitle: subtitle ?? 'Vue générale des objectifs',
+    kpis: [
+      { label: 'Objectifs', value: String(rows.length) },
+      { label: 'Atteints', value: String(reached) },
+      { label: 'En retard', value: String(late) },
+      { label: 'Avancement', value: `${avg} %` },
+    ],
+    bars: rows.map((r) => ({
+      label: `${personName(r.user, r.userId)} — ${r.title}`,
+      pct: clampPct(r.progressPct),
+      caption: `${r.actualValue}/${r.targetValue} · ${r.progressPct} %`,
+    })),
+    tables: [{
+      headers: ['Agent', 'Activité', 'Objectif', 'Cible', 'Réalisé', 'Avancement', 'Statut'],
+      rows: rows.map((r) => [
+        personName(r.user, r.userId),
+        r.activity?.name ?? '—',
+        r.title,
+        String(r.targetValue),
+        String(r.actualValue),
+        `${r.progressPct} %`,
+        r.status,
+      ]),
+    }],
+    signatures: ['RH', 'Direction'],
+  });
 }
 
 function contractPartyName(c: BusinessContract): string {

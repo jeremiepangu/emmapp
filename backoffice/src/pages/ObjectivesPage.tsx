@@ -11,7 +11,12 @@ import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
 import Modal from '../components/Modal';
 import DocButton from '../components/DocButton';
-import { printActivityObjectiveSheet, printActivityObjectivesList } from '../documents/templates';
+import {
+  printActivityObjectiveSheet,
+  printActivityObjectivesList,
+  printJobActivityCanvas,
+  printObjectivesManagerCanvas,
+} from '../documents/templates';
 import { exportSheet } from '../excel/specs';
 
 const PERIODS = [
@@ -69,6 +74,8 @@ export default function ObjectivesPage() {
   const [editing, setEditing] = useState<ActivityObjective | null>(null);
   const [form, setForm] = useState<CreateActivityObjectiveInput>(emptyForm(now.getFullYear(), now.getMonth() + 1));
   const [error, setError] = useState('');
+  const [canvasAgentId, setCanvasAgentId] = useState('');
+  const [canvasActivityId, setCanvasActivityId] = useState('');
 
   const activities = useMemo(
     () => functions.flatMap((fn) => (fn.activities ?? []).map((a) => ({ ...a, functionName: fn.name }))),
@@ -158,6 +165,7 @@ export default function ObjectivesPage() {
         actions={
           <>
             <DocButton label="Imprimer les objectifs" onClick={() => printActivityObjectivesList(rows)} />
+            <DocButton label="Canvas managers" onClick={() => printObjectivesManagerCanvas(rows, `${MONTHS[month - 1]} ${year}`)} />
             {can('objectives', 'create') && (
               <button type="button" className="erp-btn" onClick={openCreate}>+ Nouvel objectif</button>
             )}
@@ -181,6 +189,58 @@ export default function ObjectivesPage() {
             <select value={month} onChange={(e) => setMonth(Number(e.target.value))}>
               {MONTHS.map((label, i) => <option key={label} value={i + 1}>{label}</option>)}
             </select>
+          </div>
+        </div>
+      </ErpPanel>
+      <ErpPanel title="Canvas PDF" padded>
+        <p className="erp-muted">Exporter un canvas visuel par agent, par activité, ou la vue générale managers.</p>
+        <div className="form-row">
+          <div className="form-group">
+            <label>Agent</label>
+            <select value={canvasAgentId} onChange={(e) => setCanvasAgentId(e.target.value)}>
+              <option value="">Choisir un agent</option>
+              {users.filter((u) => u.isActive !== false).map((u) => (
+                <option key={u.id} value={u.id}>{u.firstName} {u.lastName}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group" style={{ alignSelf: 'end' }}>
+            <DocButton label="Canvas agent" onClick={() => {
+              const u = users.find((x) => x.id === canvasAgentId);
+              if (!u) return;
+              printObjectivesManagerCanvas(
+                rows.filter((r) => r.userId === u.id),
+                `${u.firstName} ${u.lastName} · ${MONTHS[month - 1]} ${year}`,
+                'Canvas agent',
+              );
+            }} />
+          </div>
+          <div className="form-group">
+            <label>Activité</label>
+            <select value={canvasActivityId} onChange={(e) => setCanvasActivityId(e.target.value)}>
+              <option value="">Choisir une activité</option>
+              {activities.map((a) => (
+                <option key={a.id} value={a.id}>{a.functionName} — {a.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group" style={{ alignSelf: 'end' }}>
+            <DocButton label="Canvas activité" onClick={() => {
+              const a = activities.find((x) => x.id === canvasActivityId);
+              if (!a) return;
+              const fn = functions.find((f) => (f.activities ?? []).some((x) => x.id === a.id));
+              printJobActivityCanvas({
+                activity: {
+                  ...a,
+                  jobFunction: a.jobFunction ?? (fn ? { id: fn.id, name: fn.name, department: fn.department } : undefined),
+                },
+                date: `${MONTHS[month - 1]} ${year}`,
+                objectives: rows.filter((r) => r.activityId === a.id),
+              });
+            }} />
+          </div>
+          <div className="form-group" style={{ alignSelf: 'end' }}>
+            <DocButton label="Canvas managers" ghost={false} onClick={() => printObjectivesManagerCanvas(rows, `${MONTHS[month - 1]} ${year}`)} />
           </div>
         </div>
       </ErpPanel>
