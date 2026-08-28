@@ -3,63 +3,64 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { usePermissions } from '../hooks/usePermissions';
 import { MenuItem } from '../permissions';
+import { Icon, IconName } from './ErpIcons';
 
-const ICONS: Record<string, string> = {
-  '/app': '▣',
-  '/clients': '☰',
-  '/orders': '☷',
-  '/pos': '◈',
-  '/products': '▤',
-  '/pricing': '％',
-  '/tours': '➤',
-  '/vehicles': '▣',
-  '/stock': '▦',
-  '/packaging': '⬡',
-  '/deliveries': '➚',
-  '/payments': '€',
-  '/finance': '¥',
-  '/production': '⚙',
-  '/quality': '✓',
-  '/loyalty': '★',
-  '/consignes': '↻',
-  '/hr': '◉',
-  '/objectives': '◎',
-  '/activity': '◷',
-  '/observability': '◎',
-  '/users': '⚑',
-  '/notifications': '✉',
-  '/ai': '◇',
-  '/assistant': '💬',
-  '/iot': '📡',
-  '/routing': '⌖',
-  '/esg': '♻',
-  '/security': '🛡',
-  '/authorizations': '⚿',
-  '/marketplace': '⚖',
-  '/integrations': '🔗',
-  '/portal-accounts': '⌂',
-  '/contracts': '📑',
-  '/payroll': '₪',
-  '/mobile': '📱',
+const ICONS: Record<string, IconName> = {
+  '/app': 'grid',
+  '/clients': 'users',
+  '/orders': 'cart',
+  '/pos': 'banknote',
+  '/products': 'package',
+  '/pricing': 'percent',
+  '/tours': 'truck',
+  '/vehicles': 'truck',
+  '/stock': 'stock',
+  '/packaging': 'package',
+  '/deliveries': 'truck',
+  '/payments': 'payments',
+  '/finance': 'banknote',
+  '/production': 'cog',
+  '/quality': 'check',
+  '/loyalty': 'star',
+  '/consignes': 'refresh',
+  '/hr': 'users',
+  '/objectives': 'target',
+  '/activity': 'clock',
+  '/observability': 'radio',
+  '/users': 'user',
+  '/notifications': 'bell',
+  '/ai': 'spark',
+  '/assistant': 'chat',
+  '/iot': 'radio',
+  '/routing': 'pin',
+  '/esg': 'leaf',
+  '/security': 'shield',
+  '/authorizations': 'key',
+  '/marketplace': 'scale',
+  '/integrations': 'link',
+  '/portal-accounts': 'home',
+  '/contracts': 'file',
+  '/payroll': 'banknote',
+  '/mobile': 'phone',
 };
 
-const SECTION_ICONS: Record<string, string> = {
-  ANALYSE: '▣',
-  INTELLIGENCE: '◇',
-  ANNUAIRES: '☰',
-  CONTRATS: '📑',
-  COMMANDES: '☷',
-  ACHATS: '▦',
-  FABRICATION: '⚙',
-  LIVRAISON: '➤',
-  'OBJETS CONNECTÉS': '📡',
-  FACTURES: '€',
-  COMMERCE: '★',
-  DURABILITÉ: '♻',
-  PERSONNEL: '◉',
-  SÉCURITÉ: '🛡',
-  PARAMÉTRAGE: '🔗',
-  TERRAIN: '📱',
+const SECTION_ICONS: Record<string, IconName> = {
+  ANALYSE: 'grid',
+  INTELLIGENCE: 'spark',
+  ANNUAIRES: 'users',
+  CONTRATS: 'file',
+  COMMANDES: 'cart',
+  ACHATS: 'package',
+  FABRICATION: 'cog',
+  LIVRAISON: 'truck',
+  'OBJETS CONNECTÉS': 'radio',
+  FACTURES: 'banknote',
+  COMMERCE: 'star',
+  DURABILITÉ: 'leaf',
+  PERSONNEL: 'users',
+  SÉCURITÉ: 'shield',
+  PARAMÉTRAGE: 'sliders',
+  TERRAIN: 'phone',
 };
 
 type MenuGroup = { section: string; items: MenuItem[] };
@@ -80,8 +81,8 @@ function sectionTitle(section: string) {
   return lower.charAt(0).toUpperCase() + lower.slice(1);
 }
 
-function sectionIcon(group: MenuGroup) {
-  return SECTION_ICONS[group.section] ?? ICONS[group.items[0]?.path] ?? '•';
+function sectionIcon(group: MenuGroup): IconName {
+  return SECTION_ICONS[group.section] ?? ICONS[group.items[0]?.path] ?? 'grid';
 }
 
 interface Props {
@@ -201,7 +202,7 @@ export default function ErpSidebar({ onNavigate }: Props) {
                   className="erp-nav-link erp-nav-link--leaf"
                   onClick={onNavigate}
                 >
-                  <span className="erp-nav-icon" aria-hidden>{icon}</span>
+                  <span className="erp-nav-icon" aria-hidden><Icon name={icon} size={18} /></span>
                   <span className="erp-nav-label">{label}</span>
                 </NavLink>
               ) : (
@@ -212,9 +213,9 @@ export default function ErpSidebar({ onNavigate }: Props) {
                   aria-controls={`submenu-${slug}`}
                   onClick={() => toggleGroup(group)}
                 >
-                  <span className="erp-nav-icon" aria-hidden>{icon}</span>
+                  <span className="erp-nav-icon" aria-hidden><Icon name={icon} size={18} /></span>
                   <span className="erp-nav-label">{label}</span>
-                  <span className="erp-nav-chevron" aria-hidden>›</span>
+                  <span className="erp-nav-chevron" aria-hidden><Icon name="chevron" size={14} /></span>
                 </button>
               )}
               {!single && open && (

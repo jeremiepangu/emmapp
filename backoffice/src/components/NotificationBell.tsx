@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, NotificationItem } from '../api';
+import { Icon } from './ErpIcons';
 
 export default function NotificationBell() {
   const [open, setOpen] = useState(false);
@@ -40,8 +41,9 @@ export default function NotificationBell() {
 
   return (
     <div className="notif-bell-wrap" ref={ref}>
-      <button type="button" className="notif-bell-btn erp-icon-btn" onClick={() => { setOpen(!open); if (!open) refresh(); }} aria-label="Notifications">
-        🔔
+      <button type="button" className="notif-bell-btn erp-toolbar-btn" onClick={() => { setOpen(!open); if (!open) refresh(); }} aria-label="Alertes">
+        <Icon name="bell" size={22} />
+        <span className="erp-toolbar-label">Alertes</span>
         {count > 0 && <span className="notif-badge">{count > 99 ? '99+' : count}</span>}
       </button>
       {open && (

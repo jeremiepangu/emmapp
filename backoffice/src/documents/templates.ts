@@ -1062,10 +1062,10 @@ export function printAgentActivityCanvas(d: ActivityReportDetail, extra?: Activi
       { label: 'Statut rapport', value: d.report?.validated ? 'Validé' : d.report ? 'Soumis' : 'Non soumis' },
     ],
     kpis: [
-      { label: 'Livraisons', value: String(d.metrics.deliveries), hint: `${d.metrics.delivered} livrées` },
-      { label: 'Tournées', value: String(d.metrics.tours) },
-      { label: 'Encaissé', value: formatMoney(d.metrics.paymentsAmount) },
-      { label: 'Objectifs', value: `${avgObj} %`, hint: `${objectives.length} cible(s)` },
+      { label: 'Livraisons', value: String(d.metrics.deliveries), hint: `${d.metrics.delivered} livrées`, tone: 'green' },
+      { label: 'Tournées', value: String(d.metrics.tours), tone: 'blue' },
+      { label: 'Encaissé', value: formatMoney(d.metrics.paymentsAmount), tone: 'purple' },
+      { label: 'Objectifs', value: `${avgObj} %`, hint: `${objectives.length} cible(s)`, tone: 'orange' },
     ],
     bars: [
       { label: 'Livraisons réussies', pct: deliveryPct, caption: `${d.metrics.delivered}/${d.metrics.deliveries}` },
@@ -1146,10 +1146,10 @@ export function printJobActivityCanvas(input: {
       { label: 'Agents concernés', value: String(agentIds.size) },
     ],
     kpis: [
-      { label: 'Déclarations', value: String(declarations.length) },
-      { label: 'Validées', value: String(validated) },
-      { label: 'Objectifs', value: String(objectives.length) },
-      { label: 'Avancement', value: `${avg} %` },
+      { label: 'Déclarations', value: String(declarations.length), tone: 'blue' },
+      { label: 'Validées', value: String(validated), tone: 'green' },
+      { label: 'Objectifs', value: String(objectives.length), tone: 'purple' },
+      { label: 'Avancement', value: `${avg} %`, tone: 'orange' },
     ],
     bars: [...byAgent.values()].map((a) => {
       const pct = a.pcts.length ? Math.round(a.pcts.reduce((s, n) => s + n, 0) / a.pcts.length) : 0;
@@ -1200,10 +1200,10 @@ export function printManagerActivityCanvas(o: ActivityOverview, extra?: Activity
     reference: `VUE-${o.date}`,
     subtitle: `Vue générale · ${o.date}`,
     kpis: [
-      { label: 'Agents', value: String(o.totals.agents), hint: `${o.totals.submitted} rapports` },
-      { label: 'Validés', value: String(o.totals.validated), hint: `${validatedPct} %` },
-      { label: 'Livraisons', value: String(o.totals.deliveries) },
-      { label: 'Encaissements', value: formatMoney(o.totals.paymentsAmount) },
+      { label: 'Agents', value: String(o.totals.agents), hint: `${o.totals.submitted} rapports`, tone: 'green' },
+      { label: 'Validés', value: String(o.totals.validated), hint: `${validatedPct} %`, tone: 'blue' },
+      { label: 'Livraisons', value: String(o.totals.deliveries), tone: 'purple' },
+      { label: 'Encaissements', value: formatMoney(o.totals.paymentsAmount), tone: 'orange' },
     ],
     bars: [
       { label: 'Rapports soumis', pct: submittedPct, caption: `${o.totals.submitted}/${o.totals.agents}` },
@@ -1241,10 +1241,10 @@ export function printObjectivesManagerCanvas(rows: ActivityObjective[], subtitle
     reference: 'OBJECTIFS',
     subtitle: subtitle ?? 'Vue générale des objectifs',
     kpis: [
-      { label: 'Objectifs', value: String(rows.length) },
-      { label: 'Atteints', value: String(reached) },
-      { label: 'En retard', value: String(late) },
-      { label: 'Avancement', value: `${avg} %` },
+      { label: 'Objectifs', value: String(rows.length), tone: 'blue' },
+      { label: 'Atteints', value: String(reached), tone: 'green' },
+      { label: 'En retard', value: String(late), tone: 'red' },
+      { label: 'Avancement', value: `${avg} %`, tone: 'orange' },
     ],
     bars: rows.map((r) => ({
       label: `${personName(r.user, r.userId)} — ${r.title}`,

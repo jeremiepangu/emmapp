@@ -1,9 +1,9 @@
 :root {
-  --primary: #40bfff;
-  --primary-dark: #2aa8e8;
-  --secondary: #1abc9c;
-  --secondary-light: #48c9b0;
-  --accent: #2c3e50;
+  --primary: #16a34a;
+  --primary-dark: #15803d;
+  --secondary: #14b8a6;
+  --secondary-light: #2dd4bf;
+  --accent: #1a2b3c;
   --label-bg: #f4f7f9;
   --bg: #f8f9fb;
   --card: #ffffff;
@@ -25,7 +25,7 @@
 
 body {
   line-height: 1.5;
-  font-family: 'Open Sans', 'Roboto', system-ui, sans-serif;
+  font-family: 'Inter', 'Open Sans', 'Roboto', system-ui, sans-serif;
 }
 
 a {
