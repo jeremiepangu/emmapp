@@ -28,6 +28,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
       _formData.delivered[line.productId] = line.quantity;
       _formData.returned[line.productId] = 0;
       _formData.damaged[line.productId] = 0;
+      _formData.refused[line.productId] = 0;
     }
     final total = widget.order.lines.fold<double>(
       0,
@@ -51,7 +52,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
         position = await Geolocator.getCurrentPosition();
       } catch (_) {}
 
-      await DeliveryProvider.submitDelivery(
+      final queuedDelivery = await DeliveryProvider.submitDelivery(
         auth: context.read<AuthProvider>(),
         order: widget.order,
         tourId: widget.tour.id,
@@ -61,8 +62,9 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
       );
 
       final amount = double.tryParse(_paymentController.text) ?? 0;
+      var queuedPayment = false;
       if (amount > 0) {
-        await DeliveryProvider.submitPayment(
+        queuedPayment = await DeliveryProvider.submitPayment(
           auth: context.read<AuthProvider>(),
           deliveryId: null,
           clientId: widget.order.clientId,
@@ -72,9 +74,12 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
       }
 
       if (mounted) {
+        final queued = queuedDelivery || queuedPayment;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Livraison enregistrée (sync auto si hors ligne)'),
+          SnackBar(
+            content: Text(queued
+                ? 'Enregistré hors ligne — sera synchronisé dès le réseau'
+                : 'Livraison enregistrée'),
             backgroundColor: Colors.green,
           ),
         );
@@ -138,6 +143,9 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
               decoration: const InputDecoration(labelText: 'Mode de paiement'),
               items: const [
                 DropdownMenuItem(value: 'ESPECES', child: Text('Espèces')),
+                DropdownMenuItem(value: 'MPESA', child: Text('M-Pesa')),
+                DropdownMenuItem(value: 'ORANGE_MONEY', child: Text('Orange Money')),
+                DropdownMenuItem(value: 'AIRTEL_MONEY', child: Text('Airtel Money')),
                 DropdownMenuItem(value: 'MOBILE_MONEY', child: Text('Mobile Money')),
                 DropdownMenuItem(value: 'CHEQUE', child: Text('Chèque')),
                 DropdownMenuItem(value: 'CREDIT', child: Text('Crédit')),
@@ -195,6 +203,8 @@ class _LineEditor extends StatelessWidget {
             Row(
               children: [
                 Expanded(child: _qtyField('Livrés', formData.delivered, line.productId, line.quantity)),
+                const SizedBox(width: 8),
+                Expanded(child: _qtyField('Refusés', formData.refused, line.productId, 0)),
                 const SizedBox(width: 8),
                 if (line.isReusable)
                   Expanded(child: _qtyField('Retours', formData.returned, line.productId, 0)),

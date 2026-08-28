@@ -1,41 +1,55 @@
 class User {
-  final String id;
-  final String email;
-  final String firstName;
-  final String lastName;
-  final String role;
-
   User({
     required this.id,
     required this.email,
     required this.firstName,
     required this.lastName,
     required this.role,
+    this.permissions,
   });
+
+  final String id;
+  final String email;
+  final String firstName;
+  final String lastName;
+  final String role;
+  final Map<String, List<String>>? permissions;
 
   String get fullName => '$firstName $lastName';
 
-  factory User.fromJson(Map<String, dynamic> json) => User(
-        id: json['id'] as String,
-        email: json['email'] as String,
-        firstName: json['firstName'] as String,
-        lastName: json['lastName'] as String,
-        role: json['role'] as String,
-      );
+  factory User.fromJson(Map<String, dynamic> json, [Map<String, List<String>>? permissions]) {
+    Map<String, List<String>>? parsed = permissions;
+    if (parsed == null && json['permissions'] is Map) {
+      parsed = _parseMatrix(json['permissions'] as Map);
+    }
+    return User(
+      id: json['id'] as String,
+      email: json['email'] as String,
+      firstName: json['firstName'] as String? ?? '',
+      lastName: json['lastName'] as String? ?? '',
+      role: json['role'] as String,
+      permissions: parsed,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'email': email,
+        'firstName': firstName,
+        'lastName': lastName,
+        'role': role,
+        if (permissions != null) 'permissions': permissions,
+      };
+
+  static Map<String, List<String>> _parseMatrix(Map raw) {
+    return raw.map((key, value) {
+      final list = value is List ? value.map((e) => e.toString()).toList() : <String>[];
+      return MapEntry(key.toString(), list);
+    });
+  }
 }
 
 class Client {
-  final String id;
-  final String code;
-  final String name;
-  final String? address;
-  final String? zone;
-  final String? phone;
-  final double? latitude;
-  final double? longitude;
-  final int consigneBalance;
-  final int consigneLimit;
-
   Client({
     required this.id,
     required this.code,
@@ -43,19 +57,33 @@ class Client {
     this.address,
     this.zone,
     this.phone,
+    this.segment,
     this.latitude,
     this.longitude,
     this.consigneBalance = 0,
     this.consigneLimit = 50,
   });
 
+  final String id;
+  final String code;
+  final String name;
+  final String? address;
+  final String? zone;
+  final String? phone;
+  final String? segment;
+  final double? latitude;
+  final double? longitude;
+  final int consigneBalance;
+  final int consigneLimit;
+
   factory Client.fromJson(Map<String, dynamic> json) => Client(
         id: json['id'] as String,
-        code: json['code'] as String,
-        name: json['name'] as String,
+        code: json['code'] as String? ?? '',
+        name: json['name'] as String? ?? '',
         address: json['address'] as String?,
         zone: json['zone'] as String?,
         phone: json['phone'] as String?,
+        segment: json['segment'] as String?,
         latitude: (json['latitude'] as num?)?.toDouble(),
         longitude: (json['longitude'] as num?)?.toDouble(),
         consigneBalance: json['consigneBalance'] as int? ?? 0,
@@ -64,14 +92,6 @@ class Client {
 }
 
 class Product {
-  final String id;
-  final String code;
-  final String name;
-  final String format;
-  final double unitPrice;
-  final double consigneAmount;
-  final bool isReusable;
-
   Product({
     required this.id,
     required this.code,
@@ -82,24 +102,26 @@ class Product {
     this.isReusable = false,
   });
 
+  final String id;
+  final String code;
+  final String name;
+  final String format;
+  final double unitPrice;
+  final double consigneAmount;
+  final bool isReusable;
+
   factory Product.fromJson(Map<String, dynamic> json) => Product(
         id: json['id'] as String,
-        code: json['code'] as String,
-        name: json['name'] as String,
-        format: json['format'] as String,
-        unitPrice: double.parse(json['unitPrice'].toString()),
-        consigneAmount: double.parse((json['consigneAmount'] ?? 0).toString()),
+        code: json['code'] as String? ?? '',
+        name: json['name'] as String? ?? '',
+        format: json['format'] as String? ?? '',
+        unitPrice: double.tryParse(json['unitPrice']?.toString() ?? '') ?? 0,
+        consigneAmount: double.tryParse((json['consigneAmount'] ?? 0).toString()) ?? 0,
         isReusable: json['isReusable'] as bool? ?? false,
       );
 }
 
 class OrderLine {
-  final String productId;
-  final String productName;
-  final int quantity;
-  final double unitPrice;
-  final bool isReusable;
-
   OrderLine({
     required this.productId,
     required this.productName,
@@ -108,23 +130,22 @@ class OrderLine {
     this.isReusable = false,
   });
 
+  final String productId;
+  final String productName;
+  final int quantity;
+  final double unitPrice;
+  final bool isReusable;
+
   factory OrderLine.fromJson(Map<String, dynamic> json) => OrderLine(
-        productId: json['productId'] as String,
-        productName: json['product']?['name'] as String? ?? '',
-        quantity: json['quantity'] as int,
-        unitPrice: double.parse(json['unitPrice'].toString()),
+        productId: json['productId'] as String? ?? json['product']?['id'] as String? ?? '',
+        productName: json['product']?['name'] as String? ?? json['productName'] as String? ?? '',
+        quantity: json['quantity'] as int? ?? 0,
+        unitPrice: double.tryParse(json['unitPrice']?.toString() ?? '') ?? 0,
         isReusable: json['product']?['isReusable'] as bool? ?? false,
       );
 }
 
 class Order {
-  final String id;
-  final String orderNumber;
-  final String clientId;
-  final String clientName;
-  final String status;
-  final List<OrderLine> lines;
-
   Order({
     required this.id,
     required this.orderNumber,
@@ -134,25 +155,27 @@ class Order {
     required this.lines,
   });
 
+  final String id;
+  final String orderNumber;
+  final String clientId;
+  final String clientName;
+  final String status;
+  final List<OrderLine> lines;
+
   factory Order.fromJson(Map<String, dynamic> json) => Order(
         id: json['id'] as String,
-        orderNumber: json['orderNumber'] as String,
-        clientId: json['clientId'] as String,
-        clientName: json['client']?['name'] as String? ?? '',
-        status: json['status'] as String,
+        orderNumber: json['orderNumber'] as String? ?? '',
+        clientId: json['clientId'] as String? ?? json['client']?['id'] as String? ?? '',
+        clientName: json['client']?['name'] as String? ?? json['clientName'] as String? ?? '',
+        status: json['status'] as String? ?? '',
         lines: (json['lines'] as List? ?? [])
-            .map((e) => OrderLine.fromJson(e as Map<String, dynamic>))
+            .whereType<Map>()
+            .map((e) => OrderLine.fromJson(Map<String, dynamic>.from(e)))
             .toList(),
       );
 }
 
 class Tour {
-  final String id;
-  final String tourNumber;
-  final String zone;
-  final String status;
-  final List<Order> orders;
-
   Tour({
     required this.id,
     required this.tourNumber,
@@ -161,13 +184,20 @@ class Tour {
     required this.orders,
   });
 
+  final String id;
+  final String tourNumber;
+  final String zone;
+  final String status;
+  final List<Order> orders;
+
   factory Tour.fromJson(Map<String, dynamic> json) => Tour(
         id: json['id'] as String,
-        tourNumber: json['tourNumber'] as String,
-        zone: json['zone'] as String,
-        status: json['status'] as String,
+        tourNumber: json['tourNumber'] as String? ?? '',
+        zone: json['zone'] as String? ?? '',
+        status: json['status'] as String? ?? '',
         orders: (json['orders'] as List? ?? [])
-            .map((e) => Order.fromJson(e as Map<String, dynamic>))
+            .whereType<Map>()
+            .map((e) => Order.fromJson(Map<String, dynamic>.from(e)))
             .toList(),
       );
 }

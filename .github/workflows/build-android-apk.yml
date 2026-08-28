@@ -1,0 +1,52 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_url:
+        description: 'URL API'
+        required: false
+        default: 'https://emmapp-api.onrender.com/api/v1'
+  push:
+    branches:
+      - 'build/apk**'
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/build-android-apk.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.27.1'
+          channel: stable
+          cache: true
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build APK release
+        run: |
+          flutter build apk --release \
+            --dart-define=API_URL=${{ github.event.inputs.api_url || 'https://emmapp-api.onrender.com/api/v1' }}
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: emmapp-release-apk
+          path: mobile/build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 30

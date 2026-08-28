@@ -58,7 +58,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 Icon(Icons.water_drop, size: 80, color: Theme.of(context).colorScheme.primary),
                 const SizedBox(height: 16),
                 Text(
-                  'EMMAPP Mobile',
+                  'EMMANUEL SERVICES',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.bold,
@@ -67,7 +67,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Distribution eau potable',
+                  'Application mobile · online & offline',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.grey),
                 ),
