@@ -2,9 +2,9 @@
   --hl-navy: #162d44;
   --hl-deep: #022447;
   --hl-hero: #0b3a66;
-  --hl-red: #d72027;
-  --hl-sky: #4d9fd6;
-  --hl-amber: #f0b429;
+  --hl-red: #38b6ff;
+  --hl-sky: #162d44;
+  --hl-amber: #38b6ff;
   --hl-ink: #141417;
   --hl-muted: #686868;
   --hl-paper: #ffffff;
@@ -45,6 +45,11 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   cursor: pointer;
+  color: #fff;
+}
+
+.hl a.hl-btn,
+.hl button.hl-btn {
   color: #fff;
 }
 
