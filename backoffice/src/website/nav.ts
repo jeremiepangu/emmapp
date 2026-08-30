@@ -1,10 +1,9 @@
 export const WEBSITE_NAV = [
   { id: 'accueil', label: 'Accueil' },
-  { id: 'systeme', label: 'Pourquoi nous' },
-  { id: 'eau', label: 'Notre eau' },
-  { id: 'origine', label: 'Origine' },
+  { id: 'services', label: 'Services' },
+  { id: 'apropos', label: 'À propos' },
   { id: 'produits', label: 'Produits' },
-  { id: 'engagement', label: 'Engagement' },
+  { id: 'qualite', label: 'Qualité' },
   { id: 'contact', label: 'Contact' },
 ];
 

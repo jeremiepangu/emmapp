@@ -10,6 +10,7 @@ export default function WebsiteLayout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [active, setActive] = useState('accueil');
+  const [showTop, setShowTop] = useState(false);
 
   useEffect(() => {
     document.title = 'EMMANUEL SERVICES SARLU — Eau potable Kinshasa';
@@ -35,20 +36,13 @@ export default function WebsiteLayout() {
 
   useEffect(() => {
     const onScroll = () => {
-      const root = document.documentElement;
-      const max = root.scrollHeight - root.clientHeight;
-      root.style.setProperty('--ws-scroll', max > 0 ? String(root.scrollTop / max) : '0');
-      const hero = document.getElementById('accueil');
-      const threshold = hero ? Math.max(hero.offsetHeight - 88, 64) : 64;
-      setScrolled(root.scrollTop >= threshold);
+      const y = document.documentElement.scrollTop;
+      setScrolled(y > 40);
+      setShowTop(y > 480);
     };
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
-    return () => {
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onScroll);
-    };
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   useEffect(() => {
@@ -88,79 +82,143 @@ export default function WebsiteLayout() {
   };
 
   return (
-    <div className="ws">
-      <div className="ws-progress" aria-hidden />
-      <header className={`ws-header${scrolled ? ' is-scrolled' : ''}${menuOpen ? ' is-open' : ''}`}>
-        <div className="ws-header-inner">
-          <a href={sectionHref('accueil')} className="ws-brand" onClick={goToSection('accueil')}>
+    <div className="hl">
+      <div className="hl-topbar">
+        <div className="hl-wrap hl-topbar-inner">
+          <h5>
+            <em>Besoin d’aide</em>, parlez à un expert :{' '}
+            <a href="tel:+243813170215">+243 813 170 215</a>
+          </h5>
+          <p>Livraison : lundi à samedi, 7h – 18h · Kinshasa</p>
+          <div className="hl-topbar-links">
+            <a href="mailto:contact@emmas.cd">contact@emmas.cd</a>
+            <Link to="/portail/connexion">Portail</Link>
+            <Link to="/login">Espace pro</Link>
+          </div>
+        </div>
+      </div>
+
+      <header className={`hl-header${scrolled ? ' is-sticky' : ''}${menuOpen ? ' is-open' : ''}`}>
+        <div className="hl-wrap hl-header-inner">
+          <a href={sectionHref('accueil')} className="hl-brand" onClick={goToSection('accueil')}>
             <img src={LOGO} alt="Emmanuel Services" />
             <span>
-              <strong>EMMANUEL SERVICES</strong>
-              <small>SARLU · Kinshasa</small>
+              <strong>Emmanuel Services</strong>
+              <small>Eau potable · Kinshasa</small>
             </span>
           </a>
-          <nav className={`ws-nav${menuOpen ? ' is-open' : ''}`} aria-label="Site">
+          <nav className={`hl-nav${menuOpen ? ' is-open' : ''}`} aria-label="Site">
             {WEBSITE_NAV.map((item) => (
               <a
                 key={item.id}
                 href={sectionHref(item.id)}
-                className={`ws-nav-link${active === item.id ? ' active' : ''}`}
+                className={active === item.id ? 'is-active' : ''}
                 onClick={goToSection(item.id)}
               >
                 {item.label}
               </a>
             ))}
           </nav>
-          <div className="ws-header-actions">
-            <Link to="/portail/inscription" className="ws-btn ws-btn--ghost">Commander</Link>
-            <Link to="/login" className="ws-btn">Espace pro</Link>
+          <div className="hl-header-actions">
+            <Link to="/portail/inscription" className="hl-btn hl-btn--red">Commander</Link>
             <button
               type="button"
-              className="ws-menu-btn"
+              className="hl-burger"
               aria-expanded={menuOpen}
               aria-label="Menu"
               onClick={() => setMenuOpen((v) => !v)}
             >
               <span />
               <span />
+              <span />
             </button>
           </div>
         </div>
       </header>
+
       <Outlet />
-      <footer className="ws-footer" id="pied">
-        <div className="ws-footer-grid">
+
+      <section className="hl-cta">
+        <div className="hl-wrap hl-cta-inner">
+          <p>Une commande urgente ? Appelez-nous, on organise la tournée.</p>
           <div>
-            <img src={LOGO} alt="" className="ws-footer-logo" />
-            <p>Consommer de l&apos;eau de bonne qualité est essentiel pour maintenir une bonne santé.</p>
-            <p className="ws-muted">Proverbe 16:3</p>
+            <h2>Livraison d’eau potable, rapide et suivie, à Kinshasa</h2>
+            <a href="tel:+243813170215">+243 813 170 215</a>
+          </div>
+          <Link to="/portail/inscription" className="hl-btn hl-btn--red hl-btn--lg">Passer commande</Link>
+        </div>
+      </section>
+
+      <footer className="hl-footer">
+        <div className="hl-footer-top">
+          <div className="hl-wrap hl-footer-contacts">
+            <article>
+              <span aria-hidden>⌂</span>
+              <div>
+                <strong>Adresse</strong>
+                <p>Bandalungwa, Kinshasa, RDC</p>
+              </div>
+            </article>
+            <article>
+              <span aria-hidden>✉</span>
+              <div>
+                <strong>Écrivez-nous</strong>
+                <p><a href="mailto:contact@emmas.cd">contact@emmas.cd</a></p>
+              </div>
+            </article>
+            <article>
+              <span aria-hidden>☎</span>
+              <div>
+                <strong>Appelez-nous</strong>
+                <p><a href="tel:+243813170215">+243 813 170 215</a></p>
+              </div>
+            </article>
+          </div>
+        </div>
+        <div className="hl-wrap hl-footer-grid">
+          <div>
+            <a href={sectionHref('accueil')} className="hl-brand hl-brand--light" onClick={goToSection('accueil')}>
+              <img src={LOGO} alt="" />
+              <span>
+                <strong>Emmanuel Services</strong>
+                <small>SARLU · Eau potable</small>
+              </span>
+            </a>
+            <p>Consommer de l’eau de bonne qualité est essentiel pour maintenir une bonne santé.</p>
           </div>
           <div>
-            <h4>Le site</h4>
-            <a href={sectionHref('eau')} onClick={goToSection('eau')}>Notre eau</a>
-            <a href={sectionHref('origine')} onClick={goToSection('origine')}>Traitement</a>
-            <a href={sectionHref('produits')} onClick={goToSection('produits')}>Formats</a>
-            <a href={sectionHref('engagement')} onClick={goToSection('engagement')}>Durabilité</a>
-          </div>
-          <div>
-            <h4>Services</h4>
+            <h3>Liens utiles</h3>
+            <a href={sectionHref('accueil')} onClick={goToSection('accueil')}>Accueil</a>
+            <a href={sectionHref('apropos')} onClick={goToSection('apropos')}>À propos</a>
+            <a href={sectionHref('contact')} onClick={goToSection('contact')}>Prendre rendez-vous</a>
             <Link to="/portail/inscription">Créer un compte</Link>
             <Link to="/portail/connexion">Portail client</Link>
-            <Link to="/login">ERP interne</Link>
-            <Link to="/mobile">Application livreur</Link>
-            <a href={sectionHref('contact')} onClick={goToSection('contact')}>Nous écrire</a>
           </div>
           <div>
-            <h4>Kinshasa</h4>
-            <p>Bandalungwa, RDC</p>
-            <p><a href="tel:+243813170215">+243 813 170 215</a></p>
-            <p><a href="mailto:contact@emmas.cd">contact@emmas.cd</a></p>
+            <h3>Services</h3>
+            <a href={sectionHref('services')} onClick={goToSection('services')}>Livraison domicile</a>
+            <a href={sectionHref('services')} onClick={goToSection('services')}>Entreprises</a>
+            <a href={sectionHref('produits')} onClick={goToSection('produits')}>Bidons &amp; bonbonnes</a>
+            <a href={sectionHref('qualite')} onClick={goToSection('qualite')}>Contrôle qualité</a>
+            <Link to="/login">ERP interne</Link>
           </div>
         </div>
-        <div className="ws-legal">
-          RCCM KNG/RCCM/24-B-02180 · IMPOT A2425053J · ID NAT 01-F4300-N64238H
+        <div className="hl-legal">
+          <span>© {new Date().getFullYear()} Emmanuel Services SARLU. Tous droits réservés.</span>
+          <span>RCCM KNG/RCCM/24-B-02180 · IMPOT A2425053J · ID NAT 01-F4300-N64238H</span>
         </div>
       </footer>
+
+      {showTop && (
+        <button
+          type="button"
+          className="hl-totop"
+          aria-label="Haut de page"
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+        >
+          ↑
+        </button>
+      )}
     </div>
   );
 }
