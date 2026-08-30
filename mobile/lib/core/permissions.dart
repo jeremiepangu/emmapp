@@ -51,27 +51,30 @@ const Map<String, Map<String, List<String>>> defaultPermissions = {
   'LIVREUR': {
     'dashboard': _r, 'deliveries': _rcuv, 'payments': _rc, 'orders': _r,
     'clients': _r, 'notifications': _r, 'assistant': _rc, 'routing': _r,
-    'hr': _r, 'objectives': _r, 'tours': _r,
+    'hr': _r, 'objectives': _r, 'tours': _r, 'activity': _rc,
   },
   'CHARGE_LIVRAISON': {
     'dashboard': _r, 'deliveries': _rcuv, 'payments': _rc, 'orders': _r,
     'clients': _r, 'notifications': _r, 'assistant': _rc, 'routing': _r,
-    'hr': _r, 'objectives': _r, 'tours': _r,
+    'hr': _r, 'objectives': _r, 'tours': _r, 'activity': _rcuv,
   },
   'CAISSIER': {
     'dashboard': _r, 'payments': _full, 'clients': _r, 'orders': _r,
     'notifications': _r, 'assistant': _rc, 'hr': _r, 'pos': _full, 'finance': _rcu,
+    'activity': _rc,
   },
   'COMMERCIAL': {
     'dashboard': _r, 'clients': _full, 'orders': _full, 'loyalty': _rcu,
     'products': _r, 'payments': _rcu, 'notifications': _r, 'ai': _r,
     'assistant': _rc, 'portal': _rcu, 'marketplace': _rcuv, 'pricing': _full,
     'hr': _r, 'contracts': _rcuv, 'objectives': _rcu, 'pos': _full, 'finance': _r,
+    'activity': _rc,
   },
   'MAGASINIER': {
     'dashboard': _r, 'stock': _full, 'packaging': _full, 'vehicles': _full,
     'tours': _rc, 'consignes': _full, 'products': _r, 'notifications': _r,
     'assistant': _rc, 'hr': _r, 'contracts': _rcu, 'finance': _rcu,
+    'activity': _rc,
   },
   'DG': {
     'dashboard': _r, 'clients': _r, 'orders': _r, 'products': _r, 'tours': _r,
@@ -81,35 +84,41 @@ const Map<String, Map<String, List<String>>> defaultPermissions = {
     'routing': _r, 'esg': _r, 'security': _r, 'portal': _r, 'marketplace': _r,
     'pricing': _r, 'packaging': _r, 'vehicles': _r, 'authorizations': _r,
     'contracts': _ruv, 'objectives': _r, 'pos': _r, 'finance': _ruv,
+    'activity': _ruv,
   },
   'CHEF_PRODUCTION': {
     'dashboard': _r, 'production': _full, 'quality': _r, 'stock': _full,
     'packaging': _full, 'products': _rcu, 'observability': _r, 'notifications': _r,
     'ai': _r, 'assistant': _rc, 'iot': _ru, 'hr': _ruv, 'contracts': _r, 'objectives': _ruv,
+    'activity': _rcuv,
   },
   'CHEF_EXPLOITATION': {
     'dashboard': _r, 'orders': _full, 'tours': _full, 'deliveries': _ruv, 'stock': _r,
     'packaging': _r, 'vehicles': _full, 'clients': _r, 'notifications': _r,
     'ai': _r, 'assistant': _rc, 'routing': _rcuv, 'iot': _r, 'esg': _r, 'hr': _ruv,
     'contracts': _r, 'objectives': _rcuv, 'pos': _r, 'finance': _r,
+    'activity': _rcuv,
   },
   'RESP_QUALITE': {
     'dashboard': _r, 'quality': _rcuv, 'production': _r, 'consignes': _r,
     'observability': _r, 'notifications': _r, 'ai': _r, 'assistant': _rc, 'iot': _ru,
+    'activity': _rcuv,
   },
   'RH': {
     'dashboard': _r, 'hr': _full, 'payroll': _full, 'users': _full, 'notifications': _r,
     'authorizations': _rcu, 'assistant': _rc, 'contracts': _full, 'objectives': _full,
+    'activity': _full,
   },
   'COMPTABLE': {
     'payments': _rcu, 'finance': _full, 'clients': _r, 'orders': _r, 'dashboard': _r,
     'notifications': _r, 'ai': _r, 'assistant': _rc, 'payroll': _rcuv, 'hr': _r,
-    'contracts': _rcuv, 'pos': _r,
+    'contracts': _rcuv, 'pos': _r, 'activity': _rcuv,
   },
   'SUPERVISEUR': {
     'dashboard': _r, 'tours': _r, 'vehicles': _r, 'observability': _r, 'users': _r,
     'deliveries': _r, 'notifications': _r, 'ai': _r, 'assistant': _rc, 'iot': _r,
     'routing': _r, 'esg': _r, 'security': _r, 'hr': _ruv, 'contracts': _r, 'objectives': _rcuv,
+    'activity': _rcuv,
   },
   'DATA_ANALYST': {
     'dashboard': _r, 'notifications': _r, 'observability': _r, 'assistant': _rc,
@@ -121,11 +130,31 @@ const Map<String, Map<String, List<String>>> defaultPermissions = {
   'RESP_SECURITE': {
     'dashboard': _r, 'notifications': _r, 'observability': _r, 'assistant': _rc,
     'authorizations': _rcu, 'security': _rcuv, 'users': _r, 'integrations': _r, 'ai': _r,
+    'activity': _rc,
   },
   'RESP_DURABILITE': {
     'dashboard': _r, 'notifications': _r, 'assistant': _rc, 'esg': _rcuv, 'routing': _r,
     'iot': _r, 'tours': _r, 'vehicles': _r, 'consignes': _r, 'production': _r,
-    'packaging': _r, 'ai': _r,
+    'packaging': _r, 'ai': _r, 'activity': _rc,
+  },
+  'CHARGE_EXPLOITATION': {
+    'dashboard': _r, 'orders': _r, 'tours': _ru, 'deliveries': _r, 'stock': _r,
+    'vehicles': _r, 'notifications': _r, 'assistant': _rc, 'routing': _r, 'iot': _r,
+    'hr': _r, 'objectives': _r, 'activity': _rc,
+  },
+  'AGENT_CHARGEUR': {
+    'dashboard': _r, 'tours': _ru, 'stock': _r, 'deliveries': _r, 'notifications': _r,
+    'assistant': _rc, 'hr': _r, 'activity': _rc,
+  },
+  'DELEGUE_COMMERCIAL': {
+    'dashboard': _r, 'clients': _rc, 'orders': _rc, 'loyalty': _r, 'products': _r,
+    'notifications': _r, 'assistant': _rc, 'marketplace': _rc, 'pricing': _r,
+    'hr': _r, 'contracts': _r, 'objectives': _r, 'pos': _r, 'activity': _rc,
+  },
+  'IT_GED': {
+    'observability': _r, 'users': _r, 'notifications': _r, 'dashboard': _r,
+    'authorizations': _r, 'assistant': _rc, 'iot': _rcu, 'integrations': _full,
+    'security': _r, 'contracts': _r,
   },
 };
 
@@ -136,11 +165,7 @@ bool can(String? role, String resource, String action, [Map<String, List<String>
     return matrix[resource]!.contains(action);
   }
   final allowed = defaultPermissions[role]?[resource] ?? const <String>[];
-  if (allowed.isNotEmpty) return allowed.contains(action);
-  if (resource == 'activity') {
-    return action == 'read' || action == 'create';
-  }
-  return false;
+  return allowed.contains(action);
 }
 
 bool canRead(String? role, String resource, [Map<String, List<String>>? matrix]) =>

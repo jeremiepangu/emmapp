@@ -1,4 +1,4 @@
-import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import {
   api,
   ActivityDeclaration,
@@ -23,6 +23,8 @@ import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
 import Modal from '../components/Modal';
 import DocButton from '../components/DocButton';
+import AgentCard from '../components/AgentCard';
+import ImageUploadField from '../components/ImageUploadField';
 import {
   printEmployeeSheet,
   printEmployeesList,
@@ -189,16 +191,7 @@ export default function HrPage() {
     await loadCore();
   };
 
-  const onPhoto = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || file.size > 400_000) return;
-    const dataUrl = await new Promise<string>((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result ?? ''));
-      reader.readAsDataURL(file);
-    });
-    setEmpForm({ ...empForm, photoUrl: dataUrl });
-  };
+  const empUser = editing?.user ?? users.find((u) => u.id === empForm.userId);
 
   const myObjectives = objectives.filter((o) => o.userId === user?.id);
 
@@ -519,6 +512,7 @@ export default function HrPage() {
               </ul>
             </ErpPanel>
           )}
+          {can('activity', 'create') && (
           <ErpPanel title="Déclarer une activité" padded>
             <form className="form-row" onSubmit={async (e) => {
               e.preventDefault();
@@ -537,6 +531,7 @@ export default function HrPage() {
               <div className="form-group" style={{ alignSelf: 'end' }}><button type="submit" className="erp-btn">Déclarer</button></div>
             </form>
           </ErpPanel>
+          )}
           <ErpPanel title="Déclarations">
             <table className="erp-table">
               <thead><tr><th>Agent</th><th>Activité</th><th>Date</th><th>Statut</th><th>Actions</th></tr></thead>
@@ -816,6 +811,30 @@ export default function HrPage() {
 
       <Modal title={editing ? 'Dossier employé' : 'Nouveau dossier RH'} open={showEmployee} onClose={() => setShowEmployee(false)} wide>
         <form className="form-stack" onSubmit={saveEmployee}>
+          <div className="agent-card-editor">
+            <AgentCard
+              firstName={empUser?.firstName}
+              lastName={empUser?.lastName}
+              photoUrl={empForm.photoUrl}
+              matricule={empForm.matricule || editing?.matricule}
+              jobTitle={empForm.jobTitle}
+              department={empForm.department}
+              contractType={empForm.contractType}
+              hireDate={empForm.hireDate}
+              status={editing?.status}
+              phone={empUser?.phone}
+              email={empUser?.email}
+            />
+            <ImageUploadField
+              label="Photo de l’agent"
+              value={empForm.photoUrl}
+              onChange={(dataUrl) => setEmpForm({ ...empForm, photoUrl: dataUrl })}
+              hint="Portrait cadré serré. L’image est réduite avant enregistrement."
+              maxSize={480}
+              round
+              disabled={!writeMaster}
+            />
+          </div>
           {!editing && (
             <div className="form-group">
               <label>Agent</label>
@@ -873,7 +892,6 @@ export default function HrPage() {
             <div className="form-group"><label>Fin de contrat</label><input type="date" value={empForm.endDate} onChange={(e) => setEmpForm({ ...empForm, endDate: e.target.value })} /></div>
             <div className="form-group"><label>Salaire (CDF)</label><input type="number" min={0} value={empForm.baseSalary} onChange={(e) => setEmpForm({ ...empForm, baseSalary: Number(e.target.value) })} /></div>
           </div>
-          <div className="form-group"><label>Photo</label><input type="file" accept="image/*" onChange={onPhoto} />{empForm.photoUrl && <img src={empForm.photoUrl} alt="" className="erp-id-logo" />}</div>
           <button type="submit" className="erp-btn">{editing ? 'Mettre à jour' : 'Créer'}</button>
         </form>
       </Modal>

@@ -5,6 +5,7 @@ import { usePortal } from '../../PortalContext';
 import StatusPill from '../../components/ErpUi';
 import { ErpPageHeader, ErpPanel } from '../../components/ErpUi';
 import DocButton from '../../components/DocButton';
+import ProductSaleCard, { ProductSaleGrid } from '../../components/ProductSaleCard';
 import { printClientSheet, printDeliveryTracking, printOrder, printOrdersList, printPortalConsignes, printPortalInvoice, printPortalLoyalty } from '../../documents/templates';
 import { printDocument, formatMoney } from '../../documents/printDocument';
 import { exportSheet, sheetOrders } from '../../excel/specs';
@@ -56,7 +57,7 @@ export function PortalLayout() {
         <div className="erp-sidebar-brand">
           <img className="erp-brand-mark erp-brand-mark--img" src="/logo-emmanuel-services.png" alt="" />
           <div>
-            <div className="erp-brand-logo">Emmanuel Services</div>
+            <div className="erp-brand-logo">EMMAPP</div>
             <div className="erp-brand-sub">Portail client</div>
           </div>
         </div>
@@ -74,8 +75,18 @@ export function PortalLayout() {
       </aside>
       <div className="erp-main-wrap">
         <header className="erp-topbar">
-          <strong>{account.fullName}</strong>
-          <span className="erp-muted">{me?.client.name} · {me?.client.loyaltyTier}</span>
+          <div className="erp-topbar-left">
+            <h1 className="erp-topbar-title">Portail</h1>
+          </div>
+          <div className="erp-topbar-right">
+            <div className="erp-topbar-profile">
+              <span className="erp-user-badge">{account.fullName.trim().charAt(0).toUpperCase()}</span>
+              <div className="erp-topbar-profile-text">
+                <span className="erp-topbar-profile-name">{account.fullName}</span>
+                <span className="erp-topbar-profile-role">{me?.client.name} · {me?.client.loyaltyTier}</span>
+              </div>
+            </div>
+          </div>
         </header>
         <main className="erp-content">
           <Outlet />
@@ -212,38 +223,45 @@ export function PortalCatalogPage() {
       {message && <p className="erp-success">{message}</p>}
       <form onSubmit={submit}>
         <ErpPanel title="Catalogue">
-          <table className="erp-table">
-            <thead><tr><th>Produit</th><th>Format</th><th>Prix catalogue</th><th>Prix pour la qte</th><th>Remise</th><th>Qté</th></tr></thead>
-            <tbody>
-              {items.map((p) => {
-                const q = qty[p.id] ?? 0;
-                const priced = priceForQty(p, q || 1);
-                return (
-                  <tr key={p.id}>
-                    <td>
-                      {p.name}
-                      {p.tiers && p.tiers.length > 0 && (
-                        <div className="erp-muted">
-                          {p.tiers.map((t) => (
-                            <div key={t.id}>
-                              {t.minQuantity}{t.maxQuantity != null ? `-${t.maxQuantity}` : '+'} : {t.type === 'PERCENT' ? `${t.value} % tous les ${t.stepQuantity ?? 10}` : `${t.value.toLocaleString('fr-FR')} CDF`}
-                            </div>
-                          ))}
+          <ProductSaleGrid>
+            {items.map((p) => {
+              const q = qty[p.id] ?? 0;
+              const priced = priceForQty(p, q || 1);
+              return (
+                <ProductSaleCard
+                  key={p.id}
+                  name={p.name}
+                  code={p.code}
+                  format={p.format}
+                  imageUrl={p.imageUrl}
+                  price={priced.unit}
+                  quantity={q}
+                  onQuantityChange={(next) => setQty({ ...qty, [p.id]: next })}
+                  onAdd={() => setQty({ ...qty, [p.id]: Math.max(1, q) })}
+                  addLabel={q > 0 ? 'Dans la commande' : 'Ajouter au panier'}
+                  selected={q > 0}
+                  badge={q > 0 ? `${q}` : undefined}
+                  metaLabel="Livraison"
+                  metaValue="Sous 24 h après validation"
+                  note={
+                    <>
+                      {priced.pct > 0 && (
+                        <div>
+                          Prix catalogue {p.basePrice.toLocaleString('fr-FR')} CDF · remise {priced.pct} %
                         </div>
                       )}
-                    </td>
-                    <td>{p.format}</td>
-                    <td>{p.basePrice.toLocaleString('fr-FR')} CDF</td>
-                    <td>{priced.unit.toLocaleString('fr-FR')} CDF</td>
-                    <td>{priced.pct} %</td>
-                    <td>
-                      <input type="number" min={0} value={q} onChange={(e) => setQty({ ...qty, [p.id]: Number(e.target.value) })} />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                      {p.tiers?.map((t) => (
+                        <div key={t.id}>
+                          {t.minQuantity}{t.maxQuantity != null ? `-${t.maxQuantity}` : '+'} : {t.type === 'PERCENT' ? `${t.value} % tous les ${t.stepQuantity ?? 10}` : `${t.value.toLocaleString('fr-FR')} CDF`}
+                        </div>
+                      ))}
+                    </>
+                  }
+                />
+              );
+            })}
+          </ProductSaleGrid>
+          {!items.length && <p className="erp-table-empty">Aucun produit disponible.</p>}
         </ErpPanel>
         <button type="submit" className="erp-btn">Passer la commande</button>
       </form>

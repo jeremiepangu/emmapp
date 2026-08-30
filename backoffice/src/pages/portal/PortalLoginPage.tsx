@@ -41,6 +41,8 @@ export default function PortalLoginPage() {
       </>
     )}>
       <form className="es-login-form" onSubmit={submit}>
+        <h1 className="es-login-title">Portail client</h1>
+        <p className="es-login-sub">Commandez et suivez vos livraisons</p>
         <input
           type="email"
           value={email}

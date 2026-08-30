@@ -5,6 +5,7 @@ import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
 import Modal from '../components/Modal';
 import DocButton from '../components/DocButton';
+import ProductSaleCard, { ProductSaleGrid } from '../components/ProductSaleCard';
 import { printOrder, printOrdersList } from '../documents/templates';
 import { sheetOrders } from '../excel/specs';
 
@@ -50,6 +51,10 @@ export default function OrdersPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!form.productId) {
+      setError('Sélectionnez un produit');
+      return;
+    }
     setSaving(true);
     setError('');
     const payload: CreateOrderInput = {
@@ -143,16 +148,29 @@ export default function OrdersPage() {
           </div>
           <div className="form-group">
             <label>Produit</label>
-            <select value={form.productId} onChange={(e) => setForm({ ...form, productId: e.target.value })} required>
-              <option value="">— Choisir —</option>
-              {products.map((p) => (
-                <option key={p.id} value={p.id}>{p.name} — {Number(p.unitPrice).toLocaleString('fr-FR')} CDF</option>
-              ))}
-            </select>
-          </div>
-          <div className="form-group">
-            <label>Quantité</label>
-            <input type="number" min={1} value={form.quantity} onChange={(e) => setForm({ ...form, quantity: Number(e.target.value) })} required />
+            <ProductSaleGrid>
+              {products.map((p) => {
+                const isSelected = form.productId === p.id;
+                return (
+                  <ProductSaleCard
+                    key={p.id}
+                    name={p.name}
+                    code={p.code}
+                    format={p.format}
+                    imageUrl={p.imageUrl}
+                    price={Number(p.unitPrice)}
+                    quantity={isSelected ? form.quantity : 1}
+                    min={1}
+                    onQuantityChange={(q) => setForm({ ...form, productId: p.id, quantity: q })}
+                    onAdd={() => setForm({ ...form, productId: p.id, quantity: isSelected ? form.quantity : 1 })}
+                    addLabel={isSelected ? 'Sélectionné' : 'Choisir ce produit'}
+                    selected={isSelected}
+                    metaLabel="Livraison"
+                    metaValue="Planifiée à la tournée suivante"
+                  />
+                );
+              })}
+            </ProductSaleGrid>
           </div>
           {preview && (
             <p className="erp-muted">

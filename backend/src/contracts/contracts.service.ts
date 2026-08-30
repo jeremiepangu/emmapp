@@ -28,6 +28,7 @@ import {
   UpdateTemplateDto,
   UploadSignedDto,
 } from './dto/contract.dto';
+import { agentTemplateCode, buildAgentTemplateSeeds, findAgentJob } from './agent-templates';
 import { buildContractDocx, CONTRACT_PLACEHOLDERS, fillPlaceholders } from './word-generator';
 
 const KEY_CLIENT_SEGMENTS: ClientSegment[] = [
@@ -489,8 +490,40 @@ export class ContractsService {
     return CONTRACT_PLACEHOLDERS;
   }
 
-  listTemplates() {
-    return this.prisma.contractTemplate.findMany({ orderBy: [{ partyKind: 'asc' }, { name: 'asc' }] });
+  async ensureDefaultTemplates(force = false) {
+    const seeds = buildAgentTemplateSeeds();
+    const existing = await this.prisma.contractTemplate.findMany({
+      where: { code: { in: seeds.map((s) => s.code) } },
+      select: { code: true },
+    });
+    const have = new Set(existing.map((e) => e.code));
+    let created = 0;
+    let updated = 0;
+    for (const tpl of seeds) {
+      if (!force && have.has(tpl.code)) continue;
+      await this.prisma.contractTemplate.upsert({
+        where: { code: tpl.code },
+        update: {
+          name: tpl.name,
+          partyKind: tpl.partyKind,
+          kind: tpl.kind,
+          title: tpl.title,
+          body: tpl.body,
+          clauses: tpl.clauses,
+          footer: tpl.footer,
+          isActive: true,
+        },
+        create: tpl,
+      });
+      if (have.has(tpl.code)) updated += 1;
+      else created += 1;
+    }
+    return { total: seeds.length, created, updated };
+  }
+
+  async listTemplates() {
+    await this.ensureDefaultTemplates();
+    return this.prisma.contractTemplate.findMany({ orderBy: [{ partyKind: 'asc' }, { kind: 'asc' }, { name: 'asc' }] });
   }
 
   async createTemplate(dto: CreateTemplateDto) {
@@ -631,8 +664,9 @@ export class ContractsService {
       companyPhone: '+243 813 170 215',
       companyEmail: 'contact@emmas.cd',
       today: this.fmtDate(this.today()),
-      jobTitle: party.jobTitle,
-      department: party.department,
+      jobTitle: party.jobTitle || findAgentJob(contract.employee?.user?.role)?.label || '',
+      department: party.department || findAgentJob(contract.employee?.user?.role)?.department || '',
+      agentRole: contract.employee?.user?.role ?? '',
     };
   }
 
@@ -641,6 +675,21 @@ export class ContractsService {
       const tpl = await this.prisma.contractTemplate.findUnique({ where: { id: templateId } });
       if (!tpl || !tpl.isActive) throw new NotFoundException('Modèle introuvable');
       return tpl;
+    }
+    const role = contract.employee?.user?.role;
+    if (contract.partyKind === ContractPartyKind.AGENT && role) {
+      const byRole = await this.prisma.contractTemplate.findUnique({
+        where: { code: agentTemplateCode(role, contract.kind) },
+      });
+      if (byRole?.isActive) return byRole;
+      const job = findAgentJob(role);
+      if (job) {
+        const fallbackKind = job.kinds.includes(contract.kind) ? contract.kind : job.kinds[0];
+        const byJob = await this.prisma.contractTemplate.findUnique({
+          where: { code: agentTemplateCode(role, fallbackKind) },
+        });
+        if (byJob?.isActive) return byJob;
+      }
     }
     const exact = await this.prisma.contractTemplate.findFirst({
       where: { isActive: true, partyKind: contract.partyKind, kind: contract.kind },

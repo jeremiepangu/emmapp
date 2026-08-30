@@ -180,7 +180,7 @@ export default function AuthorizationsPage() {
     <div className="erp-page">
       <ErpPageHeader
         title="Habilitations"
-        subtitle="Paramétrage des droits par profil sur tous les modules, menus et fonctions CRUDVN"
+        subtitle="Droits CRUDVN par profil, avec limite d’activités (fonction, département, déclaration et équipe)"
         excel={{
           filename: 'habilitations',
           sheets: [
@@ -200,6 +200,18 @@ export default function AuthorizationsPage() {
               ? catalog.resources.map((resource) => ({
                 module: resource.label,
                 droits: (draft[resource.id] ?? []).join(', '),
+              }))
+              : []),
+            exportSheet('Limites activites', [
+              ['profil', 'Profil'], ['declaration', 'Declaration'], ['equipe', 'Equipe'], ['fonctions', 'Fonctions'], ['departements', 'Departements'], ['resume', 'Resume'],
+            ], catalog
+              ? catalog.roles.map((item) => ({
+                profil: item.label,
+                declaration: item.activity?.declare ? 'Oui' : 'Non',
+                equipe: item.activity?.team ? 'Oui' : 'Non',
+                fonctions: item.activity?.functions === '*' ? 'Toutes' : (item.activity?.functions ?? []).join(', ') || 'Aucune',
+                departements: item.activity?.departments === '*' ? 'Tous' : (item.activity?.departments ?? []).join(', ') || 'Aucun',
+                resume: item.activity?.summary ?? '',
               }))
               : []),
             exportSheet('Exceptions', [
@@ -269,6 +281,24 @@ export default function AuthorizationsPage() {
               Lire affiche le menu. Créer / Modifier / Supprimer / Valider pilotent les boutons et les API correspondantes.
               {role === 'ADMIN' ? ' L’administrateur conserve un accès de secours au module Habilitations.' : ''}
             </p>
+            {(() => {
+              const limit = catalog.roles.find((item) => item.id === role)?.activity;
+              if (!limit) return null;
+              const functions = limit.functions === '*' ? 'Toutes' : limit.functions.length ? limit.functions.join(', ') : 'Aucune';
+              const departments = limit.departments === '*' ? 'Tous' : limit.departments.length ? limit.departments.join(', ') : 'Aucun';
+              return (
+                <div className="acl-limit">
+                  <strong>Limite d’activités de ce profil</strong>
+                  <p>{limit.summary}</p>
+                  <ul>
+                    <li><span>Déclaration</span> {limit.declare ? 'Autorisée (son propre rapport)' : 'Interdite'}</li>
+                    <li><span>Équipe / validation</span> {limit.team ? 'Oui, dans le périmètre' : 'Non (soi uniquement)'}</li>
+                    <li><span>Fonctions</span> {functions}</li>
+                    <li><span>Départements</span> {departments}</li>
+                  </ul>
+                </div>
+              );
+            })()}
             <div className="acl-scroll">
               <table className="erp-table acl-matrix">
                 <thead>

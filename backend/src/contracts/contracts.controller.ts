@@ -74,6 +74,12 @@ export class ContractsController {
     return this.contracts.listTemplates();
   }
 
+  @Roles(UserRole.ADMIN, UserRole.RH)
+  @Post('templates/restore')
+  restoreTemplates() {
+    return this.contracts.ensureDefaultTemplates(true);
+  }
+
   @Roles(...WRITE)
   @Post('templates')
   createTemplate(@Body() dto: CreateTemplateDto) {

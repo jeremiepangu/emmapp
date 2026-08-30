@@ -60,62 +60,77 @@ export const PERMISSIONS: Record<string, Partial<Record<Resource, Action[]>>> = 
     payments: R, production: R, quality: R, loyalty: R, consignes: R, hr: R, payroll: R,
     observability: R, users: R, notifications: R,
     ai: R, assistant: RC, iot: R, routing: R, esg: R, security: R, portal: R, marketplace: R, pricing: R, packaging: R, vehicles: R, authorizations: R, contracts: RUV, objectives: R, pos: R, finance: RUV,
+    activity: RUV,
   },
   CHEF_PRODUCTION: {
     dashboard: R, production: FULL, quality: R, stock: FULL, packaging: FULL, products: RCU, observability: R, notifications: R,
     ai: R, assistant: RC, iot: RU, hr: RUV, contracts: R, objectives: RUV,
+    activity: RCUV,
   },
   CHEF_EXPLOITATION: {
     dashboard: R, orders: FULL, tours: FULL, deliveries: RUV, stock: R, packaging: R, vehicles: FULL, clients: R, notifications: R,
     ai: R, assistant: RC, routing: RCUV, iot: R, esg: R, hr: RUV, contracts: R, objectives: RCUV, pos: R, finance: R,
+    activity: RCUV,
   },
   CHARGE_EXPLOITATION: {
     dashboard: R, orders: R, tours: RU, deliveries: R, stock: R, vehicles: R, notifications: R,
     assistant: RC, routing: R, iot: R, hr: R, objectives: R,
+    activity: RC,
   },
   RESP_QUALITE: {
     dashboard: R, quality: RCUV, production: R, consignes: R, observability: R, notifications: R,
     ai: R, assistant: RC, iot: RU,
+    activity: RCUV,
   },
   MAGASINIER: {
     dashboard: R, stock: FULL, packaging: FULL, vehicles: FULL, tours: RC, consignes: FULL, products: R, notifications: R,
     assistant: RC, hr: R, contracts: RCU, finance: RCU,
+    activity: RC,
   },
   AGENT_CHARGEUR: {
     dashboard: R, tours: RU, stock: R, deliveries: R, notifications: R,
     assistant: RC, hr: R,
+    activity: RC,
   },
   LIVREUR: {
     dashboard: R, deliveries: RCUV, payments: RC, orders: R, clients: R, notifications: R,
     assistant: RC, routing: R, hr: R, objectives: R,
+    activity: RC,
   },
   CHARGE_LIVRAISON: {
     dashboard: R, deliveries: RCUV, payments: RC, orders: R, clients: R, notifications: R,
     assistant: RC, routing: R, hr: R, objectives: R,
+    activity: RCUV,
   },
   COMMERCIAL: {
     dashboard: R, clients: FULL, orders: FULL, loyalty: RCU, products: R, payments: RCU, notifications: R,
     ai: R, assistant: RC, portal: RCU, marketplace: RCUV, pricing: FULL, hr: R, contracts: RCUV, objectives: RCU, pos: FULL, finance: R,
+    activity: RC,
   },
   DELEGUE_COMMERCIAL: {
     dashboard: R, clients: RC, orders: RC, loyalty: R, products: R, notifications: R,
     assistant: RC, marketplace: RC, pricing: R, hr: R, contracts: R, objectives: R, pos: R,
+    activity: RC,
   },
   CAISSIER: {
     dashboard: R, payments: FULL, clients: R, orders: R, notifications: R,
     assistant: RC, hr: R, pos: FULL, finance: RCU,
+    activity: RC,
   },
   COMPTABLE: {
     payments: RCU, finance: FULL, clients: R, orders: R, dashboard: R, notifications: R,
     ai: R, assistant: RC, payroll: RCUV, hr: R, contracts: RCUV, pos: R,
+    activity: RCUV,
   },
   RH: {
     dashboard: R, hr: FULL, payroll: FULL, users: FULL, notifications: R, authorizations: RCU,
     assistant: RC, contracts: FULL, objectives: FULL,
+    activity: FULL,
   },
   SUPERVISEUR: {
     dashboard: R, tours: R, vehicles: R, observability: R, users: R, deliveries: R, notifications: R,
     ai: R, assistant: RC, iot: R, routing: R, esg: R, security: R, hr: RUV, contracts: R, objectives: RCUV,
+    activity: RCUV,
   },
   IT_GED: {
     observability: R, users: R, notifications: R, dashboard: R, authorizations: R,
@@ -131,11 +146,13 @@ export const PERMISSIONS: Record<string, Partial<Record<Resource, Action[]>>> = 
   RESP_SECURITE: {
     dashboard: R, notifications: R, observability: R, assistant: RC, authorizations: RCU,
     security: RCUV, users: R, integrations: R, ai: R,
+    activity: RC,
   },
   /** Responsable durabilité — suivi des indicateurs ESG et rapports de durabilité. */
   RESP_DURABILITE: {
     dashboard: R, notifications: R, assistant: RC,
     esg: RCUV, routing: R, iot: R, tours: R, vehicles: R, consignes: R, production: R, packaging: R, ai: R,
+    activity: RC,
   },
   /** Client self-service — accès au portail uniquement, jamais au back-office. */
   CLIENT_PORTAIL: {
@@ -223,11 +240,6 @@ export function can(role: string | undefined, resource: Resource, action: Action
   if (!role) return false;
   if (role === 'ADMIN') return true;
   if (matrix) return (matrix[resource] ?? []).includes(action);
-  if (resource === 'activity') {
-    if (PORTAL_ONLY_ROLES.includes(role)) return false;
-    if (action === 'read' || action === 'create') return true;
-    return ['DG', 'RH', 'SUPERVISEUR', 'CHEF_EXPLOITATION', 'CHEF_PRODUCTION', 'COMPTABLE'].includes(role);
-  }
   const allowed = PERMISSIONS[role]?.[resource] ?? [];
   return allowed.includes(action);
 }

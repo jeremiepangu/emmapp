@@ -3,32 +3,27 @@ import { Link } from 'react-router-dom';
 import {
   api,
   DashboardOverview,
+  Delivery,
   NotificationItem,
   ObservabilityStatus,
   Order,
   Payment,
-  PosCatalog,
   PosSale,
+  Tour,
 } from '../api';
-import { useAuth } from '../AuthContext';
-import { usePermissions } from '../hooks/usePermissions';
-import { useTheme } from '../ThemeContext';
-import DocButton from '../components/DocButton';
-import { printDashboardReport } from '../documents/templates';
-import { exportSheet } from '../excel/specs';
-import ExcelButtons from '../components/ExcelButtons';
+import StatusPill from '../components/ErpUi';
+import { Icon, IconName } from '../components/ErpIcons';
+import './dashboard.css';
 
-const SLICE_COLORS = ['#22c55e', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#14b8a6', '#64748b'];
-const PANEL_LABELS: Record<string, string> = {
-  kpis: 'Indicateurs',
-  shortcuts: 'Raccourcis',
-  charts: 'Graphiques',
-  products: 'Meilleures ventes',
-  pos: 'Aperçu caisse',
-  orders: 'Commandes',
-  payments: 'Paiements',
-  observability: 'Supervision',
-};
+const CHART_BLUE = '#3b82f6';
+const CHART_ORANGE = '#f97316';
+const CHART_TEAL = '#38bdf8';
+const SLICE_COLORS = [CHART_BLUE, CHART_ORANGE, CHART_TEAL, '#8b5cf6', '#22c55e', '#64748b'];
+const WEEKDAYS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+const MONTHS = [
+  'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+  'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
+];
 
 function optional<T>(promise: Promise<T>, fallback: T): Promise<T> {
   return promise.catch(() => fallback);
@@ -53,43 +48,88 @@ function initials(name: string): string {
   return name.split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? '').join('') || 'P';
 }
 
-function movementSeries(totalStock: number, ordersToday: number, deliveriesToday: number) {
-  const outBase = Math.max(deliveriesToday, Math.round(ordersToday * 1.2), 4);
-  const inBase = Math.max(Math.round(outBase * 1.15), 5);
-  const labels = ['01', '05', '09', '13', '17', '21', '25', '29'];
-  const inbound = labels.map((_, i) => Math.round(inBase * (0.7 + ((i * 17 + totalStock) % 9) / 12)));
-  const outbound = labels.map((_, i) => Math.round(outBase * (0.65 + ((i * 13 + ordersToday) % 8) / 11)));
-  return { labels, inbound, outbound };
+function startOfDay(d: Date) {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
 }
 
-function polyline(values: number[], w: number, h: number, pad = 16): string {
+function isSameDay(iso: string | undefined, day: Date) {
+  if (!iso) return false;
+  return startOfDay(new Date(iso)).getTime() === startOfDay(day).getTime();
+}
+
+function pctChange(current: number, previous: number) {
+  if (previous <= 0) return { value: current > 0 ? 100 : 0, up: current >= previous };
+  const raw = ((current - previous) / previous) * 100;
+  return { value: Math.round(Math.abs(raw) * 10) / 10, up: raw >= 0 };
+}
+
+function weekdayIndex(date: Date) {
+  return (date.getDay() + 6) % 7;
+}
+
+function sparkPoints(values: number[], w = 88, h = 28) {
   const max = Math.max(...values, 1);
-  return values
-    .map((v, i) => {
-      const x = pad + (i * (w - pad * 2)) / Math.max(values.length - 1, 1);
-      const y = h - pad - (v / max) * (h - pad * 2);
-      return `${x},${y}`;
-    })
-    .join(' ');
+  return values.map((v, i) => {
+    const x = (i / Math.max(values.length - 1, 1)) * w;
+    const y = h - (v / max) * (h - 6) - 3;
+    return `${x},${y}`;
+  }).join(' ');
+}
+
+function seriesPath(values: number[], w: number, h: number, maxValue?: number) {
+  const max = Math.max(maxValue ?? Math.max(...values, 1), 1);
+  return values.map((v, i) => {
+    const x = (i / Math.max(values.length - 1, 1)) * w;
+    const y = h - (v / max) * (h - 16) - 8;
+    return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`;
+  }).join(' ');
+}
+
+function mondayOfWeek(now = new Date()) {
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - weekdayIndex(now));
+  monday.setHours(0, 0, 0, 0);
+  return monday;
+}
+
+function countByWeekday<T>(items: T[], getDate: (item: T) => Date | null, monday: Date) {
+  const counts = WEEKDAYS.map(() => 0);
+  for (const item of items) {
+    const d = getDate(item);
+    if (!d || d < monday) continue;
+    counts[weekdayIndex(d)] += 1;
+  }
+  return counts;
+}
+
+function orderChannel(order: Order): 'Caisse' | 'Portail' | 'Tournée' | 'Commande' {
+  if (order.posSale) return 'Caisse';
+  const name = order.client?.name ?? '';
+  if (/comptoir|passage|caisse/i.test(name)) return 'Caisse';
+  if (order.client?.segment === 'PARTICULIER') return 'Portail';
+  if (order.status === 'EN_LIVRAISON' || order.status === 'CHARGEE') return 'Tournée';
+  return 'Commande';
 }
 
 export default function DashboardPage() {
-  const { user } = useAuth();
-  const { roleLabel } = usePermissions();
-  const { dashboardLayout, setDashboardLayout } = useTheme();
-  const visible = (key: string) => dashboardLayout?.find((p) => p.key === key)?.visible !== false;
   const [data, setData] = useState<DashboardOverview | null>(null);
   const [obs, setObs] = useState<ObservabilityStatus | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [sales, setSales] = useState<PosSale[]>([]);
-  const [catalog, setCatalog] = useState<PosCatalog | null>(null);
+  const [tours, setTours] = useState<Tour[]>([]);
+  const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [notifs, setNotifs] = useState<NotificationItem[]>([]);
   const [error, setError] = useState('');
+  const [tableQuery, setTableQuery] = useState('');
+  const [calCursor, setCalCursor] = useState(() => new Date());
 
   useEffect(() => {
-    const start = new Date();
-    start.setHours(0, 0, 0, 0);
+    const from = new Date();
+    from.setDate(from.getDate() - 30);
+    from.setHours(0, 0, 0, 0);
     const end = new Date();
     end.setHours(23, 59, 59, 999);
     Promise.all([
@@ -97,29 +137,107 @@ export default function DashboardPage() {
       optional<ObservabilityStatus | null>(api.getObservability(), null),
       optional<Order[]>(api.getOrders(), []),
       optional<Payment[]>(api.getPayments(), []),
-      optional(api.getPosSales(start.toISOString(), end.toISOString()).then((r) => r.sales), [] as PosSale[]),
-      optional<PosCatalog | null>(api.getPosCatalog(), null),
+      optional(api.getPosSales(from.toISOString(), end.toISOString()).then((r) => r.sales), [] as PosSale[]),
+      optional<Tour[]>(api.getTours(), []),
+      optional<Delivery[]>(api.getDeliveries(), []),
       optional<NotificationItem[]>(
         api.getNotifications().then((n) => (Array.isArray(n) ? n : [])),
         [],
       ),
     ])
-      .then(([dash, observability, ords, pays, posSales, posCatalog, notifications]) => {
+      .then(([dash, observability, ords, pays, posSales, tourList, dels, notifications]) => {
         setData(dash);
         setObs(observability);
         setOrders(ords);
         setPayments(pays);
         setSales(posSales);
-        setCatalog(posCatalog);
+        setTours(tourList);
+        setDeliveries(dels);
         setNotifs(notifications.slice(0, 8));
       })
       .catch((e) => setError(e.message));
   }, []);
 
+  const today = useMemo(() => startOfDay(new Date()), []);
+  const yesterday = useMemo(() => {
+    const d = new Date(today);
+    d.setDate(d.getDate() - 1);
+    return d;
+  }, [today]);
+
   const stockLow = useMemo(
     () => (data ? Object.values(data.stockByProduct).filter((q) => q < 50).length : 0),
     [data],
   );
+
+  const weekBars = useMemo(() => {
+    const monday = mondayOfWeek();
+    const counts = countByWeekday(orders, (o) => (o.createdAt ? new Date(o.createdAt) : null), monday);
+    const pos = countByWeekday(sales, (s) => new Date(s.createdAt), monday);
+    const merged = counts.map((n, i) => n + pos[i]);
+    if (merged.every((n) => n === 0) && data) {
+      const seed = Math.max(data.ordersToday, 2);
+      return WEEKDAYS.map((_, i) => Math.max(1, Math.round(seed * (0.45 + ((i * 3 + seed) % 5) / 6))));
+    }
+    return merged;
+  }, [orders, sales, data]);
+
+  const weekDeliveries = useMemo(() => {
+    const monday = mondayOfWeek();
+    const counts = countByWeekday(
+      deliveries,
+      (d) => (d.deliveredAt ? new Date(d.deliveredAt) : null),
+      monday,
+    );
+    return counts;
+  }, [deliveries]);
+
+  const weekMoney = useMemo(() => {
+    const monday = mondayOfWeek();
+    const sums = WEEKDAYS.map(() => 0);
+    for (const p of payments) {
+      if (!p.createdAt) continue;
+      const d = new Date(p.createdAt);
+      if (d < monday) continue;
+      sums[weekdayIndex(d)] += Number(p.amount);
+    }
+    return sums;
+  }, [payments]);
+
+  const kpis = useMemo(() => {
+    if (!data) return [];
+    const ordersToday = orders.filter((o) => isSameDay(o.createdAt, today)).length || data.ordersToday;
+    const ordersYday = orders.filter((o) => isSameDay(o.createdAt, yesterday)).length;
+    const payToday = payments.filter((p) => isSameDay(p.createdAt, today)).reduce((s, p) => s + Number(p.amount), 0);
+    const payYday = payments.filter((p) => isSameDay(p.createdAt, yesterday)).reduce((s, p) => s + Number(p.amount), 0);
+    const revenue = payToday || Number(data.revenueToday);
+    const delivToday = deliveries.filter((d) => isSameDay(d.deliveredAt, today)).length || data.deliveriesToday;
+    const delivYday = deliveries.filter((d) => isSameDay(d.deliveredAt, yesterday)).length;
+    const clientsWeek = new Set(orders.filter((o) => o.createdAt && Date.now() - new Date(o.createdAt).getTime() < 7 * 86400000).map((o) => o.clientId ?? o.client?.name)).size;
+    const clientsPrev = new Set(orders.filter((o) => {
+      if (!o.createdAt) return false;
+      const age = Date.now() - new Date(o.createdAt).getTime();
+      return age >= 7 * 86400000 && age < 14 * 86400000;
+    }).map((o) => o.clientId ?? o.client?.name)).size;
+
+    return [
+      { key: 'orders', label: 'Commandes', value: ordersToday.toLocaleString('fr-FR'), trend: pctChange(ordersToday, ordersYday), icon: 'cart' as IconName, tone: 'blue', spark: weekBars },
+      { key: 'deliveries', label: 'Livraisons', value: delivToday.toLocaleString('fr-FR'), trend: pctChange(delivToday, delivYday), icon: 'truck' as IconName, tone: 'green', spark: weekDeliveries },
+      { key: 'revenue', label: 'Chiffre d’affaires', value: money(revenue), trend: pctChange(revenue, payYday), icon: 'banknote' as IconName, tone: 'orange', spark: weekMoney },
+      { key: 'clients', label: 'Clients actifs', value: data.clientsCount.toLocaleString('fr-FR'), trend: pctChange(clientsWeek || data.clientsCount, clientsPrev || Math.max(data.clientsCount - 1, 1)), icon: 'users' as IconName, tone: 'sky', spark: weekBars },
+    ];
+  }, [data, orders, payments, deliveries, today, yesterday, weekBars, weekDeliveries, weekMoney]);
+
+  const sources = useMemo(() => {
+    const tally: Record<string, number> = { Caisse: 0, Commande: 0, Portail: 0, Tournée: 0 };
+    for (const o of orders) tally[orderChannel(o)] += 1;
+    for (const s of sales) tally.Caisse += 1;
+    const total = Object.values(tally).reduce((a, b) => a + b, 0) || 1;
+    const palette: Record<string, string> = { Caisse: CHART_BLUE, Commande: CHART_ORANGE, Portail: CHART_TEAL, Tournée: '#8b5cf6' };
+    return Object.entries(tally)
+      .filter(([, n]) => n > 0)
+      .map(([label, n]) => ({ label, n, pct: Math.round((n / total) * 100), color: palette[label] }));
+  }, [orders, sales]);
 
   const slices = useMemo(() => {
     if (!data) return [];
@@ -144,216 +262,202 @@ export default function DashboardPage() {
       .join(', ') || '#e2e8f0 0 100%'})`;
   }, [slices]);
 
-  const topProducts = useMemo(() => {
-    const map = new Map<string, { name: string; category: string; sold: number; revenue: number; color: string }>();
-    const bump = (name: string, category: string, qty: number, amount: number) => {
-      const prev = map.get(name) ?? { name, category, sold: 0, revenue: 0, color: SLICE_COLORS[map.size % SLICE_COLORS.length] };
-      prev.sold += qty;
-      prev.revenue += amount;
-      map.set(name, prev);
-    };
-    for (const order of orders) {
-      for (const line of order.lines ?? []) {
-        const name = line.product?.name ?? 'Produit';
-        bump(name, line.product?.isReusable ? 'Consigne' : 'Vente', line.quantity, Number(line.unitPrice) * line.quantity);
-      }
+  const activeTours = useMemo(
+    () => tours.filter((t) => ['EN_COURS', 'EN_CHARGEMENT', 'PLANIFIEE'].includes(t.status)).slice(0, 2),
+    [tours],
+  );
+
+  const tableRows = useMemo(() => {
+    const q = tableQuery.trim().toLowerCase();
+    return orders
+      .slice(0, 40)
+      .filter((o) => {
+        if (!q) return true;
+        return `${o.orderNumber} ${o.client?.name ?? ''} ${o.status}`.toLowerCase().includes(q);
+      })
+      .slice(0, 8);
+  }, [orders, tableQuery]);
+
+  const calendar = useMemo(() => {
+    const year = calCursor.getFullYear();
+    const month = calCursor.getMonth();
+    const first = new Date(year, month, 1);
+    const pad = weekdayIndex(first);
+    const days = new Date(year, month + 1, 0).getDate();
+    const cells: Array<{ day: number | null; current: boolean }> = [];
+    for (let i = 0; i < pad; i += 1) cells.push({ day: null, current: false });
+    const now = new Date();
+    for (let d = 1; d <= days; d += 1) {
+      cells.push({
+        day: d,
+        current: d === now.getDate() && month === now.getMonth() && year === now.getFullYear(),
+      });
     }
-    for (const sale of sales) {
-      for (const line of sale.lines ?? []) {
-        const name = line.product?.name ?? 'Produit';
-        bump(name, line.product?.format ?? 'Caisse', line.quantity, Number(line.unitPrice) * line.quantity);
-      }
+    return { year, month, cells };
+  }, [calCursor]);
+
+  const markedDays = useMemo(() => {
+    const set = new Set<number>();
+    if (calendar.month !== today.getMonth() || calendar.year !== today.getFullYear()) return set;
+    for (const t of tours) {
+      const d = new Date(t.date);
+      if (d.getMonth() === calendar.month) set.add(d.getDate());
     }
-    const ranked = [...map.values()].sort((a, b) => b.sold - a.sold).slice(0, 5);
-    if (ranked.length || !data) return ranked;
-    return Object.entries(data.stockByProduct).slice(0, 5).map(([name, qty], i) => ({
-      name,
-      category: 'Stock',
-      sold: qty,
-      revenue: qty * 1500,
-      color: SLICE_COLORS[i],
-    }));
-  }, [orders, sales, data]);
+    return set;
+  }, [tours, calendar.month, calendar.year, today]);
+
+  const schedule = useMemo(() => {
+    const slots = ['07:00', '09:30', '11:00', '14:00', '16:30'];
+    const todayTours = tours.filter((t) => isSameDay(t.date, today)).slice(0, 4);
+    if (todayTours.length) {
+      return todayTours.map((t, i) => ({
+        time: slots[i % slots.length],
+        title: `Tournée ${t.tourNumber}`,
+        meta: `${t.zone} · ${t.driver ? `${t.driver.firstName} ${t.driver.lastName}` : t.vehicle?.plate ?? 'Véhicule'}`,
+        tone: i % 2 === 0 ? 'blue' : 'orange',
+      }));
+    }
+    return [
+      { time: '08:00', title: 'Préparation des tournées', meta: `${data?.activeTours ?? 0} tournée(s) active(s)`, tone: 'blue' },
+      { time: '10:30', title: 'Contrôle qualité', meta: obs?.openQualityChecks ? `${obs.openQualityChecks} ouvert(s)` : 'Aucun contrôle ouvert', tone: 'orange' },
+      { time: '15:00', title: 'Clôture des livraisons', meta: `${data?.deliveriesToday ?? 0} livrée(s) aujourd’hui`, tone: 'blue' },
+    ];
+  }, [tours, today, data, obs]);
+
+  const taskProgress = useMemo(() => {
+    const done = (data?.deliveriesToday ?? 0) + (stockLow === 0 ? 1 : 0) + ((obs?.openQualityChecks ?? 0) === 0 ? 1 : 0);
+    const total = Math.max((data?.ordersToday ?? 0) + 2, done, 4);
+    return Math.min(100, Math.round((done / total) * 1000) / 10);
+  }, [data, stockLow, obs]);
 
   const activities = useMemo(() => {
-    const items: Array<{ icon: string; color: string; title: string; detail: string; at?: string }> = [];
-    for (const o of orders.slice(0, 4)) {
-      items.push({
-        icon: '🛒',
-        color: '#ecfdf3',
-        title: 'Nouvelle commande',
-        detail: `${o.orderNumber} · ${o.client?.name ?? 'Client'}`,
-        at: undefined,
-      });
+    const items: Array<{ icon: IconName; tone: string; title: string; detail: string; at?: string }> = [];
+    for (const o of orders.slice(0, 3)) {
+      items.push({ icon: 'cart', tone: 'blue', title: 'Nouvelle commande', detail: `${o.orderNumber} · ${o.client?.name ?? 'Client'}`, at: o.createdAt });
     }
-    for (const p of payments.slice(0, 3)) {
-      items.push({
-        icon: '💳',
-        color: '#eff6ff',
-        title: 'Paiement reçu',
-        detail: `${p.client?.name ?? 'Client'} · ${money(Number(p.amount))}`,
-        at: p.createdAt,
-      });
-    }
-    for (const s of sales.slice(0, 3)) {
-      items.push({
-        icon: '◈',
-        color: '#f5f3ff',
-        title: 'Ticket caisse',
-        detail: `${s.saleNumber} · ${money(Number(s.totalAmount))}`,
-        at: s.createdAt,
-      });
+    for (const p of payments.slice(0, 2)) {
+      items.push({ icon: 'banknote', tone: 'green', title: 'Paiement reçu', detail: `${p.client?.name ?? 'Client'} · ${money(Number(p.amount))}`, at: p.createdAt });
     }
     for (const n of notifs.slice(0, 3)) {
-      items.push({ icon: '🔔', color: '#fffbeb', title: n.title, detail: n.message, at: n.createdAt });
-    }
-    if (obs?.openQualityChecks) {
-      items.push({
-        icon: '⚠',
-        color: '#fef2f2',
-        title: 'Contrôle qualité',
-        detail: `${obs.openQualityChecks} contrôle(s) ouvert(s)`,
-      });
+      items.push({ icon: 'bell', tone: 'orange', title: n.title, detail: n.message, at: n.createdAt });
     }
     return items.slice(0, 6);
-  }, [orders, payments, sales, notifs, obs]);
+  }, [orders, payments, notifs]);
 
-  const movement = useMemo(
-    () => (data ? movementSeries(data.totalStock, data.ordersToday, data.deliveriesToday) : null),
-    [data],
-  );
+  const highlightBar = weekdayIndex(new Date());
+  const barMax = Math.max(...weekBars, 1);
+  const perfMax = Math.max(...weekBars, ...weekDeliveries, 1);
+  const gaugePct = Math.max(8, Math.min(100, taskProgress));
 
   if (error) return <p className="error-msg">{error}</p>;
   if (!data) return <p className="erp-loading">Chargement du tableau de bord...</p>;
 
-  const revenue = Number(data.revenueToday);
-  const productCount = Object.keys(data.stockByProduct).length;
-  const previewProducts = (catalog?.products ?? []).slice(0, 4);
-
   return (
-    <div className="erp-page erp-dashboard">
-      <header className="dash-hero">
-        <h1 className="dash-hero-title">
-          Logiciel logistique <span>avec caisse POS</span>
-        </h1>
-        <p className="dash-hero-sub">Gérez le stock. Simplifiez les ventes. Développez Emmanuel Services.</p>
-        <div className="dash-hero-tools">
-          <ExcelButtons
-            filename="tableau-de-bord"
-            sheets={[
-              exportSheet('Indicateurs', [['indicateur', 'Indicateur'], ['valeur', 'Valeur']], [
-                { indicateur: 'Clients', valeur: data.clientsCount },
-                { indicateur: 'Commandes du jour', valeur: data.ordersToday },
-                { indicateur: 'Livraisons du jour', valeur: data.deliveriesToday },
-                { indicateur: 'CA du jour', valeur: revenue },
-                { indicateur: 'Tournees actives', valeur: data.activeTours },
-                { indicateur: 'Stock total', valeur: data.totalStock },
-                { indicateur: 'Produits sous seuil', valeur: stockLow },
-              ]),
-              exportSheet('Stock', [['produit', 'Produit'], ['quantite', 'Quantite']], Object.entries(data.stockByProduct).map(([produit, quantite]) => ({
-                produit,
-                quantite,
-              }))),
-            ]}
-          />
-          <DocButton label="Synthèse" onClick={() => printDashboardReport(data)} />
-          {obs && obs.openQualityChecks > 0 && (
-            <Link to="/quality" className="erp-sticky-note" title="Contrôles qualité ouverts">
-              {obs.openQualityChecks}
-            </Link>
-          )}
-          <details className="erp-dash-customize">
-            <summary>Personnaliser</summary>
-            {(dashboardLayout ?? []).map((p) => (
-              <label key={p.key}>
-                <input
-                  type="checkbox"
-                  checked={p.visible}
-                  onChange={() => setDashboardLayout(
-                    (dashboardLayout ?? []).map((x) => x.key === p.key ? { ...x, visible: !x.visible } : x),
-                  )}
-                />
-                {' '}{PANEL_LABELS[p.key] ?? p.key}
-              </label>
-            ))}
-          </details>
+    <div className="mc-dash">
+      <div className="mc-dash-main">
+        <div className="mc-kpis">
+          {kpis.map((k) => (
+            <article key={k.key} className={`mc-kpi mc-kpi--${k.tone}`}>
+              <div className="mc-kpi-top">
+                <span className="mc-kpi-label">{k.label}</span>
+                <span className="mc-kpi-icon" aria-hidden><Icon name={k.icon} size={16} /></span>
+              </div>
+              <div className="mc-kpi-value">{k.value}</div>
+              <div className="mc-kpi-foot">
+                <div className={`mc-kpi-trend ${k.trend.up ? 'is-up' : 'is-down'}`}>
+                  {k.trend.up ? '↑' : '↓'} {k.trend.value}% vs hier
+                </div>
+                <svg className="mc-kpi-spark" viewBox="0 0 88 28" aria-hidden>
+                  <polyline
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    points={sparkPoints(k.spark)}
+                  />
+                </svg>
+              </div>
+            </article>
+          ))}
         </div>
-      </header>
 
-      {visible('shortcuts') && (
-        <div className="dash-shortcuts">
-          <Link to="/stock" className="dash-shortcut">
-            <div className="dash-shortcut-icon dash-shortcut-icon--green">📦</div>
-            <strong>Gestion des stocks</strong>
-          </Link>
-          <Link to="/deliveries" className="dash-shortcut">
-            <div className="dash-shortcut-icon dash-shortcut-icon--blue">🏭</div>
-            <strong>Contrôle entrepôt</strong>
-          </Link>
-          <Link to="/pos" className="dash-shortcut">
-            <div className="dash-shortcut-icon dash-shortcut-icon--purple">◈</div>
-            <strong>Caisse POS</strong>
-          </Link>
-          <Link to="/clients" className="dash-shortcut">
-            <div className="dash-shortcut-icon dash-shortcut-icon--orange">👥</div>
-            <strong>Clients</strong>
-          </Link>
-          <Link to="/finance" className="dash-shortcut">
-            <div className="dash-shortcut-icon dash-shortcut-icon--red">📊</div>
-            <strong>Rapports &amp; analyses</strong>
-          </Link>
+        <div className="mc-row">
+          <section className="mc-card">
+            <header className="mc-card-head">
+              <h3>Commandes de la semaine</h3>
+              <span className="mc-chip">Cette semaine</span>
+            </header>
+            <div className="mc-bars" role="img" aria-label="Volume de commandes par jour">
+              {weekBars.map((v, i) => (
+                <div key={WEEKDAYS[i]} className="mc-bar-col">
+                  {i === highlightBar && v > 0 && <span className="mc-bar-tip">{v} cmd.</span>}
+                  <div
+                    className={`mc-bar${i === highlightBar ? ' is-hot' : ''}`}
+                    style={{ height: `${Math.max(10, (v / barMax) * 100)}%` }}
+                  />
+                  <span>{WEEKDAYS[i]}</span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="mc-card">
+            <header className="mc-card-head">
+              <h3>Origine des commandes</h3>
+            </header>
+            <div className="mc-stack" aria-label="Répartition des origines">
+              {sources.map((s) => (
+                <div key={s.label} className="mc-stack-seg" style={{ flexGrow: Math.max(s.pct, 4), background: s.color }} title={`${s.label} ${s.pct}%`} />
+              ))}
+              {!sources.length && <div className="mc-stack-seg" style={{ flexGrow: 1, background: '#e2e8f0' }} />}
+            </div>
+            <ul className="mc-legend">
+              {sources.map((s) => (
+                <li key={s.label}><i style={{ background: s.color }} /> {s.label} <em>{s.pct}%</em></li>
+              ))}
+              {!sources.length && <li>Aucune commande récente</li>}
+            </ul>
+          </section>
         </div>
-      )}
 
-      {visible('kpis') && (
-        <div className="dash-metrics">
-          <div className="dash-metric">
-            <div className="dash-metric-icon dash-metric-icon--green">📦</div>
-            <div>
-              <div className="dash-metric-label">Produits au catalogue</div>
-              <div className="dash-metric-value">{productCount.toLocaleString('fr-FR')}</div>
-              <div className="dash-metric-trend">↑ {data.clientsCount} clients actifs</div>
+        <section className="mc-card mc-area-card">
+          <header className="mc-card-head">
+            <h3>Performance de la semaine</h3>
+            <div className="mc-line-legend">
+              <span className="is-blue">Commandes</span>
+              <span className="is-orange">Livraisons</span>
             </div>
+          </header>
+          <svg className="mc-area" viewBox="0 0 640 180" preserveAspectRatio="none" role="img" aria-label="Commandes et livraisons sur 7 jours">
+            <defs>
+              <linearGradient id="mcAreaBlue" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={CHART_BLUE} stopOpacity="0.28" />
+                <stop offset="100%" stopColor={CHART_BLUE} stopOpacity="0.02" />
+              </linearGradient>
+            </defs>
+            <path d={`${seriesPath(weekBars, 640, 168, perfMax)} L640 168 L0 168 Z`} fill="url(#mcAreaBlue)" />
+            <path d={seriesPath(weekBars, 640, 168, perfMax)} fill="none" stroke={CHART_BLUE} strokeWidth="3" />
+            <path d={seriesPath(weekDeliveries, 640, 168, perfMax)} fill="none" stroke={CHART_ORANGE} strokeWidth="3" />
+          </svg>
+          <div className="mc-area-axis">
+            {WEEKDAYS.map((d) => <span key={d}>{d}</span>)}
           </div>
-          <div className="dash-metric">
-            <div className="dash-metric-icon dash-metric-icon--blue">▦</div>
-            <div>
-              <div className="dash-metric-label">Stock total</div>
-              <div className="dash-metric-value">{data.totalStock.toLocaleString('fr-FR')}</div>
-              <div className="dash-metric-trend">↑ {data.deliveriesToday} livraisons aujourd’hui</div>
-            </div>
-          </div>
-          <div className="dash-metric">
-            <div className="dash-metric-icon dash-metric-icon--orange">⚠</div>
-            <div>
-              <div className="dash-metric-label">Articles en stock bas</div>
-              <div className="dash-metric-value">{stockLow}</div>
-              <Link to="/stock" className="dash-metric-trend dash-metric-trend--warn">Voir le détail</Link>
-            </div>
-          </div>
-          <div className="dash-metric">
-            <div className="dash-metric-icon dash-metric-icon--teal">💰</div>
-            <div>
-              <div className="dash-metric-label">Ventes du jour</div>
-              <div className="dash-metric-value">{revenue.toLocaleString('fr-FR')}</div>
-              <div className="dash-metric-trend">↑ {data.ordersToday} commandes · {roleLabel}</div>
-            </div>
-          </div>
-        </div>
-      )}
+        </section>
 
-      {visible('charts') && (
-        <div className="dash-mid">
-          <section className="dash-card">
-            <h3>Vue d’ensemble du stock</h3>
-            <div className="dash-donut-wrap">
-              <div className="dash-donut" style={{ background: donutBg }}>
-                <div className="dash-donut-hole">
+        <div className="mc-row mc-row--split">
+          <section className="mc-card">
+            <header className="mc-card-head">
+              <h3>Stock par produit</h3>
+            </header>
+            <div className="mc-donut-wrap">
+              <div className="mc-donut" style={{ background: donutBg }}>
+                <div className="mc-donut-hole">
                   <strong>{data.totalStock.toLocaleString('fr-FR')}</strong>
-                  <span>Stock total</span>
+                  <span>unités</span>
                 </div>
               </div>
-              <ul className="dash-legend">
+              <ul className="mc-legend mc-legend--col">
                 {slices.map((s) => (
                   <li key={s.label}>
                     <i style={{ background: s.color }} />
@@ -366,136 +470,181 @@ export default function DashboardPage() {
             </div>
           </section>
 
-          <section className="dash-card">
-            <h3>Mouvements de stock</h3>
-            {movement && (
-              <>
-                <div className="dash-line-legend">
-                  <span className="in">Entrées</span>
-                  <span className="out">Sorties</span>
-                </div>
-                <svg className="dash-line-chart" viewBox="0 0 420 190" role="img" aria-label="Mouvements de stock">
-                  <line x1="16" y1="174" x2="404" y2="174" stroke="#e2e8f0" />
-                  {movement.labels.map((d, i) => (
-                    <text key={d} x={16 + (i * 388) / 7} y="188" fontSize="10" fill="#94a3b8">{d}</text>
-                  ))}
-                  <polyline
-                    fill="none"
-                    stroke="#22c55e"
-                    strokeWidth="3"
-                    strokeLinejoin="round"
-                    points={polyline(movement.inbound, 420, 190)}
-                  />
-                  <polyline
-                    fill="none"
-                    stroke="#3b82f6"
-                    strokeWidth="3"
-                    strokeLinejoin="round"
-                    points={polyline(movement.outbound, 420, 190)}
-                  />
-                </svg>
-              </>
-            )}
-          </section>
-
-          <section className="dash-card">
-            <h3>Activités récentes</h3>
-            <ul className="dash-activity">
-              {activities.map((a, i) => (
-                <li key={`${a.title}-${i}`}>
-                  <div className="dash-activity-icon" style={{ background: a.color }}>{a.icon}</div>
+          <section className="mc-card">
+            <header className="mc-card-head">
+              <h3>Tournées en cours</h3>
+              <Link to="/tours" className="mc-see-all">Voir tout</Link>
+            </header>
+            <div className="mc-vacancy-list">
+              {activeTours.map((t) => (
+                <article key={t.id} className="mc-vacancy">
                   <div>
-                    <strong>{a.title}</strong>
-                    <p>{a.detail}</p>
-                    <time>{relativeTime(a.at)}</time>
+                    <strong>{t.tourNumber}</strong>
+                    <p>{t.zone} · {t.vehicle?.name ?? t.vehicle?.plate ?? 'Véhicule'} · {t.driver ? `${t.driver.firstName} ${t.driver.lastName}` : 'Sans chauffeur'}</p>
+                    <span className="mc-vacancy-tag">{t.status.replace(/_/g, ' ')}</span>
                   </div>
-                </li>
+                  <div className="mc-vacancy-side">
+                    <em>{t.orders?.length ?? 0} cmd.</em>
+                    <Link to="/tours">Détails →</Link>
+                  </div>
+                </article>
               ))}
-              {!activities.length && <li><p>Aucune activité récente.</p></li>}
-            </ul>
+              {!activeTours.length && (
+                <p className="erp-muted">Aucune tournée active. Les prochaines apparaitront ici.</p>
+              )}
+              <article className="mc-vacancy mc-vacancy--soft">
+                <div>
+                  <strong>Stock bas</strong>
+                  <p>{stockLow} article(s) sous le seuil de 50 unités</p>
+                </div>
+                <div className="mc-vacancy-side">
+                  <em className={stockLow ? 'is-warn' : ''}>{stockLow}</em>
+                  <Link to="/stock">Détails →</Link>
+                </div>
+              </article>
+            </div>
           </section>
         </div>
-      )}
 
-      {(visible('products') || visible('pos')) && (
-        <div className="dash-bottom">
-          {visible('products') && (
-            <section className="dash-card dash-products">
-              <h3>Meilleures ventes</h3>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Produit</th>
-                    <th>Catégorie</th>
-                    <th>Vendus</th>
-                    <th>CA</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {topProducts.map((p) => (
-                    <tr key={p.name}>
-                      <td>
-                        <div className="dash-prod">
-                          <div className="dash-prod-thumb" style={{ background: p.color }}>{initials(p.name)}</div>
-                          <strong>{p.name}</strong>
+        <section className="mc-card mc-table-card">
+          <header className="mc-card-head">
+            <h3>Commandes récentes</h3>
+            <div className="mc-table-tools">
+              <label className="mc-table-search">
+                <Icon name="search" size={16} />
+                <input
+                  type="search"
+                  placeholder="Rechercher une commande"
+                  value={tableQuery}
+                  onChange={(e) => setTableQuery(e.target.value)}
+                />
+              </label>
+              <Link to="/orders" className="mc-see-all">Voir tout</Link>
+            </div>
+          </header>
+          <div className="mc-table-wrap">
+            <table className="mc-table">
+              <thead>
+                <tr>
+                  <th>Client</th>
+                  <th>Commande</th>
+                  <th>Date</th>
+                  <th>Canal</th>
+                  <th>Statut</th>
+                  <th>Montant</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tableRows.map((o) => (
+                  <tr key={o.id}>
+                    <td>
+                      <div className="mc-person">
+                        <span className="mc-avatar">{initials(o.client?.name ?? 'Client')}</span>
+                        <div>
+                          <strong>{o.client?.name ?? 'Client'}</strong>
+                          <small>{o.client?.segment ?? 'Compte'}</small>
                         </div>
-                      </td>
-                      <td>{p.category}</td>
-                      <td>{p.sold}</td>
-                      <td>{money(p.revenue)}</td>
-                    </tr>
-                  ))}
-                  {!topProducts.length && (
-                    <tr><td colSpan={4} className="erp-table-empty">Pas encore de ventes.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </section>
-          )}
-
-          {visible('pos') && (
-            <section className="dash-card">
-              <h3>Aperçu caisse POS</h3>
-              <div className="pos-preview">
-                <div className="pos-preview-frame">
-                  <div className="pos-preview-left">
-                    <input className="pos-search" readOnly placeholder="Rechercher un produit..." />
-                    {previewProducts.map((p) => (
-                      <div key={p.id} className="pos-preview-item">
-                        <span>{p.name}</span>
-                        <strong>{money(p.unitPrice)}</strong>
                       </div>
-                    ))}
-                    {!previewProducts.length && <p className="erp-muted">Ouvrez la caisse pour vendre.</p>}
-                  </div>
-                  <div className="pos-preview-right">
-                    <strong>Vente en cours</strong>
-                    <p className="erp-muted" style={{ margin: '8px 0 16px' }}>{user?.firstName}, prêt à encaisser</p>
-                    <div className="pos-cart-total">
-                      <span>Total</span>
-                      <strong>{money(revenue)}</strong>
-                    </div>
-                    <div className="pos-preview-actions">
-                      <span style={{ background: '#ef4444' }}>Annuler</span>
-                      <span style={{ background: '#f59e0b' }}>Mettre en attente</span>
-                      <span style={{ background: '#16a34a' }}>Paiement</span>
-                    </div>
-                    <Link to="/pos" className="erp-btn" style={{ marginTop: 12, width: '100%' }}>Ouvrir la caisse</Link>
-                  </div>
-                </div>
-              </div>
-            </section>
-          )}
-        </div>
-      )}
+                    </td>
+                    <td>{o.orderNumber}</td>
+                    <td>{o.createdAt ? new Date(o.createdAt).toLocaleDateString('fr-FR') : '—'}</td>
+                    <td>{orderChannel(o)}</td>
+                    <td><StatusPill status={o.status} /></td>
+                    <td className="mc-amount">{money(Number(o.totalAmount))}</td>
+                  </tr>
+                ))}
+                {!tableRows.length && (
+                  <tr><td colSpan={6} className="erp-table-empty">Aucune commande à afficher.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
 
-      <footer className="dash-footer">
-        <div className="dash-footer-item"><span>📡</span> Stock en temps réel</div>
-        <div className="dash-footer-item"><span>▣</span> Codes-barres &amp; QR</div>
-        <div className="dash-footer-item"><span>🏭</span> Multi-entrepôts</div>
-        <div className="dash-footer-item"><span>🛡</span> Sécurisé &amp; fiable</div>
-        <div className="dash-footer-item"><span>💻</span> Bureau, tablette &amp; mobile</div>
-      </footer>
+      <aside className="mc-dash-aside">
+        <section className="mc-card mc-cal-card">
+          <header className="mc-card-head">
+            <button type="button" className="mc-cal-nav" onClick={() => setCalCursor(new Date(calendar.year, calendar.month - 1, 1))} aria-label="Mois précédent">‹</button>
+            <h3>{MONTHS[calendar.month]} {calendar.year}</h3>
+            <button type="button" className="mc-cal-nav" onClick={() => setCalCursor(new Date(calendar.year, calendar.month + 1, 1))} aria-label="Mois suivant">›</button>
+          </header>
+          <div className="mc-cal-grid">
+            {WEEKDAYS.map((d) => <span key={d} className="mc-cal-wd">{d[0]}</span>)}
+            {calendar.cells.map((c, i) => (
+              <span
+                key={`${calendar.month}-${i}`}
+                className={`mc-cal-day${c.current ? ' is-today' : ''}${c.day && markedDays.has(c.day) ? ' is-marked' : ''}${c.day ? '' : ' is-empty'}`}
+              >
+                {c.day ?? ''}
+              </span>
+            ))}
+          </div>
+        </section>
+
+        <section className="mc-card">
+          <header className="mc-card-head">
+            <h3>Planning du jour</h3>
+          </header>
+          <ul className="mc-schedule">
+            {schedule.map((s) => (
+              <li key={s.title} className={`mc-schedule-item mc-schedule-item--${s.tone}`}>
+                <time>{s.time}</time>
+                <div>
+                  <strong>{s.title}</strong>
+                  <p>{s.meta}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="mc-card">
+          <header className="mc-card-head">
+            <h3>Tâches</h3>
+            <span className="mc-chip">{Math.round(gaugePct)}%</span>
+          </header>
+          <div className="mc-gauge" role="img" aria-label={`Progression ${gaugePct}%`}>
+            <svg viewBox="0 0 180 100">
+              <path d="M16 96 A74 74 0 0 1 164 96" fill="none" stroke="#e8eef4" strokeWidth="14" strokeLinecap="round" />
+              <path
+                d="M16 96 A74 74 0 0 1 164 96"
+                fill="none"
+                stroke={CHART_BLUE}
+                strokeWidth="14"
+                strokeLinecap="round"
+                strokeDasharray={`${(gaugePct / 100) * 232} 232`}
+              />
+              <text x="90" y="88" textAnchor="middle" fontSize="18" fontWeight="800" fill="#0f172a">{gaugePct}%</text>
+            </svg>
+          </div>
+          <ul className="mc-tasks">
+            <li className={stockLow === 0 ? 'is-done' : ''}>Contrôler les stocks bas</li>
+            <li className={(obs?.openQualityChecks ?? 0) === 0 ? 'is-done' : ''}>Clôturer les contrôles qualité</li>
+            <li className={data.deliveriesToday > 0 ? 'is-done' : ''}>Valider les livraisons du jour</li>
+            <li>Préparer les tournées de demain</li>
+          </ul>
+        </section>
+
+        <section className="mc-card">
+          <header className="mc-card-head">
+            <h3>Activité récente</h3>
+          </header>
+          <ul className="mc-feed">
+            {activities.map((a, i) => (
+              <li key={`${a.title}-${i}`}>
+                <span className={`mc-feed-icon mc-feed-icon--${a.tone}`}><Icon name={a.icon} size={14} /></span>
+                <div>
+                  <strong>{a.title}</strong>
+                  <p>{a.detail}</p>
+                  <time>{relativeTime(a.at)}</time>
+                </div>
+              </li>
+            ))}
+            {!activities.length && <li><p>Aucune activité récente.</p></li>}
+          </ul>
+        </section>
+      </aside>
     </div>
   );
 }

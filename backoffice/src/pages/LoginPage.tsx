@@ -80,6 +80,8 @@ export default function LoginPage() {
       )}
     >
       <form className="es-login-form" onSubmit={handleSubmit}>
+        <h1 className="es-login-title">Connexion</h1>
+        <p className="es-login-sub">EMMAPP · Emmanuel Services</p>
         <input
           type="email"
           value={email}

@@ -17,6 +17,7 @@ import StatusPill from '../components/ErpUi';
 import Modal from '../components/Modal';
 import DocButton from '../components/DocButton';
 import { printContractSheet, printContractsList } from '../documents/templates';
+import { printContractTemplatePaper } from '../documents/paperForms';
 import { exportSheet } from '../excel/specs';
 
 type Tab = 'ALL' | ContractPartyKind | 'SUPPLIERS' | 'ALERTS' | 'TEMPLATES' | 'ARCHIVES';
@@ -276,10 +277,19 @@ export default function ContractsPage() {
                 + Fournisseur
               </button>
             )}
-            {can('contracts', 'create') && tab === 'TEMPLATES' && (
-              <button type="button" className="erp-btn" onClick={() => { setEditingTemplate(null); setTemplateForm(emptyTemplate()); setShowTemplate(true); }}>
-                + Modèle
-              </button>
+            {tab === 'TEMPLATES' && (
+              <>
+                {can('contracts', 'delete') && (
+                  <button type="button" className="erp-btn erp-btn--ghost" onClick={() => run('Restauration des modèles', () => api.restoreContractTemplates())}>
+                    Restaurer les modèles agents
+                  </button>
+                )}
+                {can('contracts', 'create') && (
+                  <button type="button" className="erp-btn" onClick={() => { setEditingTemplate(null); setTemplateForm(emptyTemplate()); setShowTemplate(true); }}>
+                    + Modèle
+                  </button>
+                )}
+              </>
             )}
           </>
         )}
@@ -355,7 +365,10 @@ export default function ContractsPage() {
                     <DocButton label="Contrat" onClick={() => printContractSheet(c)} />
                     {can('contracts', 'create') && (
                       <button type="button" className="erp-btn erp-btn--sm" onClick={() => {
-                        const match = templates.find((t) => t.isActive && t.partyKind === c.partyKind && t.kind === c.kind)
+                        const role = c.employee?.user?.role;
+                        const roleCode = role ? `MDL-AGENT-${role}-${c.kind}` : '';
+                        const match = templates.find((t) => t.isActive && t.code === roleCode)
+                          ?? templates.find((t) => t.isActive && t.partyKind === c.partyKind && t.kind === c.kind)
                           ?? templates.find((t) => t.isActive && t.partyKind === c.partyKind)
                           ?? templates.find((t) => t.isActive);
                         setWordFor(c);
@@ -400,7 +413,7 @@ export default function ContractsPage() {
 
       {tab === 'TEMPLATES' && (
         <ErpPanel title={`Modèles (${templates.length})`}>
-          <p className="erp-muted">Utilisez les variables {'{{reference}}'}, {'{{partyName}}'}, {'{{amount}}'}, etc. Le Word généré est prêt à signer puis à archiver.</p>
+          <p className="erp-muted">Un modèle Word existe pour chaque métier (livreur, commercial, magasinier, caisse, etc.) et chaque type (CDI, CDD, stage, journalier, prestation). Imprimez un exemplaire vierge pour signature manuscrite, ou générez le Word prérempli depuis un contrat. Variables : {'{{reference}}'}, {'{{partyName}}'}, {'{{amount}}'}, {'{{jobTitle}}'}…</p>
           <table className="erp-table">
             <thead>
               <tr>
@@ -421,6 +434,7 @@ export default function ContractsPage() {
                   <td>{t.kind ? KIND_LABEL[t.kind] : 'Tous'}</td>
                   <td><StatusPill status={t.isActive ? 'ACTIF' : 'ANNULEE'} label={t.isActive ? 'Actif' : 'Inactif'} /></td>
                   <td className="erp-row-actions">
+                    <DocButton label="Vierge" onClick={() => printContractTemplatePaper(t)} />
                     {can('contracts', 'update') && (
                       <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => {
                         setEditingTemplate(t);

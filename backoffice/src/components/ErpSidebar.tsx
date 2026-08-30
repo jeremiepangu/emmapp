@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { useAuth } from '../AuthContext';
 import { usePermissions } from '../hooks/usePermissions';
 import { MenuItem } from '../permissions';
 import { Icon, IconName } from './ErpIcons';
@@ -90,8 +89,7 @@ interface Props {
 }
 
 export default function ErpSidebar({ onNavigate }: Props) {
-  const { user } = useAuth();
-  const { menuItems, roleLabel } = usePermissions();
+  const { menuItems } = usePermissions();
   const location = useLocation();
   const [query, setQuery] = useState('');
   const navRef = useRef<HTMLElement>(null);
@@ -153,18 +151,8 @@ export default function ErpSidebar({ onNavigate }: Props) {
       <div className="erp-sidebar-brand">
         <img className="erp-brand-mark erp-brand-mark--img" src="/logo-emmanuel-services.png" alt="" />
         <div>
-          <div className="erp-brand-logo">Emmanuel Services</div>
-          <div className="erp-brand-sub">SARLU · Eau potable</div>
-        </div>
-      </div>
-
-      <div className="erp-user-card">
-        <div className="erp-user-avatar">{user?.firstName[0]}</div>
-        <div>
-          <div className="erp-user-name">{user?.firstName} {user?.lastName}</div>
-          <div className="erp-user-role">
-            <span className="erp-online-dot" aria-hidden /> {roleLabel}
-          </div>
+          <div className="erp-brand-logo">EMMAPP</div>
+          <div className="erp-brand-sub">Emmanuel Services</div>
         </div>
       </div>
 
@@ -237,6 +225,14 @@ export default function ErpSidebar({ onNavigate }: Props) {
           );
         })}
       </nav>
+
+      <div className="erp-sidebar-promo">
+        <strong>Outils terrain</strong>
+        <p>App livreur, tournées et déclarations d’activité, au plus près des livraisons.</p>
+        <NavLink to="/mobile" className="erp-sidebar-promo-btn" onClick={onNavigate}>
+          Ouvrir
+        </NavLink>
+      </div>
     </div>
   );
 }

@@ -971,16 +971,20 @@ export function printActivitySheet(d: ActivityReportDetail): void {
     kind: 'Rapport d’activité',
     reference: `${d.user.lastName}-${d.date}`,
     subtitle: name,
+    copiesPerPage: 1,
+    lean: true,
     fields: [
       { label: 'Agent', value: name },
       { label: 'Profil', value: d.user.role },
       { label: 'Date', value: d.date },
-      { label: 'Livraisons', value: `${d.metrics.deliveries} (${d.metrics.delivered} livrées, ${d.metrics.refused} refusées)` },
-      { label: 'Quantité livrée', value: String(d.metrics.qtyDelivered) },
-      { label: 'Tournées', value: String(d.metrics.tours) },
-      { label: 'Shifts', value: String(d.metrics.shifts) },
-      { label: 'Encaissements', value: formatMoney(d.metrics.paymentsAmount) },
       { label: 'Statut', value: d.report?.validated ? 'Validé' : d.report ? 'Soumis' : 'Non soumis' },
+    ],
+    kpis: [
+      { label: 'Livraisons', value: String(d.metrics.deliveries), hint: `${d.metrics.delivered} livrées · ${d.metrics.refused} refusées`, tone: 'green' },
+      { label: 'Tournées', value: String(d.metrics.tours), tone: 'blue' },
+      { label: 'Quantité', value: String(d.metrics.qtyDelivered), tone: 'purple' },
+      { label: 'Encaissements', value: formatMoney(d.metrics.paymentsAmount), hint: `${d.metrics.paymentsCount} paiement(s)`, tone: 'orange' },
+      { label: 'Shifts', value: String(d.metrics.shifts), tone: 'blue' },
     ],
     tables: [
       {
@@ -993,9 +997,19 @@ export function printActivitySheet(d: ActivityReportDetail): void {
         headers: ['N°', 'Zone', 'Statut'],
         rows: d.tours.map((x) => [x.tourNumber, x.zone, x.status]),
       },
+      {
+        title: 'Encaissements',
+        headers: ['N°', 'Mode', 'Montant'],
+        rows: d.payments.map((x) => [x.paymentNumber, x.method, formatMoney(x.amount)]),
+      },
+      {
+        title: 'Shifts',
+        headers: ['Poste', 'Début', 'Fin', 'Validé'],
+        rows: d.shifts.map((x) => [x.postLabel, x.startTime, x.endTime, x.validated ? 'Oui' : 'Non']),
+      },
     ],
     notes: `Résumé : ${d.summary || '—'}\nIncidents : ${d.incidents || 'Aucun'}`,
-    signatures: ['Agent', 'Manager'],
+    signatures: ['Agent', 'Superviseur'],
   });
 }
 
@@ -1015,6 +1029,8 @@ export function printActivityOverview(o: ActivityOverview): void {
     {
       reference: `ACTIVITE-${o.date}`,
       subtitle: o.date,
+      copiesPerPage: 1,
+      lean: true,
       fields: [
         { label: 'Agents', value: String(o.totals.agents) },
         { label: 'Rapports soumis', value: String(o.totals.submitted) },
@@ -1055,6 +1071,8 @@ export function printAgentActivityCanvas(d: ActivityReportDetail, extra?: Activi
     kind: 'Canvas agent',
     reference: `${d.user.lastName}-${d.date}`,
     subtitle: `${name} · ${d.date}`,
+    copiesPerPage: 1,
+    lean: true,
     fields: [
       { label: 'Agent', value: name },
       { label: 'Profil', value: d.user.role },
@@ -1140,6 +1158,8 @@ export function printJobActivityCanvas(input: {
     kind: 'Canvas activité',
     reference: input.activity.name,
     subtitle: [input.activity.jobFunction?.name, input.date].filter(Boolean).join(' · ') || input.activity.name,
+    copiesPerPage: 1,
+    lean: true,
     fields: [
       { label: 'Activité', value: input.activity.name },
       { label: 'Fonction', value: input.activity.jobFunction?.name ?? '—' },
@@ -1199,6 +1219,8 @@ export function printManagerActivityCanvas(o: ActivityOverview, extra?: Activity
     kind: 'Canvas managers',
     reference: `VUE-${o.date}`,
     subtitle: `Vue générale · ${o.date}`,
+    copiesPerPage: 1,
+    lean: true,
     kpis: [
       { label: 'Agents', value: String(o.totals.agents), hint: `${o.totals.submitted} rapports`, tone: 'green' },
       { label: 'Validés', value: String(o.totals.validated), hint: `${validatedPct} %`, tone: 'blue' },

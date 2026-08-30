@@ -11,6 +11,7 @@ import { usePermissions } from '../hooks/usePermissions';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
 import DocButton from '../components/DocButton';
+import ProductSaleCard, { ProductSaleGrid } from '../components/ProductSaleCard';
 import { printPosSalesList, printPosTicket } from '../documents/templates';
 import { exportSheet } from '../excel/specs';
 
@@ -26,7 +27,6 @@ const METHOD_LABEL: Record<PaymentMethod, string> = {
   CREDIT: 'Crédit',
 };
 
-const THUMB_COLORS = ['#22c55e', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#14b8a6'];
 const HOLD_KEY = 'emmapp-pos-hold';
 
 function money(value: string | number | null | undefined): string {
@@ -43,16 +43,13 @@ function todayBounds() {
 
 type CartLine = { productId: string; quantity: number };
 
-function initials(name: string): string {
-  return name.split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? '').join('') || 'P';
-}
-
 export default function PosPage() {
   const { can } = usePermissions();
   const [catalog, setCatalog] = useState<PosCatalog | null>(null);
   const [search, setSearch] = useState('');
   const [clientId, setClientId] = useState('');
   const [cart, setCart] = useState<CartLine[]>([]);
+  const [draftQty, setDraftQty] = useState<Record<string, number>>({});
   const [quote, setQuote] = useState<PosQuote | null>(null);
   const [method, setMethod] = useState<PaymentMethod>('ESPECES');
   const [cashReceived, setCashReceived] = useState('');
@@ -104,11 +101,12 @@ export default function PosPage() {
 
   const qtyOf = (productId: string) => cart.find((l) => l.productId === productId)?.quantity ?? 0;
 
-  const addProduct = (productId: string) => {
+  const addProduct = (productId: string, amount = 1) => {
+    if (amount < 1) return;
     setCart((prev) => {
       const found = prev.find((l) => l.productId === productId);
-      if (found) return prev.map((l) => l.productId === productId ? { ...l, quantity: l.quantity + 1 } : l);
-      return [...prev, { productId, quantity: 1 }];
+      if (found) return prev.map((l) => l.productId === productId ? { ...l, quantity: l.quantity + amount } : l);
+      return [...prev, { productId, quantity: amount }];
     });
   };
 
@@ -121,6 +119,7 @@ export default function PosPage() {
 
   const clearCart = () => {
     setCart([]);
+    setDraftQty({});
     setQuote(null);
     setCashReceived('');
     setReference('');
@@ -225,36 +224,40 @@ export default function PosPage() {
             aria-label="Recherche produit"
           />
           <div className="pos-product-list">
-            {products.map((p, i) => {
-              const qty = qtyOf(p.id);
-              return (
-                <div key={p.id} className="pos-product-row">
-                  <div className="pos-product-thumb" style={{ background: THUMB_COLORS[i % THUMB_COLORS.length] }}>
-                    {initials(p.name)}
-                  </div>
-                  <div className="pos-product-meta">
-                    <strong>{p.name}</strong>
-                    <p>{p.code} · {p.format}</p>
-                  </div>
-                  <div className="pos-product-side">
-                    <div className="price">{money(p.unitPrice)}</div>
-                    <div className="pos-qty-ctrl">
-                      <button type="button" onClick={() => setQty(p.id, qty - 1)} disabled={!qty} aria-label="Diminuer">−</button>
-                      <span>{qty}</span>
+            <ProductSaleGrid>
+              {products.map((p) => {
+                const inCart = qtyOf(p.id);
+                const draft = draftQty[p.id] ?? 1;
+                return (
+                  <ProductSaleCard
+                    key={p.id}
+                    name={p.name}
+                    code={p.code}
+                    format={p.format}
+                    imageUrl={p.imageUrl}
+                    price={Number(p.unitPrice)}
+                    quantity={draft}
+                    min={1}
+                    onQuantityChange={(q) => setDraftQty((prev) => ({ ...prev, [p.id]: q }))}
+                    onAdd={() => addProduct(p.id, draft)}
+                    disabled={!can('pos', 'create')}
+                    selected={inCart > 0}
+                    badge={inCart > 0 ? `${inCart} au panier` : undefined}
+                    metaLabel="Retrait"
+                    metaValue="Immédiat en caisse"
+                    note={inCart > 0 ? (
                       <button
                         type="button"
-                        className="add"
-                        onClick={() => addProduct(p.id)}
-                        disabled={!can('pos', 'create')}
-                        aria-label="Ajouter"
+                        className="erp-btn erp-btn--sm erp-btn--ghost"
+                        onClick={() => setQty(p.id, 0)}
                       >
-                        +
+                        Retirer du panier
                       </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+                    ) : undefined}
+                  />
+                );
+              })}
+            </ProductSaleGrid>
             {!products.length && <p className="erp-table-empty">Aucun produit.</p>}
           </div>
         </section>

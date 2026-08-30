@@ -20,6 +20,14 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.module';
 import { NotificationsService } from '../notifications/notifications.service';
+import {
+  activityLimitFor,
+  canDeclareActivity,
+  canSuperviseActivities,
+  isActivityAdmin,
+  matchesActivityScope,
+  profileInActivityTeam,
+} from '../authorizations/acl.catalog';
 
 const USER_SELECT = {
   id: true,
@@ -70,6 +78,54 @@ export class SirhService {
     const profile = await this.prisma.employeeProfile.findUnique({ where: { userId: targetUserId } });
     if (profile?.managerId === actor.id) return;
     throw new ForbiddenException('Action reservee au responsable ou au RH');
+  }
+
+  async assertActivitySupervisor(actor: { id: string; role: UserRole }, targetUserId: string) {
+    if (actor.id === targetUserId) {
+      throw new ForbiddenException('Vous ne pouvez pas valider votre propre déclaration');
+    }
+    if (isActivityAdmin(actor.role)) return;
+    if (!canSuperviseActivities(actor.role)) {
+      throw new ForbiddenException('Validation réservée au responsable d’activité');
+    }
+    const profile = await this.prisma.employeeProfile.findUnique({
+      where: { userId: targetUserId },
+      include: { jobFunction: true },
+    });
+    if (
+      profileInActivityTeam(actor.role, actor.id, {
+        userId: targetUserId,
+        department: profile?.department,
+        managerId: profile?.managerId,
+        jobFunctionName: profile?.jobFunction?.name,
+      })
+    ) {
+      return;
+    }
+    throw new ForbiddenException('Cette déclaration est hors du périmètre d’activités de votre profil');
+  }
+
+  private async scopedUserIds(actor: { id: string; role: UserRole }): Promise<string[] | null> {
+    if (isActivityAdmin(actor.role)) return null;
+    const limit = activityLimitFor(actor.role);
+    if (!limit.team) return [actor.id];
+    if (limit.departments === '*') return null;
+    const employees = await this.prisma.employeeProfile.findMany({
+      where: { status: 'ACTIF' },
+      include: { jobFunction: true },
+    });
+    const ids = employees
+      .filter((row) =>
+        profileInActivityTeam(actor.role, actor.id, {
+          userId: row.userId,
+          department: row.department,
+          managerId: row.managerId,
+          jobFunctionName: row.jobFunction?.name,
+        }),
+      )
+      .map((row) => row.userId);
+    if (!ids.includes(actor.id)) ids.push(actor.id);
+    return ids;
   }
 
   async dashboard(params: { department?: string; year?: number }) {
@@ -178,9 +234,20 @@ export class SirhService {
     };
   }
 
-  listFunctions() {
+  listFunctions(actor?: { id: string; role: UserRole }) {
+    const where: Prisma.JobFunctionWhereInput = { isActive: true };
+    if (actor && !isActivityAdmin(actor.role)) {
+      const limit = activityLimitFor(actor.role);
+      if (limit.functions !== '*') {
+        if (!limit.functions.length) {
+          where.id = '__none__';
+        } else {
+          where.name = { in: limit.functions };
+        }
+      }
+    }
     return this.prisma.jobFunction.findMany({
-      where: { isActive: true },
+      where,
       include: { activities: { orderBy: { name: 'asc' } }, _count: { select: { employees: true } } },
       orderBy: { name: 'asc' },
     });
@@ -207,17 +274,43 @@ export class SirhService {
     });
   }
 
-  async myActivities(userId: string) {
+  async myActivities(userId: string, role: UserRole) {
+    const limit = activityLimitFor(role);
+    if (limit.functions !== '*' && !limit.functions.length) return [];
     const profile = await this.prisma.employeeProfile.findUnique({
       where: { userId },
       include: { jobFunction: { include: { activities: { orderBy: { name: 'asc' } } } } },
     });
-    return profile?.jobFunction?.activities ?? [];
+    if (limit.functions === '*') {
+      return profile?.jobFunction?.activities ?? [];
+    }
+    const functions = await this.prisma.jobFunction.findMany({
+      where: { isActive: true, name: { in: limit.functions } },
+      include: { activities: { orderBy: { name: 'asc' } } },
+    });
+    const fromRole = functions.flatMap((fn) =>
+      fn.activities.map((activity) => ({ ...activity, jobFunction: { id: fn.id, name: fn.name, department: fn.department } })),
+    );
+    if (profile?.jobFunction && matchesActivityScope(limit.functions, profile.jobFunction.name)) {
+      return profile.jobFunction.activities.map((activity) => ({
+        ...activity,
+        jobFunction: { id: profile.jobFunction!.id, name: profile.jobFunction!.name, department: profile.jobFunction!.department },
+      }));
+    }
+    return fromRole;
   }
 
-  listDeclarations(params: { userId?: string; date?: string }) {
+  async listDeclarations(actor: { id: string; role: UserRole }, params: { userId?: string; date?: string }) {
     const where: Prisma.ActivityDeclarationWhereInput = {};
-    if (params.userId) where.userId = params.userId;
+    const scoped = await this.scopedUserIds(actor);
+    if (params.userId) {
+      if (scoped && !scoped.includes(params.userId)) {
+        throw new ForbiddenException('Hors du périmètre d’activités de votre profil');
+      }
+      where.userId = params.userId;
+    } else if (scoped) {
+      where.userId = { in: scoped };
+    }
     if (params.date) where.date = new Date(`${params.date}T00:00:00.000Z`);
     return this.prisma.activityDeclaration.findMany({
       where,
@@ -233,9 +326,26 @@ export class SirhService {
 
   async declareActivity(
     userId: string,
+    role: UserRole,
     body: { activityId?: string; date: string; comment?: string; attachmentUrl?: string },
   ) {
     if (!body.date) throw new BadRequestException('Date obligatoire');
+    if (!canDeclareActivity(role)) {
+      throw new ForbiddenException('Votre profil n’autorise pas la déclaration d’activité');
+    }
+    if (body.activityId) {
+      const activity = await this.prisma.jobFunctionActivity.findUnique({
+        where: { id: body.activityId },
+        include: { jobFunction: true },
+      });
+      if (!activity) throw new BadRequestException('Activité introuvable');
+      const limit = activityLimitFor(role);
+      const allowed =
+        limit.functions === '*' || matchesActivityScope(limit.functions, activity.jobFunction?.name);
+      if (!allowed) {
+        throw new ForbiddenException('Cette activité n’est pas dans le périmètre de votre profil');
+      }
+    }
     return this.prisma.activityDeclaration.create({
       data: {
         userId,
@@ -257,7 +367,7 @@ export class SirhService {
   ) {
     const row = await this.prisma.activityDeclaration.findUnique({ where: { id } });
     if (!row) throw new NotFoundException('Declaration introuvable');
-    await this.assertManagerOrHr(actor, row.userId);
+    await this.assertActivitySupervisor(actor, row.userId);
     if (!approve && !reason?.trim()) throw new BadRequestException('Motif de rejet obligatoire');
     const updated = await this.prisma.activityDeclaration.update({
       where: { id },

@@ -134,10 +134,14 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--hl-ink);
+  padding: 8px 12px;
 }
 
 .hl-nav a.is-active,
-.hl-nav a:hover { color: var(--hl-red); }
+.hl-nav a:hover {
+  color: #fff;
+  background: var(--hl-red);
+}
 
 .hl-header-actions { display: flex; align-items: center; gap: 12px; }
 
@@ -260,7 +264,7 @@
 
 .hl-book-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
-.hl-strip { background: var(--hl-amber); color: var(--hl-ink); }
+.hl-strip { background: var(--hl-amber); color: #fff; }
 
 .hl-strip-grid {
   display: grid;
@@ -291,10 +295,11 @@
   text-transform: uppercase;
   font-size: 20px;
   margin-bottom: 6px;
+  color: #fff;
 }
 
-.hl-strip p { margin: 0; color: var(--hl-ink); font-weight: 500; }
-.hl-strip a { font-weight: 800; text-decoration: underline; }
+.hl-strip p { margin: 0; color: #fff; font-weight: 500; }
+.hl-strip a { font-weight: 800; text-decoration: underline; color: #fff; }
 
 .hl-section { padding: 80px 0; }
 .hl-section--tint { background: var(--hl-tint); }

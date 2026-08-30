@@ -4,6 +4,7 @@ import { ContractType, EmployeeStatus, LeaveType, UserRole } from '@prisma/clien
 import { IsOptional, IsString } from 'class-validator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { activityManagerRoles, canDeclareActivity } from '../authorizations/acl.catalog';
 import { HrService } from './hr.service';
 import { SirhService } from './sirh.service';
 
@@ -18,15 +19,7 @@ const HR_READ = [
 ] as const;
 const HR_WRITE = [UserRole.ADMIN, UserRole.RH] as const;
 const PAYROLL_WRITE = [UserRole.ADMIN, UserRole.RH, UserRole.COMPTABLE] as const;
-const ACTIVITY_MANAGERS = [
-  UserRole.ADMIN,
-  UserRole.RH,
-  UserRole.DG,
-  UserRole.SUPERVISEUR,
-  UserRole.CHEF_EXPLOITATION,
-  UserRole.CHEF_PRODUCTION,
-  UserRole.COMPTABLE,
-] as const;
+const ACTIVITY_MANAGERS = activityManagerRoles();
 
 class UpsertActivityReportDto {
   @IsString()
@@ -276,8 +269,8 @@ export class HrController {
 
   @Roles(...HR_READ)
   @Get('functions')
-  functions() {
-    return this.sirh.listFunctions();
+  functions(@Req() req: { user: { id: string; role: UserRole } }) {
+    return this.sirh.listFunctions(req.user);
   }
 
   @Roles(...HR_WRITE)
@@ -292,30 +285,38 @@ export class HrController {
     return this.sirh.addFunctionActivity(id, body.name);
   }
 
+  @Roles(UserRole.ADMIN)
   @Get('functions/my-activities')
-  myJobActivities(@Req() req: { user: { id: string } }) {
-    return this.sirh.myActivities(req.user.id);
+  myJobActivities(@Req() req: { user: { id: string; role: UserRole } }) {
+    return this.sirh.myActivities(req.user.id, req.user.role);
   }
 
   @Roles(...HR_READ)
   @Get('declarations')
-  declarations(@Query('userId') userId?: string, @Query('date') date?: string) {
-    return this.sirh.listDeclarations({ userId, date });
+  declarations(
+    @Req() req: { user: { id: string; role: UserRole } },
+    @Query('userId') userId?: string,
+    @Query('date') date?: string,
+  ) {
+    return this.sirh.listDeclarations(req.user, { userId, date });
   }
 
+  @Roles(UserRole.ADMIN)
   @Post('declarations')
   declare(
-    @Req() req: { user: { id: string } },
+    @Req() req: { user: { id: string; role: UserRole } },
     @Body() body: { activityId?: string; date: string; comment?: string; attachmentUrl?: string },
   ) {
-    return this.sirh.declareActivity(req.user.id, body);
+    return this.sirh.declareActivity(req.user.id, req.user.role, body);
   }
 
+  @Roles(UserRole.ADMIN)
   @Patch('declarations/:id/validate')
   validateDeclaration(@Param('id') id: string, @Req() req: { user: { id: string; role: UserRole } }) {
     return this.sirh.decideDeclaration(id, req.user, true);
   }
 
+  @Roles(UserRole.ADMIN)
   @Patch('declarations/:id/reject')
   rejectDeclaration(
     @Param('id') id: string,
@@ -439,6 +440,7 @@ export class HrController {
     return this.sirh.history(id);
   }
 
+  @Roles(UserRole.ADMIN)
   @Get('activity-reports/me')
   myActivity(
     @Req() req: { user: { id: string } },
@@ -447,36 +449,40 @@ export class HrController {
     return this.hr.getActivityReport(req.user.id, date || new Date().toISOString().slice(0, 10));
   }
 
+  @Roles(UserRole.ADMIN)
   @Post('activity-reports/me')
   saveMyActivity(
-    @Req() req: { user: { id: string } },
+    @Req() req: { user: { id: string; role: UserRole } },
     @Body() body: UpsertActivityReportDto,
   ) {
+    if (!canDeclareActivity(req.user.role)) {
+      throw new ForbiddenException('Votre profil n’autorise pas la déclaration d’activité');
+    }
     return this.hr.upsertActivityReport(req.user.id, body);
   }
 
   @Roles(...ACTIVITY_MANAGERS)
   @Get('activity-reports/overview')
-  activityOverview(@Query('date') date?: string) {
-    return this.hr.activityOverview(date || new Date().toISOString().slice(0, 10));
+  activityOverview(
+    @Query('date') date?: string,
+    @Req() req?: { user: { id: string; role: UserRole } },
+  ) {
+    return this.hr.activityOverview(date || new Date().toISOString().slice(0, 10), req?.user);
   }
 
+  @Roles(UserRole.ADMIN)
   @Get('activity-reports/:userId')
   agentActivity(
     @Param('userId') userId: string,
     @Query('date') date: string | undefined,
     @Req() req: { user: { id: string; role: UserRole } },
   ) {
-    const isManager = (ACTIVITY_MANAGERS as readonly UserRole[]).includes(req.user.role);
-    if (userId !== req.user.id && !isManager) {
-      throw new ForbiddenException('Accès réservé aux managers');
-    }
-    return this.hr.getActivityReport(userId, date || new Date().toISOString().slice(0, 10));
+    return this.hr.getScopedActivityReport(req.user, userId, date || new Date().toISOString().slice(0, 10));
   }
 
   @Roles(...ACTIVITY_MANAGERS)
   @Patch('activity-reports/:id/validate')
-  validateActivity(@Param('id') id: string) {
-    return this.hr.validateActivityReport(id);
+  validateActivity(@Param('id') id: string, @Req() req: { user: { id: string; role: UserRole } }) {
+    return this.hr.validateActivityReport(id, req.user);
   }
 }

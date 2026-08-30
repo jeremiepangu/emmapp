@@ -12,10 +12,18 @@ export interface User {
 
 export type AclAction = 'read' | 'create' | 'update' | 'delete' | 'validate';
 
+export interface RoleActivityLimit {
+  functions: '*' | string[];
+  departments: '*' | string[];
+  declare: boolean;
+  team: boolean;
+  summary: string;
+}
+
 export interface AuthorizationCatalog {
   actions: Array<{ id: AclAction; label: string; short: string }>;
   resources: Array<{ id: string; label: string; section: string; path?: string; description: string }>;
-  roles: Array<{ id: string; label: string }>;
+  roles: Array<{ id: string; label: string; activity?: RoleActivityLimit }>;
 }
 
 export interface UserAuthorizationDetail {
@@ -556,6 +564,8 @@ export const api = {
   addContractAmendment: (id: string, data: { reason: string; amount?: number; startDate?: string; notes?: string }) =>
     request<BusinessContract>(`/contracts/${id}/amendments`, { method: 'POST', body: JSON.stringify(data) }),
   getContractTemplates: () => request<ContractTemplate[]>('/contracts/templates'),
+  restoreContractTemplates: () =>
+    request<{ total: number; created: number; updated: number }>('/contracts/templates/restore', { method: 'POST' }),
   getContractPlaceholders: () => request<Array<{ key: string; label: string }>>('/contracts/placeholders'),
   createContractTemplate: (data: CreateContractTemplateInput) =>
     request<ContractTemplate>('/contracts/templates', { method: 'POST', body: JSON.stringify(data) }),
@@ -1345,6 +1355,7 @@ export interface CreateProductInput {
   unitPrice: number;
   consigneAmount?: number;
   isReusable?: boolean;
+  imageUrl?: string | null;
 }
 
 export interface CreateEmployeeInput {
@@ -1719,6 +1730,7 @@ export interface Product {
   format: string;
   unitPrice: string | number;
   isReusable: boolean;
+  imageUrl?: string | null;
 }
 
 export interface Tour {
@@ -1739,7 +1751,9 @@ export interface Order {
   status: string;
   clientId?: string;
   totalAmount: string | number;
-  client?: { name: string };
+  createdAt?: string;
+  client?: { name: string; segment?: string };
+  posSale?: { id: string } | null;
   lines?: Array<{
     productId: string;
     quantity: number;
@@ -1859,7 +1873,7 @@ export interface Payment {
 
 export interface PosCatalog {
   walkInClient: { id: string; code: string; name: string; segment: string };
-  products: Array<{ id: string; code: string; name: string; format: string; unitPrice: number; isReusable: boolean }>;
+  products: Array<{ id: string; code: string; name: string; format: string; unitPrice: number; isReusable: boolean; imageUrl?: string | null }>;
   clients: Array<{ id: string; code: string; name: string; segment: string; zone?: string | null; phone?: string | null }>;
   methods: PaymentMethod[];
 }
@@ -2356,6 +2370,7 @@ export interface PortalCatalogItem {
   name: string;
   format: string;
   isReusable: boolean;
+  imageUrl?: string | null;
   basePrice: number;
   segmentPrice: number;
   discountPct: number;

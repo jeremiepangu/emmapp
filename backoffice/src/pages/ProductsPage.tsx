@@ -5,6 +5,8 @@ import { EmmaFormatBadge } from '../components/EmmaBrand';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import Modal from '../components/Modal';
 import DocButton from '../components/DocButton';
+import ImageUploadField from '../components/ImageUploadField';
+import ProductSaleCard, { ProductSaleGrid } from '../components/ProductSaleCard';
 import { printProductSheet, printProductsCatalog } from '../documents/templates';
 import { sheetProducts } from '../excel/specs';
 
@@ -15,15 +17,17 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
-  const [form, setForm] = useState({ code: '', name: '', format: 'BIDON_5L', unitPrice: 1500, isReusable: true });
+  const [form, setForm] = useState({ code: '', name: '', format: 'BIDON_5L', unitPrice: 1500, isReusable: true, imageUrl: '' });
+  const [preview, setPreview] = useState<Record<string, number>>({});
 
   const load = () => api.getProducts().then(setProducts);
   useEffect(() => { load(); }, []);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (editing) await api.updateProduct(editing.id, form);
-    else await api.createProduct(form);
+    const payload = { ...form, imageUrl: form.imageUrl || null };
+    if (editing) await api.updateProduct(editing.id, payload);
+    else await api.createProduct(payload);
     setShowForm(false);
     setEditing(null);
     await load();
@@ -38,21 +42,43 @@ export default function ProductsPage() {
         actions={
           <>
             <DocButton label="Catalogue" onClick={() => printProductsCatalog(products)} />
-            {can('products', 'create') && <button type="button" className="erp-btn" onClick={() => { setEditing(null); setShowForm(true); }}>+ Nouveau produit</button>}
+            {can('products', 'create') && <button type="button" className="erp-btn" onClick={() => { setEditing(null); setForm({ code: '', name: '', format: 'BIDON_5L', unitPrice: 1500, isReusable: true, imageUrl: '' }); setShowForm(true); }}>+ Nouveau produit</button>}
           </>
         }
       />
-      <div className="emma-product-grid" style={{ marginBottom: 24 }}>
-        {products.map((p) => (
-          <article key={p.id} className="emma-product-card">
-            <div className="emma-product-cap" />
-            <EmmaFormatBadge format={p.format} />
-            <h3>{p.name}</h3>
-            <p className="emma-product-code">{p.code}</p>
-            <p className="emma-product-price">{Number(p.unitPrice).toLocaleString('fr-FR')} CDF</p>
-            <span className={`emma-product-tag ${p.isReusable ? 'reusable' : ''}`}>{p.isReusable ? 'Consigné · réutilisable' : 'Usage unique'}</span>
-          </article>
-        ))}
+      <div style={{ marginBottom: 24 }}>
+        <ProductSaleGrid>
+          {products.map((p) => (
+            <ProductSaleCard
+              key={p.id}
+              name={p.name}
+              code={p.code}
+              format={p.format}
+              imageUrl={p.imageUrl}
+              price={Number(p.unitPrice)}
+              quantity={preview[p.id] ?? 1}
+              min={1}
+              onQuantityChange={(q) => setPreview((prev) => ({ ...prev, [p.id]: q }))}
+              badge={p.imageUrl ? undefined : 'Photo manquante'}
+              metaLabel="Consigne"
+              metaValue={p.isReusable ? 'Consigné · réutilisable' : 'Usage unique'}
+              onAdd={can('products', 'update') ? () => {
+                setEditing(p);
+                setForm({
+                  code: p.code,
+                  name: p.name,
+                  format: p.format,
+                  unitPrice: Number(p.unitPrice),
+                  isReusable: p.isReusable,
+                  imageUrl: p.imageUrl ?? '',
+                });
+                setShowForm(true);
+              } : undefined}
+              addLabel={p.imageUrl ? 'Modifier la fiche' : 'Charger la photo'}
+            />
+          ))}
+        </ProductSaleGrid>
+        {!products.length && <p className="erp-table-empty">Aucun produit au catalogue.</p>}
       </div>
       <ErpPanel title="Tableau des produits">
         <table className="erp-table">
@@ -72,7 +98,7 @@ export default function ProductsPage() {
                   {can('products', 'update') && (
                     <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => {
                       setEditing(p);
-                      setForm({ code: p.code, name: p.name, format: p.format, unitPrice: Number(p.unitPrice), isReusable: p.isReusable });
+                      setForm({ code: p.code, name: p.name, format: p.format, unitPrice: Number(p.unitPrice), isReusable: p.isReusable, imageUrl: p.imageUrl ?? '' });
                       setShowForm(true);
                     }}>Modifier</button>
                   )}
@@ -87,6 +113,12 @@ export default function ProductsPage() {
       </ErpPanel>
       <Modal title={editing ? 'Modifier le produit' : 'Nouveau produit'} open={showForm} onClose={() => setShowForm(false)}>
         <form className="form-stack" onSubmit={submit}>
+          <ImageUploadField
+            label="Photo du produit"
+            value={form.imageUrl}
+            onChange={(dataUrl) => setForm({ ...form, imageUrl: dataUrl })}
+            hint="Visuel sur fond clair. L’image est réduite avant enregistrement."
+          />
           <div className="form-group"><label>Code</label><input value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} required disabled={!!editing} /></div>
           <div className="form-group"><label>Nom</label><input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></div>
           <div className="form-group">

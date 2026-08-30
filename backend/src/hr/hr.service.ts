@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -18,6 +19,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.module';
 import { NotificationsService } from '../notifications/notifications.service';
+import { canSuperviseActivities, isActivityAdmin, profileInActivityTeam } from '../authorizations/acl.catalog';
 
 const USER_SELECT = {
   id: true,
@@ -645,6 +647,35 @@ export class HrService {
     return this.prisma.payrollPeriod.delete({ where: { id } });
   }
 
+  async getScopedActivityReport(actor: { id: string; role: UserRole }, userId: string, date: string) {
+    await this.assertActivityViewer(actor, userId);
+    return this.getActivityReport(userId, date);
+  }
+
+  private async assertActivityViewer(actor: { id: string; role: UserRole }, userId: string) {
+    if (userId === actor.id) return;
+    if (!canSuperviseActivities(actor.role)) {
+      throw new ForbiddenException('Accès réservé aux responsables d’activité');
+    }
+    const inScope = await this.userInActivityScope(actor, userId);
+    if (!inScope) {
+      throw new ForbiddenException('Accès hors du périmètre d’activités de votre profil');
+    }
+  }
+
+  private async userInActivityScope(actor: { id: string; role: UserRole }, userId: string) {
+    const profile = await this.prisma.employeeProfile.findUnique({
+      where: { userId },
+      include: { jobFunction: true },
+    });
+    return profileInActivityTeam(actor.role, actor.id, {
+      userId,
+      department: profile?.department,
+      managerId: profile?.managerId,
+      jobFunctionName: profile?.jobFunction?.name,
+    });
+  }
+
   async getActivityReport(userId: string, date: string) {
     const user = await this.prisma.user.findUnique({ where: { id: userId }, select: USER_SELECT });
     if (!user) throw new NotFoundException('Agent introuvable');
@@ -740,7 +771,7 @@ export class HrService {
     });
   }
 
-  async activityOverview(date: string) {
+  async activityOverview(date: string, actor?: { id: string; role: UserRole }) {
     const { start, end, day } = this.dayRange(date);
     const [users, reports, deliveryGroups, tourGroups, paymentGroups, shiftGroups] = await Promise.all([
       this.prisma.user.findMany({
@@ -790,7 +821,25 @@ export class HrService {
       deliveriesByUser.set(g.driverId, current);
     }
 
-    const rows = users.map((user) => {
+    let scopedUsers = users;
+    if (actor && !isActivityAdmin(actor.role)) {
+      const profiles = await this.prisma.employeeProfile.findMany({
+        where: { userId: { in: users.map((u) => u.id) } },
+        include: { jobFunction: true },
+      });
+      const byUser = new Map(profiles.map((p) => [p.userId, p]));
+      scopedUsers = users.filter((user) => {
+        const profile = byUser.get(user.id);
+        return profileInActivityTeam(actor.role, actor.id, {
+          userId: user.id,
+          department: profile?.department,
+          managerId: profile?.managerId,
+          jobFunctionName: profile?.jobFunction?.name,
+        });
+      });
+    }
+
+    const rows = scopedUsers.map((user) => {
       const deliveries = deliveriesByUser.get(user.id) ?? { total: 0, delivered: 0, refused: 0 };
       const payments = paymentsByUser.get(user.id) ?? { count: 0, amount: 0 };
       const report = reportByUser.get(user.id) ?? null;
@@ -824,9 +873,13 @@ export class HrService {
     };
   }
 
-  async validateActivityReport(id: string) {
+  async validateActivityReport(id: string, actor: { id: string; role: UserRole }) {
     const report = await this.prisma.dailyActivityReport.findUnique({ where: { id } });
     if (!report) throw new NotFoundException('Rapport introuvable');
+    if (report.userId === actor.id && !isActivityAdmin(actor.role)) {
+      throw new ForbiddenException('Vous ne pouvez pas valider votre propre rapport');
+    }
+    await this.assertActivityViewer(actor, report.userId);
     return this.prisma.dailyActivityReport.update({
       where: { id },
       data: { validated: true },

@@ -1,20 +1,20 @@
 :root {
-  --primary: #16a34a;
-  --primary-dark: #15803d;
-  --secondary: #14b8a6;
-  --secondary-light: #2dd4bf;
-  --accent: #1a2b3c;
+  --primary: #3b82f6;
+  --primary-dark: #2563eb;
+  --secondary: #38bdf8;
+  --secondary-light: #7dd3fc;
+  --accent: #f97316;
   --label-bg: #f4f7f9;
-  --bg: #f8f9fb;
+  --bg: #f4f7f9;
   --card: #ffffff;
-  --text: #333333;
-  --muted: #7f8c8d;
-  --border: #e8eef2;
-  --success: #2ecc71;
-  --warning: #f39c12;
-  --gradient-water: linear-gradient(135deg, #2c3e50 0%, #00a3ff 100%);
-  --shadow-label: 0 1px 3px rgba(44, 62, 80, 0.08);
-  --radius-label: 4px;
+  --text: #0f172a;
+  --muted: #64748b;
+  --border: #e8eef4;
+  --success: #22c55e;
+  --warning: #f97316;
+  --gradient-water: linear-gradient(135deg, #3b82f6 0%, #38bdf8 100%);
+  --shadow-label: 0 8px 24px rgba(15, 23, 42, 0.05);
+  --radius-label: 16px;
 }
 
 * {
@@ -72,7 +72,6 @@ input, select {
   padding: 20px;
   box-shadow: var(--shadow-label);
   border: 1px solid var(--border);
-  border-top: 4px solid var(--secondary);
   transition: transform 0.2s;
 }
 
@@ -712,17 +711,17 @@ th {
 }
 
 .emma-footer {
-  margin-top: 32px;
-  padding: 20px 0;
+  margin-top: 8px;
+  padding: 16px 0 4px;
   border-top: 1px solid var(--border);
   font-size: 12px;
   color: var(--muted);
 }
 
 .emma-tagline {
-  font-style: italic;
-  color: var(--secondary);
-  margin-bottom: 12px;
+  font-style: normal;
+  color: var(--muted);
+  margin-bottom: 10px;
 }
 
 .emma-footer-grid {

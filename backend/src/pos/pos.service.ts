@@ -49,6 +49,7 @@ export class PosService {
           format: true,
           unitPrice: true,
           isReusable: true,
+          imageUrl: true,
         },
       }),
       this.prisma.client.findMany({

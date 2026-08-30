@@ -65,6 +65,7 @@ export class PortalService {
         name: p.name,
         format: p.format,
         isReusable: p.isReusable,
+        imageUrl: p.imageUrl,
         basePrice: Number(p.unitPrice),
         segmentPrice: Number(priced.unitPrice),
         discountPct: priced.discountPct,

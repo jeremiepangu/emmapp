@@ -1,22 +1,28 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import NotificationBell from './NotificationBell';
 import GlobalSearch from './GlobalSearch';
 import { useTheme } from '../ThemeContext';
-import { Icon, IconName } from './ErpIcons';
+import { MENU_ITEMS } from '../permissions';
+import { Icon } from './ErpIcons';
 
 interface Props {
   onMenuToggle: () => void;
   onLogout: () => void;
   userName: string;
+  userRole?: string;
   showNotifications?: boolean;
 }
 
-const QUICK_ACTIONS: Array<{ icon: IconName; label: string; to: string; tone: string }> = [
-  { icon: 'payments', label: 'Paiements', to: '/payments', tone: 'blue' },
-  { icon: 'orders', label: 'Commandes', to: '/orders', tone: 'purple' },
-  { icon: 'stock', label: 'Stock', to: '/stock', tone: 'green' },
-  { icon: 'truck', label: 'Livraisons', to: '/deliveries', tone: 'orange' },
-];
+function pageTitleFromPath(pathname: string) {
+  const exact = MENU_ITEMS.find((m) => m.path === pathname);
+  if (exact) return exact.label;
+  const nested = MENU_ITEMS
+    .filter((m) => m.path !== '/app' && pathname.startsWith(`${m.path}/`))
+    .sort((a, b) => b.path.length - a.path.length)[0];
+  if (nested) return nested.label;
+  if (pathname.startsWith('/mobile')) return 'App livreur';
+  return 'Tableau de bord';
+}
 
 function ToolbarBtn({
   children,
@@ -50,55 +56,39 @@ function ToolbarBtn({
   );
 }
 
-export default function ErpTopBar({ onMenuToggle, onLogout, userName, showNotifications }: Props) {
+export default function ErpTopBar({ onMenuToggle, onLogout, userName, userRole, showNotifications }: Props) {
   const { theme, setTheme } = useTheme();
+  const location = useLocation();
+  const pageTitle = pageTitleFromPath(location.pathname);
   const initial = userName.trim().charAt(0).toUpperCase() || 'U';
 
   return (
     <header className="erp-topbar">
       <div className="erp-topbar-left">
         <button type="button" className="erp-toolbar-btn erp-menu-btn" onClick={onMenuToggle} title="Menu">
-          <Icon name="menu" size={22} />
+          <Icon name="menu" size={20} />
           <span className="erp-toolbar-label">Menu</span>
         </button>
-        <div className="erp-quick-actions">
-          {QUICK_ACTIONS.map((a) => (
-            <Link
-              key={a.label}
-              to={a.to}
-              className={`erp-toolbar-btn erp-quick-btn erp-quick-btn--${a.tone}`}
-              title={a.label}
-            >
-              <Icon name={a.icon} size={22} />
-              <span className="erp-toolbar-label">{a.label}</span>
-            </Link>
-          ))}
-        </div>
+        <h1 className="erp-topbar-title">{pageTitle}</h1>
       </div>
       <GlobalSearch />
       <div className="erp-topbar-right">
-        <ToolbarBtn label="Utilisateurs" to="/users" className="erp-toolbar-btn--primary">
-          <Icon name="userPlus" size={22} />
-        </ToolbarBtn>
+        {showNotifications && <NotificationBell />}
         <ToolbarBtn
-          label={theme === 'sombre' ? 'Clair' : 'Sombre'}
+          label={theme === 'sombre' ? 'Thème clair' : 'Thème sombre'}
           onClick={() => setTheme(theme === 'sombre' ? 'clair' : 'sombre')}
         >
-          <Icon name={theme === 'sombre' ? 'sun' : 'moon'} size={22} />
+          <Icon name={theme === 'sombre' ? 'sun' : 'moon'} size={18} />
         </ToolbarBtn>
-        <ToolbarBtn label="Tableau de bord" to="/app">
-          <Icon name="grid" size={22} />
-        </ToolbarBtn>
-        <ToolbarBtn label="Messages" to="/notifications">
-          <Icon name="mail" size={22} />
-        </ToolbarBtn>
-        <ToolbarBtn label="Synchro">
-          <Icon name="cloud" size={22} />
-        </ToolbarBtn>
-        {showNotifications && <NotificationBell />}
-        <span className="erp-user-badge" title={userName}>{initial}</span>
+        <div className="erp-topbar-profile" title={userName}>
+          <span className="erp-user-badge">{initial}</span>
+          <div className="erp-topbar-profile-text">
+            <span className="erp-topbar-profile-name">{userName}</span>
+            {userRole && <span className="erp-topbar-profile-role">{userRole}</span>}
+          </div>
+        </div>
         <ToolbarBtn label="Déconnexion" onClick={onLogout}>
-          <Icon name="logout" size={22} />
+          <Icon name="logout" size={18} />
         </ToolbarBtn>
       </div>
     </header>

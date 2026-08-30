@@ -28,7 +28,7 @@ import {
   type Delivery,
 } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
-import { defaultContractTemplateBody } from '../src/contracts/word-generator';
+import { buildAgentTemplateSeeds } from '../src/contracts/agent-templates';
 
 const prisma = new PrismaClient();
 
@@ -846,13 +846,64 @@ async function main() {
     RH: 'RH', SUPERVISEUR: 'Direction', IT_GED: 'IT', DATA_ANALYST: 'Direction', RESP_SECURITE: 'IT',
     RESP_DURABILITE: 'Production',
   };
+  const functionByRole: Record<string, string> = {
+    ADMIN: 'Direction', DG: 'Direction', CHEF_PRODUCTION: 'Chef production', CHEF_EXPLOITATION: 'Chef exploitation',
+    CHARGE_EXPLOITATION: 'Chargé exploitation', RESP_QUALITE: 'Qualité', MAGASINIER: 'Magasinier',
+    AGENT_CHARGEUR: 'Agent chargeur', LIVREUR: 'Livreur', CHARGE_LIVRAISON: 'Chargé livraison',
+    COMMERCIAL: 'Commercial', DELEGUE_COMMERCIAL: 'Délégué commercial', CAISSIER: 'Caissier', COMPTABLE: 'Comptable',
+    RH: 'RH', SUPERVISEUR: 'Superviseur', IT_GED: 'IT / GED', DATA_ANALYST: 'Analyste de données',
+    RESP_SECURITE: 'Sécurité', RESP_DURABILITE: 'Durabilité',
+  };
+  const functionSeeds = [
+    { name: 'Direction', department: 'Direction', activities: ['Pilotage', 'Arbitrage', 'Revue des rapports'] },
+    { name: 'Chef production', department: 'Production', activities: ['Planification de production', 'Suivi des OF', 'Encadrement ligne'] },
+    { name: 'Opérateur production', department: 'Production', activities: ['Conduite de ligne', 'Contrôle qualité en ligne', 'Lavage des bidons'] },
+    { name: 'Chef exploitation', department: 'Exploitation', activities: ['Planification des tournées', 'Suivi parc', 'Coordination livraisons'] },
+    { name: 'Chargé exploitation', department: 'Exploitation', activities: ['Préparation tournée', 'Suivi véhicules', 'Pointage livraisons'] },
+    { name: 'Qualité', department: 'Qualité', activities: ['Prélèvements', 'Analyses laboratoire', 'Libération de lots'] },
+    { name: 'Magasinier', department: 'Exploitation', activities: ['Réception stock', 'Inventaire', 'Chargement véhicule'] },
+    { name: 'Agent chargeur', department: 'Exploitation', activities: ['Chargement palettes', 'Contrôle colis', 'Arrimage'] },
+    { name: 'Livreur', department: 'Exploitation', activities: ['Préparation de tournée', 'Livraison client', 'Encaissement terrain', 'Retour des consignes'] },
+    { name: 'Chargé livraison', department: 'Exploitation', activities: ['Affectation livreurs', 'Suivi POD', 'Relance clients'] },
+    { name: 'Commercial', department: 'Commercial', activities: ['Prospection', 'Prise de commande', 'Suivi client'] },
+    { name: 'Délégué commercial', department: 'Commercial', activities: ['Visite point de vente', 'Recueil commandes', 'Animation réseau'] },
+    { name: 'Caissier', department: 'Finance', activities: ['Encaissement caisse', 'Clôture de journée', 'Remise en banque'] },
+    { name: 'Comptable', department: 'Finance', activities: ['Saisie des écritures', 'Rapprochements bancaires', 'Classement des pièces comptables', 'Production des états financiers'] },
+    { name: 'RH', department: 'RH', activities: ['Gestion dossiers', 'Suivi congés', 'Paie collaborateurs'] },
+    { name: 'Superviseur', department: 'Direction', activities: ['Contrôle terrain', 'Rapport d’anomalie', 'Brief équipes'] },
+    { name: 'IT / GED', department: 'IT', activities: ['Support applicatif', 'Sauvegarde GED', 'Suivi incidents'] },
+    { name: 'Analyste de données', department: 'Direction', activities: ['Extraction KPI', 'Modèles prédictifs', 'Tableaux de bord'] },
+    { name: 'Sécurité', department: 'IT', activities: ['Rondes site', 'Contrôle d’accès', 'Incidents sécurité'] },
+    { name: 'Durabilité', department: 'Production', activities: ['Suivi consommations', 'Indicateurs ESG', 'Rapport environnemental'] },
+  ];
+  const functionsByName = new Map<string, string>();
+  for (const fn of functionSeeds) {
+    const created = await prisma.jobFunction.upsert({
+      where: { name: fn.name },
+      update: { department: fn.department },
+      create: { name: fn.name, department: fn.department },
+    });
+    functionsByName.set(fn.name, created.id);
+    for (const act of fn.activities) {
+      const exists = await prisma.jobFunctionActivity.findFirst({ where: { functionId: created.id, name: act } });
+      if (!exists) {
+        await prisma.jobFunctionActivity.create({ data: { functionId: created.id, name: act } });
+      }
+    }
+  }
+
   let empIndex = 0;
   for (const user of allUsers) {
     empIndex += 1;
     const matricule = `EMP-${String(empIndex).padStart(4, '0')}`;
+    const functionId = functionsByName.get(functionByRole[user.role] ?? '');
     await prisma.employeeProfile.upsert({
       where: { userId: user.id },
-      update: { baseSalary: salaryByRole[user.role] ?? 500000, department: deptByRole[user.role] ?? 'Exploitation' },
+      update: {
+        baseSalary: salaryByRole[user.role] ?? 500000,
+        department: deptByRole[user.role] ?? 'Exploitation',
+        jobFunctionId: functionId,
+      },
       create: {
         userId: user.id,
         matricule,
@@ -861,6 +912,7 @@ async function main() {
         hireDate: new Date('2024-01-08'),
         baseSalary: salaryByRole[user.role] ?? 500000,
         cnssNumber: `CNSS-${String(10000 + empIndex)}`,
+        jobFunctionId: functionId,
       },
     });
   }
@@ -882,26 +934,6 @@ async function main() {
     }
   }
 
-  const functionSeeds = [
-    { name: 'Comptable', department: 'Finance', activities: ['Saisie des écritures', 'Rapprochements bancaires', 'Classement des pièces comptables', 'Production des états financiers'] },
-    { name: 'Livreur', department: 'Exploitation', activities: ['Préparation de tournée', 'Livraison client', 'Encaissement terrain', 'Retour des consignes'] },
-    { name: 'Magasinier', department: 'Exploitation', activities: ['Réception stock', 'Inventaire', 'Chargement véhicule'] },
-    { name: 'Opérateur production', department: 'Production', activities: ['Conduite de ligne', 'Contrôle qualité en ligne', 'Lavage des bidons'] },
-    { name: 'Commercial', department: 'Commercial', activities: ['Prospection', 'Prise de commande', 'Suivi client'] },
-  ];
-  for (const fn of functionSeeds) {
-    const created = await prisma.jobFunction.upsert({
-      where: { name: fn.name },
-      update: { department: fn.department },
-      create: { name: fn.name, department: fn.department },
-    });
-    for (const act of fn.activities) {
-      const exists = await prisma.jobFunctionActivity.findFirst({ where: { functionId: created.id, name: act } });
-      if (!exists) {
-        await prisma.jobFunctionActivity.create({ data: { functionId: created.id, name: act } });
-      }
-    }
-  }
   const courses = [
     { title: 'Hygiène et HACCP', kind: 'INTERNE' as const, location: 'Usine Bandalungwa' },
     { title: 'Conduite défensive', kind: 'EXTERNE' as const, provider: 'Auto-école Kinshasa' },
@@ -960,42 +992,11 @@ async function main() {
     }),
   ]);
 
-  const templateSeeds = [
-    {
-      code: 'MDL-AGENT-CDI',
-      name: 'Contrat de travail CDI',
-      partyKind: ContractPartyKind.AGENT,
-      kind: BusinessContractKind.CDI,
-      title: 'Contrat de travail a duree indeterminee',
-      body: defaultContractTemplateBody('AGENT'),
-      clauses: '{{clauses}}',
-      footer: 'Exemplaire a parapher, signer, puis archiver au dossier RH — {{reference}}',
-    },
-    {
-      code: 'MDL-FRN-CADRE',
-      name: 'Contrat cadre fournisseur',
-      partyKind: ContractPartyKind.SUPPLIER,
-      kind: BusinessContractKind.CADRE,
-      title: 'Contrat cadre de fourniture',
-      body: defaultContractTemplateBody('SUPPLIER'),
-      clauses: '{{clauses}}',
-      footer: 'Document destine a la signature des parties — {{reference}}',
-    },
-    {
-      code: 'MDL-CLIENT-DIST',
-      name: 'Contrat de distribution grand client',
-      partyKind: ContractPartyKind.KEY_CLIENT,
-      kind: BusinessContractKind.DISTRIBUTION,
-      title: 'Contrat de distribution d\'eau potable',
-      body: defaultContractTemplateBody('KEY_CLIENT'),
-      clauses: '{{clauses}}',
-      footer: 'A parapher et signer en deux exemplaires — {{reference}}',
-    },
-  ];
+  const templateSeeds = buildAgentTemplateSeeds();
   for (const tpl of templateSeeds) {
     await prisma.contractTemplate.upsert({
       where: { code: tpl.code },
-      update: { name: tpl.name, body: tpl.body, clauses: tpl.clauses, footer: tpl.footer, isActive: true },
+      update: { name: tpl.name, body: tpl.body, clauses: tpl.clauses, footer: tpl.footer, title: tpl.title, partyKind: tpl.partyKind, kind: tpl.kind, isActive: true },
       create: tpl,
     });
   }

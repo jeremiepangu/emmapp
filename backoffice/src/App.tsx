@@ -79,12 +79,21 @@ function ProtectedLayout() {
         <ErpTopBar
           onMenuToggle={() => setMenuOpen(!menuOpen)}
           onLogout={logout}
-          userName={`${user.firstName} ${user.lastName} · ${roleLabel}`}
+          userName={`${user.firstName} ${user.lastName}`}
+          userRole={roleLabel}
           showNotifications={menuItems.some((m) => m.resource === 'notifications')}
         />
         <main className="erp-content">
           <Outlet />
         </main>
+        <footer className="erp-shell-footer">
+          <span>© {new Date().getFullYear()} Emmanuel Services SARLU</span>
+          <div className="erp-shell-footer-links">
+            <a href="https://www.emmas.cd" target="_blank" rel="noreferrer">Site public</a>
+            <a href="mailto:contact@emmas.cd">Contact</a>
+            <a href="tel:+243813170215">+243 813 170 215</a>
+          </div>
+        </footer>
       </div>
     </div>
   );
@@ -116,11 +125,11 @@ function AppRoutes() {
     <Routes>
       <Route element={<WebsiteLayout />}>
         <Route path="/" element={<WebsiteHomePage />} />
-        <Route path="/eau" element={<Navigate to="/#eau" replace />} />
-        <Route path="/systeme" element={<Navigate to="/#systeme" replace />} />
-        <Route path="/origine" element={<Navigate to="/#origine" replace />} />
+        <Route path="/eau" element={<Navigate to="/#qualite" replace />} />
+        <Route path="/systeme" element={<Navigate to="/#services" replace />} />
+        <Route path="/origine" element={<Navigate to="/#apropos" replace />} />
         <Route path="/produits" element={<Navigate to="/#produits" replace />} />
-        <Route path="/engagement" element={<Navigate to="/#engagement" replace />} />
+        <Route path="/engagement" element={<Navigate to="/#apropos" replace />} />
         <Route path="/contact" element={<Navigate to="/#contact" replace />} />
       </Route>
       <Route path="/login" element={user ? <Navigate to={home} /> : <LoginPage />} />

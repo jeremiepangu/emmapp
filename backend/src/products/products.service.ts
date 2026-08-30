@@ -10,6 +10,8 @@ export interface CreateProductDto {
   unitPrice: number;
   consigneAmount?: number;
   isReusable?: boolean;
+  /** Photo du produit, stockée en data URL (image redimensionnée côté client). */
+  imageUrl?: string | null;
   maxRotations?: number;
   loyaltyPointsPerUnit?: number;
 }

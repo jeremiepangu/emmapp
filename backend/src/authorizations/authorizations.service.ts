@@ -8,8 +8,10 @@ import {
   AclMatrix,
   DEFAULT_ROLE_PERMISSIONS,
   ROLE_LABELS,
+  activityLimitFor,
   allRoles,
   defaultMatrixFor,
+  isLegacyActivityDefault,
   sanitizeRoleMatrix,
 } from './acl.catalog';
 
@@ -38,13 +40,36 @@ export class AuthorizationsService implements OnModuleInit {
         });
       }
     }
+    await this.alignLegacyActivityGrants();
+  }
+
+  /** Met à jour la ressource activity si elle vaut encore l’ancien défaut générique. */
+  private async alignLegacyActivityGrants() {
+    const rows = await this.prisma.rolePermission.findMany({ where: { resource: 'activity' } });
+    for (const row of rows) {
+      const stored = (row.actions ?? []) as AclAction[];
+      if (!isLegacyActivityDefault(row.role, stored)) continue;
+      const next = defaultMatrixFor(row.role).activity ?? [];
+      const same =
+        stored.length === next.length &&
+        [...stored].sort().every((action, i) => action === [...next].sort()[i]);
+      if (same) continue;
+      await this.prisma.rolePermission.update({
+        where: { id: row.id },
+        data: { actions: next },
+      });
+    }
   }
 
   catalog() {
     return {
       actions: ACL_ACTIONS,
       resources: ACL_RESOURCES,
-      roles: allRoles().map((role) => ({ id: role, label: ROLE_LABELS[role] ?? role })),
+      roles: allRoles().map((role) => ({
+        id: role,
+        label: ROLE_LABELS[role] ?? role,
+        activity: activityLimitFor(role),
+      })),
     };
   }
 
@@ -165,6 +190,7 @@ export class AuthorizationsService implements OnModuleInit {
     return {
       role,
       matrix: await this.effectiveMatrix(userId, role),
+      activity: activityLimitFor(role),
     };
   }
 }

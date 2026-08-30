@@ -67,7 +67,16 @@ export const CONTRACT_PLACEHOLDERS: Array<{ key: string; label: string }> = [
   { key: 'today', label: 'Date du jour' },
   { key: 'jobTitle', label: 'Poste (agent)' },
   { key: 'department', label: 'Service (agent)' },
+  { key: 'agentRole', label: 'Profil / rôle agent' },
 ];
+
+export type AgentTemplateOpts = {
+  agentKind?: string;
+  role?: string;
+  jobLabel?: string;
+  department?: string;
+  missions?: string[];
+};
 
 export function fillPlaceholders(source: string, vars: Record<string, string>): string {
   return source.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (_, key: string) => vars[key] ?? '');
@@ -86,26 +95,33 @@ function articlesToText(articles: Article[]): string {
     .join('\n\n');
 }
 
-export function defaultContractTemplateBody(kind: ContractDocKind): string {
+export function defaultContractTemplateBody(kind: ContractDocKind, opts?: AgentTemplateOpts): string {
   const vars = Object.fromEntries(CONTRACT_PLACEHOLDERS.map((p) => [p.key, `{{${p.key}}}`]));
-  return articlesToText(defaultArticles(kind, vars));
+  if (opts?.jobLabel) vars.jobTitle = vars.jobTitle || opts.jobLabel;
+  if (opts?.department) vars.department = vars.department || opts.department;
+  if (opts?.role) vars.agentRole = vars.agentRole || opts.role;
+  if (opts?.agentKind) vars.kind = vars.kind || opts.agentKind;
+  return articlesToText(defaultArticles(kind, vars, opts));
 }
 
-export function defaultArticles(kind: ContractDocKind, vars: Record<string, string>): Article[] {
-  if (kind === 'AGENT') return employmentArticles(vars);
+export function defaultArticles(kind: ContractDocKind, vars: Record<string, string>, opts?: AgentTemplateOpts): Article[] {
   if (kind === 'SUPPLIER') return supplierArticles(vars);
-  return clientArticles(vars);
+  if (kind === 'KEY_CLIENT') return clientArticles(vars);
+  if ((opts?.agentKind ?? vars.kind) === 'PRESTATION') return prestationArticles(vars, opts);
+  return employmentArticles(vars, opts);
 }
 
-function employmentArticles(vars: Record<string, string>): Article[] {
+function employmentArticles(vars: Record<string, string>, opts?: AgentTemplateOpts): Article[] {
   const company = v(vars, 'companyName', COMPANY.name);
   const worker = v(vars, 'partyName', 'le Travailleur');
-  const job = v(vars, 'jobTitle', 'le poste convenu');
-  const dept = v(vars, 'department', 'le service d\'affectation');
+  const job = v(vars, 'jobTitle', opts?.jobLabel || 'le poste convenu');
+  const dept = v(vars, 'department', opts?.department || 'le service d\'affectation');
   const start = v(vars, 'startDate');
   const amount = v(vars, 'amount');
   const notice = v(vars, 'noticeDays', '30');
   const pay = v(vars, 'paymentTerms', 'mensuellement, à terme échu');
+  const agentKind = (opts?.agentKind ?? vars.kind ?? 'CDI').toUpperCase();
+  const missions = opts?.missions?.filter(Boolean) ?? [];
   return [
     {
       num: '1',
@@ -117,10 +133,11 @@ function employmentArticles(vars: Record<string, string>): Article[] {
     },
     {
       num: '2',
-      title: 'Engagement et classification',
+      title: 'Engagement, classification et missions',
       paragraphs: [
-        `L'Employeur engage le Travailleur, qui accepte, pour exercer les fonctions de ${job}. Le Travailleur reconnaît avoir reçu une description de poste et s'engage à l'exécuter avec diligence, loyauté et professionnalisme.`,
+        `L'Employeur engage le Travailleur, qui accepte, pour exercer les fonctions de ${job}${opts?.role ? ` (profil ${opts.role})` : ''}. Le Travailleur reconnaît avoir reçu une description de poste et s'engage à l'exécuter avec diligence, loyauté et professionnalisme.`,
         'La classification, le service d\'affectation et le lieu habituel de travail peuvent être adaptés selon les besoins de l\'exploitation, sans que cela constitue une modification substantielle du contrat dès lors que la rémunération et la qualification principale sont maintenues.',
+        ...missions,
       ],
     },
     {
@@ -134,18 +151,12 @@ function employmentArticles(vars: Record<string, string>): Article[] {
     {
       num: '4',
       title: 'Durée et prise d\'effet',
-      paragraphs: [
-        `Le présent contrat est conclu pour une durée correspondant au type ${v(vars, 'kind', 'CDI')}. Il prend effet le ${start}${vars.endDate ? `, pour une échéance au ${vars.endDate}` : ', pour une durée indéterminée'}.`,
-        'Toute période antérieure accomplie à titre d\'essai, de stage ou de contrat temporaire auprès de l\'Employeur est rappelée pour mémoire et n\'emporte pas reprise d\'ancienneté au-delà de ce que la loi prévoit.',
-      ],
+      paragraphs: durationParagraphs(agentKind, start, vars.endDate),
     },
     {
       num: '5',
-      title: 'Période d\'essai',
-      paragraphs: [
-        'Sauf stipulation particulière contraire, une période d\'essai d\'un (1) mois est applicable, renouvelable une fois dans les limites légales. Durant cette période, chacune des parties peut rompre le contrat sans indemnité, sous réserve du préavis d\'usage.',
-        'L\'essai a pour objet de vérifier l\'aptitude professionnelle du Travailleur et l\'adéquation du poste à ses compétences, notamment en matière de sécurité, d\'hygiène et de conduite des tournées.',
-      ],
+      title: agentKind === 'STAGE' ? 'Statut du stagiaire' : agentKind === 'JOURNALIER' ? 'Exécution à la journée' : 'Période d\'essai',
+      paragraphs: trialParagraphs(agentKind),
     },
     {
       num: '6',
@@ -157,11 +168,8 @@ function employmentArticles(vars: Record<string, string>): Article[] {
     },
     {
       num: '7',
-      title: 'Rémunération',
-      paragraphs: [
-        `En contrepartie de son travail, le Travailleur perçoit une rémunération de ${amount}, payable ${pay}, après les retenues légales (impôt, cotisations sociales et autres retenues autorisées).`,
-        'Des primes, indemnités de transport, commissions ou avantages en nature peuvent s\'ajouter selon les barèmes internes. Ils n\'ont pas de caractère automatique s\'ils ne sont pas expressément prévus. Un bulletin de paie est remis à chaque échéance.',
-      ],
+      title: agentKind === 'STAGE' ? 'Indemnité de stage' : 'Rémunération',
+      paragraphs: payParagraphs(agentKind, amount, pay),
     },
     {
       num: '8',
@@ -256,6 +264,148 @@ function employmentArticles(vars: Record<string, string>): Article[] {
       paragraphs: [
         'Si une clause est déclarée nulle, les autres demeurent. Le présent contrat annule et remplace tout accord antérieur portant sur le même objet. Les annexes (fiche de poste, règlement intérieur, barème de consigne, politique qualité) font partie intégrante du contrat dès remise au Travailleur.',
         'Le contrat est établi en deux (2) exemplaires originaux. Chaque partie reconnaît avoir lu, compris et accepté l\'ensemble des articles.',
+      ],
+    },
+  ];
+}
+
+function durationParagraphs(agentKind: string, start: string, endDate?: string): string[] {
+  if (agentKind === 'CDD') {
+    return [
+      `Le présent contrat est conclu à durée déterminée. Il prend effet le ${start} et expire le ${endDate?.trim() || '{{endDate}}'}, sans reconduction au-delà de ce que la loi autorise, sauf avenant écrit.`,
+      'Il ne peut être rompu avant terme que pour faute grave, force majeure ou accord écrit des deux parties. Toute poursuite de l\'activité au-delà du terme sans avenant peut, selon la loi, emporter requalification.',
+    ];
+  }
+  if (agentKind === 'STAGE') {
+    return [
+      `La présente convention de stage prend effet le ${start} et s'achève le ${endDate?.trim() || '{{endDate}}'}. Elle n'emporte pas contrat de travail, sauf requalification prévue par la loi.`,
+      'Le stagiaire reste sous la responsabilité pédagogique de son établissement, le cas échéant, et sous l\'autorité fonctionnelle de l\'Employeur pendant le temps de présence en entreprise.',
+    ];
+  }
+  if (agentKind === 'JOURNALIER') {
+    return [
+      `Le présent contrat est conclu à la journée. Il prend effet le ${start}. Chaque journée travaillée donne lieu à un décompte. L'absence de nouvelle journée n'ouvre pas droit à préavis, hors dispositions légales impératives.`,
+      'La répétition de journées successives peut, selon la loi, emporter requalification en contrat à durée indéterminée. L\'Employeur tient un registre des journées effectuées.',
+    ];
+  }
+  return [
+    `Le présent contrat est conclu pour une durée indéterminée (CDI). Il prend effet le ${start}.`,
+    'Toute période antérieure accomplie à titre d\'essai, de stage ou de contrat temporaire auprès de l\'Employeur est rappelée pour mémoire et n\'emporte pas reprise d\'ancienneté au-delà de ce que la loi prévoit.',
+  ];
+}
+
+function trialParagraphs(agentKind: string): string[] {
+  if (agentKind === 'STAGE') {
+    return [
+      'Le stagiaire n\'est pas soumis à une période d\'essai de contrat de travail. La convention peut être rompue par écrit, de part et d\'autre, en cas de manquement grave aux consignes de sécurité, d\'hygiène ou de confidentialité, ou d\'inadéquation manifeste.',
+      'Un tuteur interne est désigné. Le stagiaire suit les mêmes règles de présence, d\'hygiène et de confidentialité que le personnel, dans la limite de sa mission d\'apprentissage.',
+    ];
+  }
+  if (agentKind === 'JOURNALIER') {
+    return [
+      'Chaque journée constitue l\'unité d\'exécution. L\'aptitude est vérifiée à l\'embauche (identité, visite médicale si exigée, consignes de sécurité). L\'Employeur peut ne pas reconduire la journée suivante sans indemnité, hors abus.',
+      'Le journalier se présente à l\'heure convenue, équipé le cas échéant, et pointe selon les règles du dépôt ou de la tournée.',
+    ];
+  }
+  if (agentKind === 'CDD') {
+    return [
+      'Sauf stipulation contraire, une période d\'essai de quinze (15) jours est applicable, non renouvelable au-delà des limites légales. Durant cette période, chacune des parties peut rompre le contrat sans indemnité, sous réserve du préavis d\'usage.',
+      'L\'essai vérifie l\'aptitude professionnelle, notamment en matière de sécurité, d\'hygiène et d\'exécution de la mission confiée.',
+    ];
+  }
+  return [
+    'Sauf stipulation particulière contraire, une période d\'essai d\'un (1) mois est applicable, renouvelable une fois dans les limites légales. Durant cette période, chacune des parties peut rompre le contrat sans indemnité, sous réserve du préavis d\'usage.',
+    'L\'essai a pour objet de vérifier l\'aptitude professionnelle du Travailleur et l\'adéquation du poste à ses compétences, notamment en matière de sécurité, d\'hygiène et de conduite des tournées.',
+  ];
+}
+
+function payParagraphs(agentKind: string, amount: string, pay: string): string[] {
+  if (agentKind === 'STAGE') {
+    return [
+      `Le stagiaire perçoit une indemnité de ${amount}, versée ${pay}. Cette indemnité n'a pas le caractère d'un salaire, sous réserve des seuils légaux de requalification.`,
+      'Les frais de mission dûment autorisés peuvent être remboursés sur justificatifs. Aucune commission n\'est due sauf avenant.',
+    ];
+  }
+  if (agentKind === 'JOURNALIER') {
+    return [
+      `Le journalier perçoit une rémunération journalière de ${amount}, payable ${pay || 'en fin de journée ou selon décompte hebdomadaire'}, après les retenues légales le cas échéant.`,
+      'Les heures au-delà de la journée normale sont compensées selon la loi. Un décompte signé fait foi des journées prestées.',
+    ];
+  }
+  return [
+    `En contrepartie de son travail, le Travailleur perçoit une rémunération de ${amount}, payable ${pay}, après les retenues légales (impôt, cotisations sociales et autres retenues autorisées).`,
+    'Des primes, indemnités de transport, commissions ou avantages en nature peuvent s\'ajouter selon les barèmes internes. Ils n\'ont pas de caractère automatique s\'ils ne sont pas expressément prévus. Un bulletin de paie est remis à chaque échéance.',
+  ];
+}
+
+function prestationArticles(vars: Record<string, string>, opts?: AgentTemplateOpts): Article[] {
+  const company = v(vars, 'companyName', COMPANY.name);
+  const party = v(vars, 'partyName', 'le Prestataire');
+  const job = v(vars, 'jobTitle', opts?.jobLabel || 'la mission convenue');
+  const start = v(vars, 'startDate');
+  const end = v(vars, 'endDate', 'terme à convenir');
+  const amount = v(vars, 'amount');
+  const pay = v(vars, 'paymentTerms', 'sur facture, à trente (30) jours');
+  const missions = opts?.missions?.filter(Boolean) ?? [];
+  return [
+    {
+      num: '1',
+      title: 'Objet',
+      paragraphs: [
+        `Le présent contrat a pour objet la réalisation, par ${party}, d'une prestation indépendante de ${job} au profit de ${company}.`,
+        'Le Prestataire n\'est pas lié par un contrat de travail. Il organise librement son temps, sous réserve des échéances et des consignes de sécurité, d\'hygiène et de confidentialité liées à l\'eau potable.',
+        ...missions,
+      ],
+    },
+    {
+      num: '2',
+      title: 'Durée',
+      paragraphs: [
+        `La mission prend effet le ${start} et s'achève le ${end}, sauf résiliation anticipée selon l'article 8.`,
+      ],
+    },
+    {
+      num: '3',
+      title: 'Obligations du Prestataire',
+      paragraphs: [
+        'Le Prestataire exécute la mission avec diligence, selon les règles de l\'art, et remet les livrables convenus. Il déclare être en règle au plan fiscal et social.',
+        'Il s\'interdit tout conflit d\'intérêts, toute divulgation des données clients, tournées, prix ou recettes, et toute utilisation des marques hors mission.',
+      ],
+    },
+    {
+      num: '4',
+      title: 'Obligations de la société',
+      paragraphs: [
+        `${company} fournit les informations et accès nécessaires à la mission et paie les honoraires aux échéances convenues.`,
+      ],
+    },
+    {
+      num: '5',
+      title: 'Honoraires',
+      paragraphs: [
+        `Les honoraires s'élèvent à ${amount}, payables ${pay}. Ils s'entendent hors taxes applicables. Aucun remboursement de frais n'est dû sans accord préalable écrit.`,
+      ],
+    },
+    {
+      num: '6',
+      title: 'Confidentialité et propriété',
+      paragraphs: [
+        'Les livrables, fichiers et procédés réalisés pour la mission deviennent la propriété de la société dès paiement. Le Prestataire conserve ses outils génériques antérieurs.',
+        'La confidentialité survit trois (3) ans après la fin de la mission.',
+      ],
+    },
+    {
+      num: '7',
+      title: 'Responsabilité',
+      paragraphs: [
+        'Le Prestataire est responsable des dommages causés par sa faute. Il justifie d\'une assurance professionnelle adaptée, le cas échéant.',
+      ],
+    },
+    {
+      num: '8',
+      title: 'Résiliation et litiges',
+      paragraphs: [
+        `Chaque partie peut résilier sous préavis de ${v(vars, 'noticeDays', '15')} jours, ou immédiatement en cas de manquement grave. Le droit congolais s'applique. Les tribunaux de Kinshasa sont compétents.`,
       ],
     },
   ];
@@ -630,7 +780,7 @@ function cell(text: string, width: number, opts?: { header?: boolean; fill?: boo
     verticalAlign: VerticalAlign.CENTER,
     margins: { top: 70, bottom: 70, left: 90, right: 90 },
     shading: opts?.fill || opts?.header
-      ? { type: ShadingType.CLEAR, fill: opts?.header ? NAVY : 'F3F7FB' }
+      ? { type: ShadingType.CLEAR, fill: opts?.header ? 'F4F6F8' : 'F8FAFC' }
       : undefined,
     children: text.split('\n').map((line) =>
       new Paragraph({
@@ -638,7 +788,7 @@ function cell(text: string, width: number, opts?: { header?: boolean; fill?: boo
           run(line, {
             bold: opts?.header || opts?.fill,
             size: opts?.header ? 18 : 20,
-            color: opts?.header ? 'FFFFFF' : undefined,
+            color: opts?.header ? NAVY : undefined,
           }),
         ],
       }),

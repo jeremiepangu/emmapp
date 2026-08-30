@@ -1,5 +1,8 @@
 import { ReactNode } from 'react';
+import { useLocation } from 'react-router-dom';
 import ExcelButtons from './ExcelButtons';
+import PaperFormButton from './PaperFormButton';
+import { paperFormsForPath } from '../documents/paperForms';
 import type { ExcelBundle } from '../excel/excel';
 
 const STATUS_MAP: Record<string, { label: string; className: string }> = {
@@ -73,17 +76,20 @@ export function ErpPageHeader({
   actions?: ReactNode;
   excel?: ExcelBundle | null;
 }) {
+  const { pathname } = useLocation();
+  const paperForms = paperFormsForPath(pathname);
   return (
     <div className="erp-page-title">
       <div>
         <h1>{title}</h1>
         {subtitle && <p className="erp-page-subtitle">{subtitle}</p>}
       </div>
-      {(excel || actions) && (
+      {(excel || actions || paperForms.length > 0) && (
         <div className="erp-page-title-right">
           {excel && excel.sheets.length > 0 && (
             <ExcelButtons filename={excel.filename} sheets={excel.sheets} onImported={excel.onImported} />
           )}
+          <PaperFormButton forms={paperForms} />
           {actions}
         </div>
       )}

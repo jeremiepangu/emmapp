@@ -38,6 +38,7 @@ export default function ActivityPage() {
   const { user } = useAuth();
   const { can } = usePermissions();
   const isManager = can('activity', 'validate');
+  const canDeclare = can('activity', 'create');
   const [tab, setTab] = useState<Tab>(isManager ? 'overview' : 'mine');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [mine, setMine] = useState<ActivityReportDetail | null>(null);
@@ -196,7 +197,7 @@ export default function ActivityPage() {
                 <DocButton label="Mon canvas PDF" onClick={exportMineCanvas} />
               </>
             )}
-            {tab === 'mine' && (
+            {tab === 'mine' && canDeclare && (
               <button type="button" className="erp-btn" onClick={() => document.getElementById('activity-form')?.scrollIntoView({ behavior: 'smooth' })}>
                 + Enregistrer
               </button>
@@ -310,15 +311,16 @@ export default function ActivityPage() {
             <form id="activity-form" className="form-stack" onSubmit={saveMine}>
               <div className="form-group">
                 <label>Résumé de la journée</label>
-                <textarea rows={4} value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="Tournées, clients visités, points d’attention…" />
+                <textarea rows={4} value={summary} onChange={(e) => setSummary(e.target.value)} placeholder="Tournées, clients visités, points d’attention…" disabled={!canDeclare} />
               </div>
               <div className="form-group">
                 <label>Incidents</label>
-                <textarea rows={3} value={incidents} onChange={(e) => setIncidents(e.target.value)} placeholder="Aucun incident, ou décrire les faits" />
+                <textarea rows={3} value={incidents} onChange={(e) => setIncidents(e.target.value)} placeholder="Aucun incident, ou décrire les faits" disabled={!canDeclare} />
               </div>
               {mine?.report?.validated && <p className="muted">Ce rapport a déjà été validé. Une nouvelle saisie le remettra en attente.</p>}
+              {!canDeclare && <p className="muted">Votre profil consulte les rapports sans déclaration terrain.</p>}
               {message && <p className={message.includes('impossible') ? 'error-msg' : 'muted'}>{message}</p>}
-              <button type="submit" className="erp-btn" disabled={saving}>{saving ? 'Enregistrement…' : 'Enregistrer mon rapport'}</button>
+              {canDeclare && <button type="submit" className="erp-btn" disabled={saving}>{saving ? 'Enregistrement…' : 'Enregistrer mon rapport'}</button>}
             </form>
           </ErpPanel>
         </>

@@ -253,6 +253,7 @@ model Product {
   unitPrice   Decimal       @map("unit_price") @db.Decimal(12, 2)
   consigneAmount Decimal    @default(0) @map("consigne_amount") @db.Decimal(12, 2)
   isReusable  Boolean       @default(false) @map("is_reusable")
+  imageUrl    String?       @map("image_url") @db.Text
   maxRotations Int          @default(0) @map("max_rotations")
   loyaltyPointsPerUnit Int  @default(0) @map("loyalty_points_per_unit")
   isActive    Boolean       @default(true) @map("is_active")
