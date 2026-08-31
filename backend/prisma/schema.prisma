@@ -256,6 +256,8 @@ model Client {
   profession      String?
   creditLimit     Decimal       @default(0) @map("credit_limit") @db.Decimal(12, 2)
   creditBalance   Decimal       @default(0) @map("credit_balance") @db.Decimal(12, 2)
+  /// Trop-percu encaisse et pas encore impute sur une commande.
+  advanceBalance  Decimal       @default(0) @map("advance_balance") @db.Decimal(12, 2)
   consigneLimit   Int           @default(50) @map("consigne_limit")
   consigneBalance Int           @default(0) @map("consigne_balance")
   loyaltyPoints   Int           @default(0) @map("loyalty_points")
@@ -405,6 +407,7 @@ model Order {
   lines      OrderLine[]
   deliveries Delivery[]
   payments   Payment[]
+  allocations PaymentAllocation[]
   posSale    PosSale?
 
   @@map("orders")
@@ -578,8 +581,33 @@ model Payment {
   collector User      @relation(fields: [collectedBy], references: [id])
   posSale   PosSale?
   financeMovement FinanceMovement?
+  allocations PaymentAllocation[]
 
   @@map("payments")
+}
+
+/// Origine d'une imputation : encaissement direct ou consommation d'une avance.
+enum PaymentAllocationSource {
+  PAIEMENT
+  AVANCE
+}
+
+/// Part d'un versement affectee a une commande precise. Un versement peut
+/// couvrir plusieurs commandes, et le residu devient une avance sur compte.
+model PaymentAllocation {
+  id        String                  @id @default(uuid())
+  paymentId String?                 @map("payment_id")
+  orderId   String                  @map("order_id")
+  amount    Decimal                 @db.Decimal(12, 2)
+  source    PaymentAllocationSource @default(PAIEMENT)
+  createdAt DateTime                @default(now()) @map("created_at")
+
+  payment Payment? @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([paymentId])
+  @@map("payment_allocations")
 }
 
 /// Vente comptoir au point de vente (caisse).

@@ -11,6 +11,7 @@ import { DeliveriesModule } from './deliveries/deliveries.module';
 import { PaymentsModule } from './payments/payments.module';
 import { ConsignesModule } from './consignes/consignes.module';
 import { EcartsModule } from './ecarts/ecarts.module';
+import { RecouvrementModule } from './recouvrement/recouvrement.module';
 import { SyncModule } from './sync/sync.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { EmmapureModule } from './emmapure/emmapure.module';
@@ -52,6 +53,7 @@ import { HealthController } from './health.controller';
     PaymentsModule,
     ConsignesModule,
     EcartsModule,
+    RecouvrementModule,
     SyncModule,
     DashboardModule,
     EmmapureModule,

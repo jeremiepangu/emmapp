@@ -4,12 +4,15 @@ import { usePermissions } from '../hooks/usePermissions';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
 import DocButton from '../components/DocButton';
+import Modal from '../components/Modal';
+import ClientSituationPanel from '../components/ClientSituationPanel';
 import { printDeliveriesList, printDeliveryNote } from '../documents/templates';
 import { sheetDeliveries } from '../excel/specs';
 
 export default function DeliveriesPage() {
   const { can } = usePermissions();
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
+  const [situationClient, setSituationClient] = useState<{ id: string; name: string } | null>(null);
   const load = () => api.getDeliveries().then(setDeliveries);
   useEffect(() => { load(); }, []);
 
@@ -38,6 +41,11 @@ export default function DeliveriesPage() {
                   <td>{d.deliveredAt ? new Date(d.deliveredAt).toLocaleString('fr-FR') : '—'}</td>
                   <td className="erp-row-actions">
                     <DocButton label="BL" onClick={() => printDeliveryNote(d)} />
+                    {d.client?.id && (
+                      <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => setSituationClient({ id: d.client!.id!, name: d.client!.name })}>
+                        Situation
+                      </button>
+                    )}
                     {can('deliveries', 'validate') && d.status === 'EN_ATTENTE' && (
                       <button type="button" className="erp-btn erp-btn--sm" onClick={() => api.updateDelivery(d.id, { status: 'LIVREE' }).then(load)}>Valider</button>
                     )}
@@ -54,6 +62,14 @@ export default function DeliveriesPage() {
           </table>
         )}
       </ErpPanel>
+      <Modal
+        title={`Situation — ${situationClient?.name ?? ''}`}
+        open={Boolean(situationClient)}
+        onClose={() => setSituationClient(null)}
+        wide
+      >
+        <ClientSituationPanel clientId={situationClient?.id} />
+      </Modal>
     </div>
   );
 }

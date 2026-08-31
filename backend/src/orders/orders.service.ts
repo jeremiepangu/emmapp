@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.module';
 import { PricingService } from '../pricing/pricing.service';
 import { ConsignesService } from '../consignes/consignes.service';
 import { ClientCreditService } from '../payments/client-credit.service';
+import { PaymentAllocationService } from '../payments/payment-allocation.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateOrderDto } from './dto/order.dto';
 
@@ -18,6 +19,7 @@ export class OrdersService {
     private pricing: PricingService,
     private consignes: ConsignesService,
     private credit: ClientCreditService,
+    private allocations: PaymentAllocationService,
     private notifications: NotificationsService,
   ) {}
 
@@ -102,8 +104,10 @@ export class OrdersService {
 
       // Chaque contenant sorti sans vide rendu en echange est consigne.
       const containersOut = product.isReusable ? line.quantity + bonusQuantity : 0;
+      // Le client peut rapporter plus de vides qu'il n'en emporte : le surplus
+      // apure sa dette de consigne et peut la rendre creditrice.
       const emptiesReturned = product.isReusable
-        ? Math.min(Math.max(0, Math.floor(line.emptiesReturned ?? 0)), containersOut)
+        ? Math.max(0, Math.floor(line.emptiesReturned ?? 0))
         : 0;
       const consigneQuantity = Math.max(0, containersOut - emptiesReturned);
       const consigneAmount = new Prisma.Decimal(product.consigneAmount)
@@ -143,6 +147,8 @@ export class OrdersService {
         lines: { include: { product: true } },
       },
     });
+    // Une avance laissee par un versement anterieur solde d'office la commande.
+    await this.allocations.consumeAdvance(this.prisma, created.id, dto.clientId);
     await this.credit.refresh(dto.clientId);
     await this.notifications.notifyRoles(
       [UserRole.ADMIN, UserRole.COMMERCIAL, UserRole.CHEF_EXPLOITATION],
@@ -188,7 +194,10 @@ export class OrdersService {
       where: { id },
       data: { status: OrderStatus.ANNULEE },
     });
-    await this.credit.refresh(order.clientId);
+    // Ce qui avait ete impute sur cette commande redevient disponible.
+    await this.allocations.clearAllocations(this.prisma, { orderId: id });
+    await this.allocations.refreshOrder(this.prisma, id);
+    await this.allocations.refreshClient(this.prisma, order.clientId);
     await this.notifications.notifyRoles(
       [UserRole.ADMIN, UserRole.COMMERCIAL, UserRole.CHEF_EXPLOITATION],
       {

@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import {
   NotificationCategory,
   NotificationType,
@@ -12,11 +12,8 @@ import {
 import { PrismaService } from '../prisma/prisma.module';
 import { NotificationsService } from '../notifications/notifications.service';
 import { FinanceService } from '../finance/finance.service';
-import { ClientCreditService } from './client-credit.service';
+import { PaymentAllocationService } from './payment-allocation.service';
 import { CreatePaymentDto } from './dto/payment.dto';
-
-/** Tolerance d'arrondi au centime pour considerer une commande soldee. */
-const EPSILON = new Prisma.Decimal('0.01');
 
 @Injectable()
 export class PaymentsService {
@@ -24,7 +21,7 @@ export class PaymentsService {
     private prisma: PrismaService,
     private notifications: NotificationsService,
     private finance: FinanceService,
-    private credit: ClientCreditService,
+    private allocations: PaymentAllocationService,
   ) {}
 
   private async generatePaymentNumber(): Promise<string> {
@@ -44,6 +41,9 @@ export class PaymentsService {
         client: { select: { name: true } },
         collector: { select: { firstName: true, lastName: true } },
         order: { select: { id: true, orderNumber: true, totalAmount: true, paidAmount: true } },
+        allocations: {
+          select: { orderId: true, amount: true, source: true },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -90,12 +90,6 @@ export class PaymentsService {
     if (orderId) {
       const order = await this.prisma.order.findUnique({ where: { id: orderId } });
       if (!order) throw new NotFoundException('Commande introuvable');
-      const remaining = new Prisma.Decimal(order.totalAmount).sub(order.paidAmount);
-      if (amount.sub(remaining).gt(EPSILON)) {
-        throw new BadRequestException(
-          `Le versement depasse le reste a payer (${remaining.toFixed(2)})`,
-        );
-      }
     }
 
     const clientId = dto.clientId ?? (orderId
@@ -121,8 +115,7 @@ export class PaymentsService {
           order: { select: { id: true, orderNumber: true } },
         },
       });
-      if (orderId) await this.refreshOrderPayment(tx, orderId);
-      if (clientId) await this.refreshClientCredit(tx, clientId);
+      await this.allocations.allocatePayment(tx, payment.id);
       return payment;
     });
 
@@ -164,8 +157,7 @@ export class PaymentsService {
           collector: { select: { firstName: true, lastName: true } },
         },
       });
-      if (existing.orderId) await this.refreshOrderPayment(tx, existing.orderId);
-      if (existing.clientId) await this.refreshClientCredit(tx, existing.clientId);
+      await this.allocations.allocatePayment(tx, payment.id);
       return payment;
     });
   }
@@ -174,11 +166,65 @@ export class PaymentsService {
     const existing = await this.prisma.payment.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Paiement introuvable');
     return this.prisma.$transaction(async (tx) => {
+      const touched = await this.allocations.clearAllocations(tx, { paymentId: id });
       const deleted = await tx.payment.delete({ where: { id } });
-      if (existing.orderId) await this.refreshOrderPayment(tx, existing.orderId);
-      if (existing.clientId) await this.refreshClientCredit(tx, existing.clientId);
+      for (const orderId of touched) await this.allocations.refreshOrder(tx, orderId);
+      if (existing.clientId) await this.allocations.refreshClient(tx, existing.clientId);
       return deleted;
     });
+  }
+
+  /**
+   * Repartition previsionnelle d'un versement, pour que l'agent voie avant
+   * validation ce qui solde des commandes et ce qui partira en avance.
+   */
+  async previewAllocation(params: { amount: number; orderId?: string; clientId?: string }) {
+    const clientId = params.clientId ?? (params.orderId
+      ? (await this.prisma.order.findUnique({ where: { id: params.orderId } }))?.clientId
+      : undefined);
+
+    const ids: string[] = [];
+    if (params.orderId) ids.push(params.orderId);
+    if (clientId) {
+      const others = await this.prisma.order.findMany({
+        where: {
+          clientId,
+          id: params.orderId ? { not: params.orderId } : undefined,
+          status: { not: OrderStatus.ANNULEE },
+          paymentStatus: { in: [OrderPaymentStatus.IMPAYEE, OrderPaymentStatus.PARTIELLE] },
+        },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true },
+      });
+      ids.push(...others.map((o) => o.id));
+    }
+
+    let remaining = new Prisma.Decimal(params.amount);
+    const lines: Array<{ orderId: string; orderNumber: string; due: number; allocated: number }> = [];
+
+    for (const orderId of ids) {
+      if (remaining.lte(0)) break;
+      const due = await this.allocations.dueOf(this.prisma, orderId);
+      if (due.lte(0)) continue;
+      const allocated = Prisma.Decimal.min(remaining, due);
+      const order = await this.prisma.order.findUnique({
+        where: { id: orderId },
+        select: { orderNumber: true },
+      });
+      lines.push({
+        orderId,
+        orderNumber: order?.orderNumber ?? orderId,
+        due: Number(due),
+        allocated: Number(allocated),
+      });
+      remaining = remaining.sub(allocated);
+    }
+
+    return {
+      amount: params.amount,
+      lines,
+      advance: Number(remaining.gt(0) ? remaining : 0),
+    };
   }
 
   /**
@@ -195,28 +241,4 @@ export class PaymentsService {
     return delivery?.orderId ?? null;
   }
 
-  /** Recalcule le cumul verse et le statut de reglement d'une commande. */
-  private async refreshOrderPayment(tx: Prisma.TransactionClient, orderId: string) {
-    const order = await tx.order.findUnique({ where: { id: orderId } });
-    if (!order) return;
-    const sum = await tx.payment.aggregate({
-      where: { orderId },
-      _sum: { amount: true },
-    });
-    const paidAmount = new Prisma.Decimal(sum._sum.amount ?? 0);
-    const total = new Prisma.Decimal(order.totalAmount);
-    const status = paidAmount.lte(0)
-      ? OrderPaymentStatus.IMPAYEE
-      : total.sub(paidAmount).lte(EPSILON)
-        ? OrderPaymentStatus.SOLDEE
-        : OrderPaymentStatus.PARTIELLE;
-    await tx.order.update({
-      where: { id: orderId },
-      data: { paidAmount, paymentStatus: status },
-    });
-  }
-
-  private refreshClientCredit(tx: Prisma.TransactionClient, clientId: string) {
-    return this.credit.refresh(clientId, tx);
-  }
 }

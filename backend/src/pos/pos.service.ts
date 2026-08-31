@@ -19,6 +19,7 @@ import { PricingService } from '../pricing/pricing.service';
 import { ConsignesService } from '../consignes/consignes.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { FinanceService } from '../finance/finance.service';
+import { PaymentAllocationService } from '../payments/payment-allocation.service';
 import { PosCheckoutDto, PosLineDto } from './dto/pos.dto';
 
 const WALK_IN_CODE = 'CLI-POS';
@@ -39,6 +40,7 @@ export class PosService {
     private consignes: ConsignesService,
     private notifications: NotificationsService,
     private finance: FinanceService,
+    private allocations: PaymentAllocationService,
   ) {}
 
   async catalog() {
@@ -146,8 +148,10 @@ export class PosService {
 
       // Chaque contenant sorti sans vide rendu en echange est consigne.
       const containersOut = product.isReusable ? line.quantity + result.bonusQuantity : 0;
+      // Le client peut rapporter plus de vides qu'il n'en emporte : le surplus
+      // apure sa dette de consigne et peut la rendre creditrice.
       const emptiesReturned = product.isReusable
-        ? Math.min(line.emptiesReturned, containersOut)
+        ? Math.max(0, Math.floor(line.emptiesReturned))
         : 0;
       const consigneQuantity = Math.max(0, containersOut - emptiesReturned);
       const consigneAmount = new Prisma.Decimal(product.consigneAmount).mul(consigneQuantity);
@@ -244,6 +248,7 @@ export class PosService {
           syncStatus: SyncStatus.SYNCED,
         },
       });
+      await this.allocations.allocatePayment(tx, payment.id);
 
       const sale = await tx.posSale.create({
         data: {
@@ -338,6 +343,11 @@ export class PosService {
           where: { id: sale.orderId },
           data: { status: OrderStatus.ANNULEE },
         });
+        // L'encaissement reste acquis mais n'a plus d'objet : il devient une
+        // avance au credit du client, a rembourser ou a imputer plus tard.
+        await this.allocations.clearAllocations(tx, { orderId: sale.orderId });
+        await this.allocations.refreshOrder(tx, sale.orderId);
+        await this.allocations.refreshClient(tx, sale.clientId);
       }
       await this.adjustFinishedGoods(
         tx,

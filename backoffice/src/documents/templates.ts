@@ -56,6 +56,7 @@ import type {
   TrainingEnrollment,
   HrDocument,
   AssistantSession,
+  RecouvrementRow,
 } from '../api';
 import { formatDate, formatMoney, printDocument, printList, type DocSpec } from './printDocument';
 
@@ -87,11 +88,17 @@ export function printClientSheet(c: Client): void {
       { label: 'Adresse', value: address },
       { label: 'Pièce d’identité', value: c.idDocumentType ? `${c.idDocumentType}${c.idDocumentNumber ? ` n° ${c.idDocumentNumber}` : ''}` : '—' },
       { label: 'Géolocalisation', value: c.latitude != null && c.longitude != null ? `${c.latitude}, ${c.longitude}` : '—' },
-      { label: 'Dette vidange', value: `${c.consigneBalance} / ${c.consigneLimit} contenant(s)` },
+      {
+        label: 'Dette vidange',
+        value: c.consigneBalance < 0
+          ? `${-c.consigneBalance} contenant(s) en avoir`
+          : `${c.consigneBalance} / ${c.consigneLimit} contenant(s)`,
+      },
       {
         label: 'Dette argent',
         value: `${formatMoney(c.creditBalance ?? 0)}${Number(c.creditLimit ?? 0) > 0 ? ` / ${formatMoney(c.creditLimit ?? 0)}` : ''}`,
       },
+      { label: 'Avance sur compte', value: formatMoney(c.advanceBalance ?? 0) },
     ],
     signatures: ['Pour EMMANUEL SERVICES SARLU', 'Pour le client'],
   });
@@ -123,6 +130,7 @@ export function printProductSheet(p: Product): void {
       { label: 'Format', value: p.format },
       { label: 'Prix unitaire', value: formatMoney(p.unitPrice) },
       { label: 'Réutilisable', value: p.isReusable ? 'Oui (consigné)' : 'Non' },
+      { label: 'Prix de la vidange', value: p.isReusable ? formatMoney(p.consigneAmount ?? 0) : '—' },
     ],
     signatures: ['Pour EMMANUEL SERVICES SARLU'],
   });
@@ -131,8 +139,15 @@ export function printProductSheet(p: Product): void {
 export function printProductsCatalog(products: Product[]): void {
   printList(
     'Catalogue produits',
-    ['Code', 'Nom', 'Format', 'Prix', 'Réutilisable'],
-    products.map((p) => [p.code, p.name, p.format, formatMoney(p.unitPrice), p.isReusable ? 'Oui' : 'Non']),
+    ['Code', 'Nom', 'Format', 'Prix', 'Vidange', 'Réutilisable'],
+    products.map((p) => [
+      p.code,
+      p.name,
+      p.format,
+      formatMoney(p.unitPrice),
+      p.isReusable ? formatMoney(p.consigneAmount ?? 0) : '—',
+      p.isReusable ? 'Oui' : 'Non',
+    ]),
   );
 }
 
@@ -296,6 +311,34 @@ export function printPaymentsList(payments: Payment[]): void {
       ]),
     }],
     totals: [{ label: 'Total encaissé', value: formatMoney(total) }],
+    signatures: ['Pour EMMANUEL SERVICES SARLU'],
+  });
+}
+
+/** Etat de recouvrement : dettes en argent et en contenants, avances comprises. */
+export function printRecouvrement(rows: RecouvrementRow[]): void {
+  const totalMoney = rows.reduce((s, r) => s + r.moneyDue, 0);
+  const totalEmpties = rows.reduce((s, r) => s + r.emptiesDue, 0);
+  const totalAdvance = rows.reduce((s, r) => s + r.advance, 0);
+  printDocument({
+    kind: 'État de recouvrement',
+    tables: [{
+      headers: ['Code', 'Client', 'Dette argent', 'Avance', 'Vidange due', 'Avoir', 'Ancienneté'],
+      rows: rows.map((r) => [
+        r.code,
+        r.name,
+        formatMoney(r.moneyDue),
+        formatMoney(r.advance),
+        String(r.emptiesDue),
+        String(r.emptiesCredit),
+        r.oldestDebtDays != null ? `${r.oldestDebtDays} j` : '—',
+      ]),
+    }],
+    totals: [
+      { label: 'Total à encaisser', value: formatMoney(totalMoney) },
+      { label: 'Contenants à récupérer', value: String(totalEmpties) },
+      { label: 'Avances au crédit des clients', value: formatMoney(totalAdvance) },
+    ],
     signatures: ['Pour EMMANUEL SERVICES SARLU'],
   });
 }

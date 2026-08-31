@@ -3433,6 +3433,112 @@ body {
   font-weight: 500;
 }
 
+.client-situation {
+  border: 1px solid var(--erp-border);
+  border-radius: 12px;
+  padding: 12px 14px;
+  background: var(--erp-surface, #fff);
+  margin-bottom: 16px;
+}
+
+.client-situation-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.client-situation-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.03);
+}
+
+.client-situation-item span {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+  color: var(--erp-text-muted);
+}
+
+.client-situation-item strong {
+  font-size: 18px;
+}
+
+.client-situation-item small {
+  font-size: 11px;
+  color: var(--erp-text-muted);
+}
+
+.client-situation-item.is-alert strong {
+  color: var(--erp-danger, #dc2626);
+}
+
+.client-situation-item.is-credit strong {
+  color: var(--erp-green, #16a34a);
+}
+
+.client-situation-formats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--erp-text-muted);
+}
+
+.client-situation-table {
+  margin-top: 12px;
+}
+
+.client-situation.is-compact {
+  padding: 10px;
+  margin-bottom: 12px;
+}
+
+.client-situation.is-compact .client-situation-item strong {
+  font-size: 15px;
+}
+
+.recouvrement-filters {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.recouvrement-filters .form-group {
+  margin-bottom: 0;
+}
+
+.recouvrement-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.allocation-preview {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.04);
+  font-size: 12px;
+}
+
+.allocation-preview ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.allocation-preview .is-advance {
+  color: var(--erp-green, #16a34a);
+  font-weight: 700;
+}
+
 .pos-closing {
   display: flex;
   align-items: flex-end;

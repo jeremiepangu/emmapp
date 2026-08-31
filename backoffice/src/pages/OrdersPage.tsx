@@ -4,6 +4,7 @@ import { usePermissions } from '../hooks/usePermissions';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
 import Modal from '../components/Modal';
+import ClientSituationPanel from '../components/ClientSituationPanel';
 import DocButton from '../components/DocButton';
 import ProductSaleCard, { ProductSaleGrid } from '../components/ProductSaleCard';
 import { printOrder, printOrdersList } from '../documents/templates';
@@ -137,6 +138,7 @@ export default function OrdersPage() {
               {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
+          <ClientSituationPanel clientId={form.clientId} compact />
           <div className="form-group">
             <label>Livreur (tarif préférentiel)</label>
             <select value={form.driverId} onChange={(e) => setForm({ ...form, driverId: e.target.value })}>

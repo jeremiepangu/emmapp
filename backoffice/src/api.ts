@@ -741,6 +741,28 @@ export const api = {
   deletePayment: (id: string) => request<void>(`/payments/${id}`, { method: 'DELETE' }),
   getOutstandingOrders: (clientId?: string) =>
     request<OutstandingOrder[]>(`/payments/outstanding${clientId ? `?clientId=${clientId}` : ''}`),
+  previewAllocation: (params: { amount: number; orderId?: string; clientId?: string }) => {
+    const q = new URLSearchParams({ amount: String(params.amount) });
+    if (params.orderId) q.set('orderId', params.orderId);
+    if (params.clientId) q.set('clientId', params.clientId);
+    return request<AllocationPreview>(`/payments/allocation-preview?${q.toString()}`);
+  },
+
+  getRecouvrement: (params?: { filter?: RecouvrementFilter; minAgeDays?: number; search?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.filter) q.set('filter', params.filter);
+    if (params?.minAgeDays) q.set('minAgeDays', String(params.minAgeDays));
+    if (params?.search) q.set('search', params.search);
+    const qs = q.toString();
+    return request<RecouvrementRow[]>(`/recouvrement${qs ? `?${qs}` : ''}`);
+  },
+  getClientSituation: (clientId: string) =>
+    request<ClientSituation>(`/recouvrement/clients/${clientId}`),
+  remindClient: (clientId: string, notes?: string) =>
+    request<ClientSituation>(`/recouvrement/clients/${clientId}/relance`, {
+      method: 'POST',
+      body: JSON.stringify({ notes }),
+    }),
 
   getProductionOrders: () => request<ProductionOrder[]>('/emmapure/production'),
   createProductionOrder: (data: { productFormat: string; lineCode: string; plannedQty: number }) =>
@@ -938,6 +960,8 @@ export const api = {
     request<ConsigneMovement>(`/consignes/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteConsigneMovement: (id: string) => request<void>(`/consignes/${id}`, { method: 'DELETE' }),
   getConsigneDebtors: () => request<ConsigneDebtor[]>('/consignes/debtors'),
+  getConsigneSituation: (filter?: 'DEBITEUR' | 'CREDITEUR' | 'TOUS') =>
+    request<ConsigneDebtor[]>(`/consignes/situation${filter ? `?filter=${filter}` : ''}`),
   getClientConsigneBalances: (clientId: string) =>
     request<ConsigneBalances>(`/consignes/client/${clientId}/balances`),
   recordConsigneReturn: (data: { clientId: string; productFormat: string; quantity: number; notes?: string }) =>
@@ -1754,6 +1778,8 @@ export interface Client {
   consigneLimit: number;
   creditBalance?: string | number;
   creditLimit?: string | number;
+  /** Trop-percu disponible, imputable sur les prochaines commandes. */
+  advanceBalance?: string | number;
 }
 
 export interface Product {
@@ -1762,6 +1788,8 @@ export interface Product {
   name: string;
   format: string;
   unitPrice: string | number;
+  /** Prix de la vidange, facture au client tant que le contenant n'est pas rendu. */
+  consigneAmount?: string | number;
   isReusable: boolean;
   imageUrl?: string | null;
 }
@@ -1900,7 +1928,7 @@ export interface Delivery {
   deliveryNumber: string;
   status: string;
   deliveredAt?: string;
-  client?: { name: string };
+  client?: { id?: string; name: string };
 }
 
 export interface Payment {
@@ -1932,6 +1960,88 @@ export interface ConsigneBalances {
   formats: Array<{ productFormat: string; quantity: number; amount: number }>;
   totalQuantity: number;
   totalAmount: number;
+  /** Contenants dus par le client. */
+  dueQuantity: number;
+  /** Contenants rapportes en trop, deductibles des prochaines sorties. */
+  creditQuantity: number;
+}
+
+/** Repartition previsionnelle d'un versement avant validation. */
+export interface AllocationPreview {
+  amount: number;
+  lines: Array<{ orderId: string; orderNumber: string; due: number; allocated: number }>;
+  advance: number;
+}
+
+export type RecouvrementFilter = 'TOUS' | 'ARGENT' | 'VIDANGE' | 'CREDITEUR';
+
+export interface RecouvrementRow {
+  clientId: string;
+  code: string;
+  name: string;
+  segment: string;
+  phone: string | null;
+  moneyDue: number;
+  advance: number;
+  creditLimit: number;
+  emptiesDue: number;
+  emptiesCredit: number;
+  emptiesValue: number;
+  consigneLimit: number;
+  formats: Array<{ productFormat: string; quantity: number; amount: number }>;
+  unpaidOrders: number;
+  oldestDebtDays: number | null;
+  lastPaymentAt: string | null;
+  lastReturnAt: string | null;
+}
+
+/** Situation consolidee d'un client : argent, vidange, pieces et ecarts. */
+export interface ClientSituation {
+  client: {
+    id: string;
+    code: string;
+    name: string;
+    segment: string;
+    phone: string | null;
+    creditLimit: number;
+    consigneLimit: number;
+  };
+  money: { due: number; advance: number; limit: number; unpaidOrders: number };
+  empties: {
+    due: number;
+    credit: number;
+    value: number;
+    limit: number;
+    formats: Array<{ productFormat: string; quantity: number; amount: number }>;
+  };
+  orders: Array<{
+    id: string;
+    orderNumber: string;
+    createdAt: string;
+    totalAmount: number;
+    paidAmount: number;
+    remaining: number;
+    paymentStatus: OrderPaymentStatus;
+    ageDays: number;
+  }>;
+  payments: Array<{
+    id: string;
+    paymentNumber: string;
+    amount: number;
+    method: string;
+    createdAt: string;
+    orderNumber: string | null;
+  }>;
+  movements: Array<{
+    id: string;
+    productFormat: string;
+    qtyIn: number;
+    qtyOut: number;
+    balanceAfter: number;
+    source: string;
+    createdAt: string;
+  }>;
+  discrepancies: Discrepancy[];
 }
 
 export interface ConsigneDebtor {

@@ -38,6 +38,19 @@ export class PaymentsController {
     return this.paymentsService.outstanding(clientId);
   }
 
+  @Get('allocation-preview')
+  previewAllocation(
+    @Query('amount') amount: string,
+    @Query('orderId') orderId?: string,
+    @Query('clientId') clientId?: string,
+  ) {
+    return this.paymentsService.previewAllocation({
+      amount: Number(amount) || 0,
+      orderId,
+      clientId,
+    });
+  }
+
   @Roles(UserRole.LIVREUR, UserRole.CHARGE_LIVRAISON, UserRole.CAISSIER, UserRole.COMMERCIAL, UserRole.ADMIN)
   @Post()
   create(

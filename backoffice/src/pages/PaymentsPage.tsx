@@ -1,10 +1,11 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { api, Client, OutstandingOrder, Payment, PaymentMethod } from '../api';
+import { AllocationPreview, api, Client, OutstandingOrder, Payment, PaymentMethod } from '../api';
 import { usePermissions } from '../hooks/usePermissions';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
 import Modal from '../components/Modal';
 import DocButton from '../components/DocButton';
+import ClientSituationPanel from '../components/ClientSituationPanel';
 import { printPaymentReceipt, printPaymentsList } from '../documents/templates';
 import { sheetPayments } from '../excel/specs';
 
@@ -22,6 +23,7 @@ export default function PaymentsPage() {
   const [editing, setEditing] = useState<Payment | null>(null);
   const [form, setForm] = useState({ clientId: '', orderId: '', amount: 0, method: 'ESPECES' as PaymentMethod, reference: '' });
   const [outstanding, setOutstanding] = useState<OutstandingOrder[]>([]);
+  const [preview, setPreview] = useState<AllocationPreview | null>(null);
   const [error, setError] = useState('');
 
   const load = () => Promise.all([
@@ -51,6 +53,25 @@ export default function PaymentsPage() {
     setError('');
     setShowForm(true);
   };
+
+  // Le trop-percu est autorise : on montre a l'avance ce qui solde des
+  // commandes et ce qui restera en avance au credit du client.
+  useEffect(() => {
+    if (editing || !showForm || form.amount <= 0 || (!form.clientId && !form.orderId)) {
+      setPreview(null);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      api.previewAllocation({
+        amount: Number(form.amount),
+        orderId: form.orderId || undefined,
+        clientId: form.clientId || undefined,
+      })
+        .then(setPreview)
+        .catch(() => setPreview(null));
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [form.amount, form.orderId, form.clientId, showForm, editing]);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -166,6 +187,7 @@ export default function PaymentsPage() {
         </table>
       </ErpPanel>
       <Modal title={editing ? 'Modifier l’encaissement' : 'Nouvel encaissement'} open={showForm} onClose={() => setShowForm(false)}>
+        <ClientSituationPanel clientId={form.clientId} compact refreshKey={payments.length} />
         <form className="form-stack" onSubmit={submit}>
           <div className="form-group">
             <label>Client</label>
@@ -202,12 +224,36 @@ export default function PaymentsPage() {
               {selectedOrder && (
                 <p className="erp-muted">
                   Total {selectedOrder.totalAmount.toLocaleString('fr-FR')} CDF, déjà payé{' '}
-                  {selectedOrder.paidAmount.toLocaleString('fr-FR')} CDF. Un versement partiel est accepté.
+                  {selectedOrder.paidAmount.toLocaleString('fr-FR')} CDF.
                 </p>
               )}
             </div>
           )}
-          <div className="form-group"><label>Montant (CDF)</label><input type="number" min={0} value={form.amount} onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })} required /></div>
+          <div className="form-group">
+            <label>Montant (CDF)</label>
+            <input type="number" min={0} value={form.amount} onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })} required />
+            <p className="erp-muted">
+              Un versement partiel comme un versement en surplus sont acceptés.
+            </p>
+          </div>
+          {preview && (preview.lines.length > 0 || preview.advance > 0) && (
+            <div className="allocation-preview">
+              <strong>Répartition prévue</strong>
+              <ul>
+                {preview.lines.map((l) => (
+                  <li key={l.orderId}>
+                    {l.orderNumber} : {l.allocated.toLocaleString('fr-FR')} CDF
+                    {l.allocated >= l.due ? ' (soldée)' : ` sur ${l.due.toLocaleString('fr-FR')} CDF`}
+                  </li>
+                ))}
+                {preview.advance > 0 && (
+                  <li className="is-advance">
+                    Avance sur compte : {preview.advance.toLocaleString('fr-FR')} CDF
+                  </li>
+                )}
+              </ul>
+            </div>
+          )}
           <div className="form-group">
             <label>Mode</label>
             <select value={form.method} onChange={(e) => setForm({ ...form, method: e.target.value as PaymentMethod })}>

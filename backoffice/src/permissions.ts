@@ -34,7 +34,8 @@ export type Resource =
     | 'objectives'
     | 'pos'
   | 'finance'
-  | 'ecarts';
+  | 'ecarts'
+  | 'recouvrement';
 
 export type Action = 'read' | 'create' | 'update' | 'delete' | 'validate';
 
@@ -221,6 +222,7 @@ export const MENU_ITEMS: MenuItem[] = [
   { path: '/payments', label: 'Factures & paiements', resource: 'payments', section: 'FACTURES' },
   { path: '/finance', label: 'Comptabilité', resource: 'finance', section: 'FACTURES' },
   { path: '/ecarts', label: 'Écarts et clôtures', resource: 'ecarts', section: 'FACTURES' },
+  { path: '/recouvrement', label: 'Recouvrement', resource: 'recouvrement', section: 'FACTURES' },
   { path: '/loyalty', label: 'Fidélité', resource: 'loyalty', section: 'COMMERCE' },
   { path: '/consignes', label: 'Consignes circulaires', resource: 'consignes', section: 'COMMERCE' },
   { path: '/marketplace', label: 'Marketplace B2B', resource: 'marketplace', section: 'COMMERCE' },

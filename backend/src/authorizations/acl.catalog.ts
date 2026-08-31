@@ -42,6 +42,7 @@ export const ACL_RESOURCES: {
   { id: 'payments', label: 'Factures & paiements', section: 'FACTURES', path: '/payments', description: 'Encaissements' },
   { id: 'finance', label: 'Comptabilité', section: 'FACTURES', path: '/finance', description: 'Caisse, banque, dépenses, inventaire et budget' },
   { id: 'ecarts', label: 'Écarts et clôtures', section: 'FACTURES', path: '/ecarts', description: 'Écarts de caisse, de tournée et de vidange' },
+  { id: 'recouvrement', label: 'Recouvrement', section: 'FACTURES', path: '/recouvrement', description: 'Dettes en argent et en vidange, avances et relances' },
   { id: 'loyalty', label: 'Fidélité', section: 'COMMERCE', path: '/loyalty', description: 'Points, paliers, wallet' },
   { id: 'consignes', label: 'Consignes circulaires', section: 'COMMERCE', path: '/consignes', description: 'Emballages consignés et fontaines' },
   { id: 'marketplace', label: 'Marketplace B2B', section: 'COMMERCE', path: '/marketplace', description: 'Demandes de cotation' },
@@ -298,7 +299,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, AclMatrix> = {
   ADMIN: Object.fromEntries(ALL_RESOURCES.map((id) => [id, FULL])),
   DG: {
     dashboard: R, clients: R, orders: R, products: R, tours: R, stock: R, deliveries: R,
-    payments: R, finance: RUV, ecarts: R, production: R, quality: R, loyalty: R, consignes: R, hr: R, payroll: R,
+    payments: R, finance: RUV, ecarts: R, recouvrement: R, production: R, quality: R, loyalty: R, consignes: R, hr: R, payroll: R,
     observability: R, users: R, notifications: R, authorizations: R, contracts: RUV,
     ai: R, assistant: RC, iot: R, routing: R, esg: R, security: R, portal: R, marketplace: R, pricing: R, packaging: R, vehicles: R, objectives: R, pos: R,
     activity: RUV,
@@ -346,6 +347,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, AclMatrix> = {
   COMMERCIAL: {
     dashboard: R, clients: FULL, orders: FULL, loyalty: RCU, products: R, payments: RCU, notifications: R,
     ai: R, assistant: RC, portal: RCU, marketplace: RCUV, pricing: FULL, hr: R, contracts: RCUV, objectives: RCU, pos: FULL, finance: R,
+    consignes: RCU, recouvrement: RCU,
     activity: RC,
   },
   DELEGUE_COMMERCIAL: {
@@ -355,11 +357,11 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, AclMatrix> = {
   },
   CAISSIER: {
     dashboard: R, payments: FULL, clients: R, orders: R, notifications: R,
-    assistant: RC, hr: R, pos: FULL, finance: RCU, ecarts: RC,
+    assistant: RC, hr: R, pos: FULL, finance: RCU, ecarts: RC, recouvrement: RC,
     activity: RC,
   },
   COMPTABLE: {
-    payments: RCU, finance: FULL, ecarts: FULL, clients: R, orders: R, dashboard: R, notifications: R,
+    payments: RCU, finance: FULL, ecarts: FULL, recouvrement: RCUV, clients: R, orders: R, dashboard: R, notifications: R,
     ai: R, assistant: RC, payroll: RCUV, hr: R, contracts: RCUV, pos: R,
     activity: RCUV,
   },
@@ -485,6 +487,7 @@ const PATH_MAP: Array<[string, string]> = [
   ['/finance', 'finance'],
   ['/consignes', 'consignes'],
   ['/ecarts', 'ecarts'],
+  ['/recouvrement', 'recouvrement'],
   ['/users', 'users'],
   ['/ai', 'ai'],
   ['/assistant', 'assistant'],

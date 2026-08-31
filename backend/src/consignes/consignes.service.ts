@@ -117,21 +117,35 @@ export class ConsignesService {
       where: { clientId },
       orderBy: { productFormat: 'asc' },
     });
+    const totalQuantity = balances.reduce((sum, b) => sum + b.quantity, 0);
+    const totalAmount = balances.reduce((sum, b) => sum + Number(b.amount), 0);
     return {
       formats: balances.map((b) => ({
         productFormat: b.productFormat,
         quantity: b.quantity,
         amount: Number(b.amount),
       })),
-      totalQuantity: balances.reduce((sum, b) => sum + b.quantity, 0),
-      totalAmount: balances.reduce((sum, b) => sum + Number(b.amount), 0),
+      totalQuantity,
+      totalAmount,
+      /** Contenants dus par le client. */
+      dueQuantity: Math.max(0, totalQuantity),
+      /** Contenants rapportes en trop, deductibles des prochaines sorties. */
+      creditQuantity: Math.max(0, -totalQuantity),
     };
   }
 
   /** Clients ayant des contenants non restitues. */
   async debtors() {
+    return this.situation('DEBITEUR');
+  }
+
+  /**
+   * Situation de vidange de tous les clients concernes : ceux qui doivent des
+   * contenants comme ceux qui en ont rapporte en trop.
+   */
+  async situation(filter: 'DEBITEUR' | 'CREDITEUR' | 'TOUS' = 'TOUS') {
     const balances = await this.prisma.clientConsigneBalance.findMany({
-      where: { quantity: { gt: 0 } },
+      where: { quantity: { not: 0 } },
       include: {
         client: {
           select: { id: true, code: true, name: true, segment: true, consigneLimit: true, phone: true },
@@ -164,7 +178,13 @@ export class ConsignesService {
       byClient.set(row.clientId, entry);
     }
 
-    return [...byClient.values()].sort((a, b) => b.totalQuantity - a.totalQuantity);
+    return [...byClient.values()]
+      .filter((e) => {
+        if (filter === 'DEBITEUR') return e.totalQuantity > 0;
+        if (filter === 'CREDITEUR') return e.totalQuantity < 0;
+        return e.totalQuantity !== 0;
+      })
+      .sort((a, b) => b.totalQuantity - a.totalQuantity);
   }
 
   /**

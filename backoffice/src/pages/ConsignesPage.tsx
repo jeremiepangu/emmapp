@@ -22,7 +22,7 @@ export default function ConsignesPage() {
   const [packForm, setPackForm] = useState({ barcode: '', productFormat: 'BONBONNE_19L', maxRotations: 40 });
   const [moveForm, setMoveForm] = useState({ clientId: '', productFormat: 'BONBONNE_19L', qtyIn: 0, qtyOut: 0 });
   const [fountainForm, setFountainForm] = useState({ serialNumber: '', model: '', contractType: 'LOCATION' });
-  const [debtors, setDebtors] = useState<ConsigneDebtor[]>([]);
+  const [balances, setBalances] = useState<ConsigneDebtor[]>([]);
   const [returnForm, setReturnForm] = useState({ clientId: '', productFormat: 'BONBONNE_19L', quantity: 1 });
   const [returnError, setReturnError] = useState('');
 
@@ -30,7 +30,7 @@ export default function ConsignesPage() {
     api.getPackagingUnits().then(setPackaging);
     api.getFountains().then(setFountains);
     api.getConsigneMovements().then(setMovements).catch(() => setMovements([]));
-    api.getConsigneDebtors().then(setDebtors).catch(() => setDebtors([]));
+    api.getConsigneSituation('TOUS').then(setBalances).catch(() => setBalances([]));
   };
   useEffect(() => { load(); api.getClients().then(setClients); }, []);
 
@@ -50,8 +50,13 @@ export default function ConsignesPage() {
     }
   };
 
+  // Un solde negatif signale un client qui a rapporte plus de vides qu'il n'en
+  // devait : ce surplus lui reste acquis en avoir.
+  const debtors = balances.filter((d) => d.totalQuantity > 0);
+  const creditors = balances.filter((d) => d.totalQuantity < 0);
   const totalDue = debtors.reduce((sum, d) => sum + d.totalQuantity, 0);
   const totalDueAmount = debtors.reduce((sum, d) => sum + d.totalAmount, 0);
+  const totalCredit = creditors.reduce((sum, d) => sum - d.totalQuantity, 0);
 
   return (
     <div className="erp-page">
@@ -135,6 +140,9 @@ export default function ConsignesPage() {
                 value={returnForm.quantity}
                 onChange={(e) => setReturnForm({ ...returnForm, quantity: Number(e.target.value) })}
               />
+              <span className="erp-muted">
+                Retour partiel ou en surplus accepté ; le surplus devient un avoir.
+              </span>
             </div>
             <div className="form-group" style={{ alignSelf: 'end' }}>
               <button type="submit" className="erp-btn">Enregistrer le retour</button>
@@ -170,6 +178,37 @@ export default function ConsignesPage() {
         </table>
         {!debtors.length && <p className="erp-table-empty">Aucun contenant en circulation.</p>}
       </ErpPanel>
+
+      {creditors.length > 0 && (
+        <div style={{ marginTop: 18 }}>
+          <ErpPanel
+            title={`Clients créditeurs de vidange (${creditors.length}) — ${totalCredit} contenant(s) en avoir`}
+          >
+            <table className="erp-table">
+              <thead>
+                <tr><th>Client</th><th>Détail par format</th><th>Avoir</th></tr>
+              </thead>
+              <tbody>
+                {creditors.map((d) => (
+                  <tr key={d.client.id}>
+                    <td><strong>{d.client.name}</strong><br /><code>{d.client.code}</code></td>
+                    <td>
+                      {d.formats
+                        .filter((f) => f.quantity < 0)
+                        .map((f) => `${f.productFormat} : ${-f.quantity}`)
+                        .join(' · ') || '—'}
+                    </td>
+                    <td><strong>{-d.totalQuantity}</strong></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="erp-table-empty">
+              Ces contenants seront déduits automatiquement des prochaines sorties.
+            </p>
+          </ErpPanel>
+        </div>
+      )}
 
       <ErpPanel title={`Mouvements (${movements.length})`}>
         <table className="erp-table">

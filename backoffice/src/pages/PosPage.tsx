@@ -14,6 +14,7 @@ import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
 import DocButton from '../components/DocButton';
 import ProductSaleCard, { ProductSaleGrid } from '../components/ProductSaleCard';
+import ClientSituationPanel from '../components/ClientSituationPanel';
 import { printPosSalesList, printPosTicket } from '../documents/templates';
 import { exportSheet } from '../excel/specs';
 
@@ -127,18 +128,29 @@ export default function PosPage() {
     });
   };
 
+  /**
+   * Contenants effectivement remis au client : la quantite facturee plus les
+   * articles offerts, qui sortent eux aussi du stock et sont donc consignes.
+   */
+  const deliveredOf = (productId: string, quantity: number) => {
+    const priced = quote?.lines.find((l) => l.productId === productId);
+    return quantity + (priced?.bonusQuantity ?? 0);
+  };
+
   const setQty = (productId: string, quantity: number) => {
     setCart((prev) => {
       if (quantity < 1) return prev.filter((l) => l.productId !== productId);
-      return prev.map((l) => l.productId === productId
-        ? { ...l, quantity, emptiesReturned: Math.min(l.emptiesReturned, quantity) }
-        : l);
+      return prev.map((l) => l.productId === productId ? { ...l, quantity } : l);
     });
   };
 
+  /**
+   * Le client peut rapporter plus de vides qu'il n'en emporte : le surplus
+   * apure sa dette de consigne, on ne le plafonne donc pas.
+   */
   const setEmpties = (productId: string, value: number) => {
     setCart((prev) => prev.map((l) => l.productId === productId
-      ? { ...l, emptiesReturned: Math.max(0, Math.min(value, l.quantity)) }
+      ? { ...l, emptiesReturned: Math.max(0, Math.floor(value) || 0) }
       : l));
   };
 
@@ -324,6 +336,7 @@ export default function PosPage() {
               ))}
             </select>
           </div>
+          <ClientSituationPanel clientId={clientId} compact refreshKey={sales.length} />
           <div className="pos-cart-lines">
             {cart.map((line) => {
               const priced = quote?.lines.find((l) => l.productId === line.productId);
@@ -332,6 +345,8 @@ export default function PosPage() {
               const unit = priced?.unitPrice ?? Number(product?.unitPrice ?? 0);
               const lineTotal = priced?.lineTotal ?? unit * line.quantity;
               const reusable = priced?.isReusable ?? product?.isReusable ?? false;
+              const offered = priced?.bonusQuantity ?? 0;
+              const delivered = line.quantity + offered;
               return (
                 <div key={line.productId} className="pos-cart-line">
                   <div>
@@ -339,17 +354,21 @@ export default function PosPage() {
                     <p>{money(unit)} / u. × {line.quantity}{priced?.ruleName ? ` · ${priced.ruleName}` : ''}</p>
                     {reusable && (
                       <label className="pos-cart-empties">
-                        Vides rendus
+                        Vides rendus{offered > 0 ? ` (sur ${delivered} livrés)` : ''}
                         <input
                           type="number"
                           min={0}
-                          max={line.quantity}
                           value={line.emptiesReturned}
                           onChange={(e) => setEmpties(line.productId, Number(e.target.value))}
                         />
                         {priced && priced.consigneQuantity > 0 && (
                           <span className="erp-muted">
                             {priced.consigneQuantity} consigné(s) · {money(priced.consigneAmount)}
+                          </span>
+                        )}
+                        {line.emptiesReturned > delivered && (
+                          <span className="erp-muted">
+                            +{line.emptiesReturned - delivered} en avoir
                           </span>
                         )}
                       </label>

@@ -6,6 +6,7 @@ import StatusPill from '../components/ErpUi';
 import Modal from '../components/Modal';
 import SavedViewsBar from '../components/SavedViewsBar';
 import DocButton from '../components/DocButton';
+import ClientSituationPanel from '../components/ClientSituationPanel';
 import { printClientSheet, printClientsList } from '../documents/templates';
 import { sheetClients } from '../excel/specs';
 import {
@@ -68,6 +69,7 @@ export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Client | null>(null);
+  const [situationClient, setSituationClient] = useState<Client | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [geoMsg, setGeoMsg] = useState('');
@@ -214,7 +216,9 @@ export default function ClientsPage() {
                 <td>{c.phone ?? '—'}</td>
                 <td>{c.idDocumentType ? `${ID_DOCUMENT_TYPES.find((t) => t.value === c.idDocumentType)?.label ?? c.idDocumentType}${c.idDocumentNumber ? ` ${c.idDocumentNumber}` : ''}` : '—'}</td>
                 <td>
-                  {c.consigneBalance} / {c.consigneLimit} contenant(s)
+                  {c.consigneBalance < 0
+                    ? `${-c.consigneBalance} contenant(s) en avoir`
+                    : `${c.consigneBalance} / ${c.consigneLimit} contenant(s)`}
                   {c.consigneBalance > c.consigneLimit * 0.8 && <StatusPill status="ALERTE" label="Proche plafond" />}
                 </td>
                 <td>
@@ -228,9 +232,15 @@ export default function ClientsPage() {
                       )}
                     </>
                   )}
+                  {Number(c.advanceBalance ?? 0) > 0 && (
+                    <div className="erp-muted">
+                      Avance {Number(c.advanceBalance).toLocaleString('fr-FR')} CDF
+                    </div>
+                  )}
                 </td>
                 <td className="erp-row-actions">
                   <DocButton onClick={() => printClientSheet(c)} />
+                  <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => setSituationClient(c)}>Situation</button>
                   {can('clients', 'update') && <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => openEdit(c)}>Modifier</button>}
                   {can('clients', 'delete') && <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => api.deleteClient(c.id).then(load)}>Désactiver</button>}
                 </td>
@@ -239,6 +249,14 @@ export default function ClientsPage() {
           </tbody>
         </table>
       </ErpPanel>
+      <Modal
+        title={`Situation — ${situationClient?.name ?? ''}`}
+        open={Boolean(situationClient)}
+        onClose={() => setSituationClient(null)}
+        wide
+      >
+        <ClientSituationPanel clientId={situationClient?.id} />
+      </Modal>
       <Modal title={editing ? 'Identité du client' : 'Nouveau client'} open={showForm} onClose={() => setShowForm(false)} wide>
         <form onSubmit={handleSubmit} className="form-stack">
           <div className="form-row">

@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { ProductFormat, UserRole } from '@prisma/client';
 import { ConsignesService } from './consignes.service';
@@ -20,6 +20,11 @@ export class ConsignesController {
   @Get('debtors')
   debtors() {
     return this.consignesService.debtors();
+  }
+
+  @Get('situation')
+  situation(@Query('filter') filter?: 'DEBITEUR' | 'CREDITEUR' | 'TOUS') {
+    return this.consignesService.situation(filter ?? 'TOUS');
   }
 
   @Get('client/:clientId')
