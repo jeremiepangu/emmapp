@@ -502,7 +502,11 @@ export function mapRequestToAcl(method: string, url: string): { resource: string
   const resource = PATH_MAP.find(([prefix]) => path.startsWith(prefix))?.[1];
   if (!resource) return null;
   const verb = method.toUpperCase();
-  const workflow = /\/(validate|start|complete|cancel|reject|convert|pay|close|compute|enroll|follow)/.test(path);
+  // Le mot-cle doit occuper un segment entier : sans cette borne, « /payments »
+  // et « /payroll » contiennent « /pay » et basculaient en action « valider »,
+  // si bien qu'un droit de creation accorde dans les habilitations etait refuse.
+  const workflow = /\/(validate|start|complete|cancel|reject|convert|pay|close|compute|enroll|follow)(\/|$)/
+    .test(path);
   let action: AclAction = 'read';
   if (verb === 'GET') action = 'read';
   else if (verb === 'DELETE') action = 'delete';

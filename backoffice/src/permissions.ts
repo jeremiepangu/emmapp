@@ -56,12 +56,14 @@ export const PERMISSIONS: Record<string, Partial<Record<Resource, Action[]>>> = 
     loyalty: FULL, consignes: FULL, hr: FULL, payroll: FULL, observability: FULL, users: FULL, notifications: FULL,
     ai: FULL, assistant: FULL, iot: FULL, routing: FULL, esg: FULL, security: FULL,
     portal: FULL, marketplace: FULL, integrations: FULL, pricing: FULL, activity: FULL, packaging: FULL, vehicles: FULL, authorizations: FULL, contracts: FULL, objectives: FULL, pos: FULL, finance: FULL, ecarts: FULL,
+    recouvrement: FULL,
   },
   DG: {
     dashboard: R, clients: R, orders: R, products: R, tours: R, stock: R, deliveries: R,
     payments: R, production: R, quality: R, loyalty: R, consignes: R, hr: R, payroll: R,
     observability: R, users: R, notifications: R,
     ai: R, assistant: RC, iot: R, routing: R, esg: R, security: R, portal: R, marketplace: R, pricing: R, packaging: R, vehicles: R, authorizations: R, contracts: RUV, objectives: R, pos: R, finance: RUV, ecarts: R,
+    recouvrement: R,
     activity: RUV,
   },
   CHEF_PRODUCTION: {
@@ -107,6 +109,7 @@ export const PERMISSIONS: Record<string, Partial<Record<Resource, Action[]>>> = 
   COMMERCIAL: {
     dashboard: R, clients: FULL, orders: FULL, loyalty: RCU, products: R, payments: RCU, notifications: R,
     ai: R, assistant: RC, portal: RCU, marketplace: RCUV, pricing: FULL, hr: R, contracts: RCUV, objectives: RCU, pos: FULL, finance: R,
+    consignes: RCU, recouvrement: RCU,
     activity: RC,
   },
   DELEGUE_COMMERCIAL: {
@@ -116,11 +119,11 @@ export const PERMISSIONS: Record<string, Partial<Record<Resource, Action[]>>> = 
   },
   CAISSIER: {
     dashboard: R, payments: FULL, clients: R, orders: R, notifications: R,
-    assistant: RC, hr: R, pos: FULL, finance: RCU, ecarts: RC,
+    assistant: RC, hr: R, pos: FULL, finance: RCU, ecarts: RC, recouvrement: RC,
     activity: RC,
   },
   COMPTABLE: {
-    payments: RCU, finance: FULL, ecarts: FULL, clients: R, orders: R, dashboard: R, notifications: R,
+    payments: RCU, finance: FULL, ecarts: FULL, recouvrement: RCUV, clients: R, orders: R, dashboard: R, notifications: R,
     ai: R, assistant: RC, payroll: RCUV, hr: R, contracts: RCUV, pos: R,
     activity: RCUV,
   },
