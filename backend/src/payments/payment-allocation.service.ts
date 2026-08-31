@@ -50,6 +50,14 @@ export class PaymentAllocationService {
 
     const touched = await this.clearAllocations(db, { paymentId });
 
+    // Une avance reste au credit du client : la regle tient ici, et non chez
+    // les appelants, pour qu'aucun flux de vente ne puisse la contourner.
+    if (payment.isAdvance) {
+      for (const orderId of touched) await this.refreshOrder(db, orderId);
+      if (payment.clientId) await this.refreshClient(db, payment.clientId);
+      return new Prisma.Decimal(payment.amount);
+    }
+
     let remaining = new Prisma.Decimal(payment.amount);
     const targets = await this.targetOrders(db, payment.clientId, payment.orderId);
 
@@ -161,9 +169,38 @@ export class PaymentAllocationService {
       _sum: { amount: true },
     });
 
-    const balance = new Prisma.Decimal(collected._sum.amount ?? 0)
+    let balance = new Prisma.Decimal(collected._sum.amount ?? 0)
       .sub(fromPayments._sum.amount ?? 0)
       .sub(fromAdvance._sum.amount ?? 0);
+
+    // Une avance deja consommee perd sa contrepartie si le versement d'origine
+    // est supprime ou reduit. On defait alors les imputations d'avance les plus
+    // recentes : sans cela les commandes resteraient soldees avec de l'argent
+    // qui n'existe plus, et l'ecretage a zero masquerait le decouvert.
+    if (balance.lt(0)) {
+      const consumed = await db.paymentAllocation.findMany({
+        where: { source: PaymentAllocationSource.AVANCE, order: { clientId } },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true, orderId: true, amount: true },
+      });
+      const touched = new Set<string>();
+      for (const allocation of consumed) {
+        if (balance.gte(0)) break;
+        const taken = Prisma.Decimal.min(balance.neg(), allocation.amount);
+        if (taken.gte(allocation.amount)) {
+          await db.paymentAllocation.delete({ where: { id: allocation.id } });
+        } else {
+          await db.paymentAllocation.update({
+            where: { id: allocation.id },
+            data: { amount: new Prisma.Decimal(allocation.amount).sub(taken) },
+          });
+        }
+        balance = balance.add(taken);
+        touched.add(allocation.orderId);
+      }
+      for (const orderId of touched) await this.refreshOrder(db, orderId);
+    }
+
     const advanceBalance = balance.gt(0) ? balance : new Prisma.Decimal(0);
 
     await db.client.update({ where: { id: clientId }, data: { advanceBalance } });

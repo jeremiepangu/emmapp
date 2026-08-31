@@ -176,7 +176,10 @@ export class PosService {
         ruleName: result.ruleName,
       });
     }
-    const total = goods.add(consigneTotal);
+    const total = goods.add(consigneTotal).toDecimalPlaces(2);
+    // L'avance deja versee vient en deduction de l'espece a encaisser.
+    const advanceAvailable = new Prisma.Decimal(client.advanceBalance ?? 0);
+    const advanceApplied = Prisma.Decimal.min(advanceAvailable, total);
     return {
       client: { id: client.id, code: client.code, name: client.name, segment: client.segment },
       lines: priced,
@@ -186,7 +189,10 @@ export class PosService {
       goodsAmount: Number(goods.toDecimalPlaces(2)),
       consigneQuantity: consigneQuantityTotal,
       consigneAmount: Number(consigneTotal.toDecimalPlaces(2)),
-      total: Number(total.toDecimalPlaces(2)),
+      total: Number(total),
+      advanceAvailable: Number(advanceAvailable),
+      advanceApplied: Number(advanceApplied),
+      netToPay: Number(total.sub(advanceApplied)),
     };
   }
 
@@ -194,22 +200,15 @@ export class PosService {
     const quoted = await this.quote(dto.clientId, dto.lines);
     await this.consignes.assertWithinLimit(quoted.client.id, quoted.consigneQuantity);
     if (dto.method === PaymentMethod.ESPECES) {
-      const received = dto.cashReceived ?? quoted.total;
-      if (received + 0.001 < quoted.total) {
-        throw new BadRequestException('Le montant recu est inferieur au total');
+      const received = dto.cashReceived ?? quoted.netToPay;
+      if (received + 0.001 < quoted.netToPay) {
+        throw new BadRequestException('Le montant recu est inferieur au net a payer');
       }
     }
-    const cashReceived = dto.method === PaymentMethod.ESPECES
-      ? new Prisma.Decimal(dto.cashReceived ?? quoted.total)
-      : null;
-    const changeGiven = cashReceived
-      ? cashReceived.sub(quoted.total).toDecimalPlaces(2)
-      : null;
 
     return this.prisma.$transaction(async (tx) => {
       const saleNumber = await this.nextNumber(tx, 'POS');
       const orderNumber = await this.nextNumber(tx, 'CMD');
-      const paymentNumber = await this.nextNumber(tx, 'PAY');
 
       const order = await tx.order.create({
         data: {
@@ -218,8 +217,6 @@ export class PosService {
           notes: [`Vente comptoir ${saleNumber}`, dto.notes?.trim()].filter(Boolean).join(' - '),
           totalAmount: quoted.total,
           consigneAmount: quoted.consigneAmount,
-          paidAmount: quoted.total,
-          paymentStatus: OrderPaymentStatus.SOLDEE,
           status: OrderStatus.LIVREE,
           lines: {
             create: quoted.lines.map((l) => ({
@@ -236,19 +233,36 @@ export class PosService {
         },
       });
 
-      const payment = await tx.payment.create({
-        data: {
-          paymentNumber,
-          orderId: order.id,
-          clientId: quoted.client.id,
-          amount: quoted.total,
-          method: dto.method,
-          reference: dto.reference?.trim() || saleNumber,
-          collectedBy: cashierId,
-          syncStatus: SyncStatus.SYNCED,
-        },
-      });
-      await this.allocations.allocatePayment(tx, payment.id);
+      // L'avance disponible solde d'abord le ticket ; seul le reliquat est
+      // encaisse, et le montant retenu fait foi sur celui affiche au devis.
+      const advanceApplied = await this.allocations.consumeAdvance(
+        tx,
+        order.id,
+        quoted.client.id,
+      );
+      const netToPay = new Prisma.Decimal(quoted.total).sub(advanceApplied);
+      const cashReceived = dto.method === PaymentMethod.ESPECES
+        ? new Prisma.Decimal(dto.cashReceived ?? Number(netToPay))
+        : null;
+      const changeGiven = cashReceived
+        ? cashReceived.sub(netToPay).toDecimalPlaces(2)
+        : null;
+
+      const payment = netToPay.gt(0)
+        ? await tx.payment.create({
+          data: {
+            paymentNumber: await this.nextNumber(tx, 'PAY'),
+            orderId: order.id,
+            clientId: quoted.client.id,
+            amount: netToPay,
+            method: dto.method,
+            reference: dto.reference?.trim() || saleNumber,
+            collectedBy: cashierId,
+            syncStatus: SyncStatus.SYNCED,
+          },
+        })
+        : null;
+      if (payment) await this.allocations.allocatePayment(tx, payment.id);
 
       const sale = await tx.posSale.create({
         data: {
@@ -256,12 +270,13 @@ export class PosService {
           clientId: quoted.client.id,
           cashierId,
           orderId: order.id,
-          paymentId: payment.id,
+          paymentId: payment?.id ?? null,
           method: dto.method,
           status: PosSaleStatus.PAYEE,
           subtotal: quoted.subtotal,
           bonus: quoted.bonus,
           consigneAmount: quoted.consigneAmount,
+          advanceApplied,
           totalAmount: quoted.total,
           cashReceived,
           changeGiven,
@@ -320,7 +335,9 @@ export class PosService {
         void this.finance
           .postFromPayment({
             paymentId: sale.payment.id,
-            amount: Number(sale.totalAmount),
+            // Seul le reliquat encaisse entre en caisse : la part reglee par
+            // l'avance a deja ete comptabilisee lors de son versement.
+            amount: Number(sale.payment.amount),
             method: sale.method,
             reference: sale.payment.paymentNumber,
             label: `Vente caisse ${sale.saleNumber}`,

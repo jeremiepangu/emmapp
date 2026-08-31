@@ -1726,6 +1726,15 @@ export function printPosTicket(sale: PosSale): void {
       ...(bonusAmount > 0 ? [{ label: 'Bonus deduit', value: `-${formatMoney(bonusAmount)}` }] : []),
       ...(consigneTotal > 0 ? [{ label: 'Consigne facturee', value: formatMoney(consigneTotal) }] : []),
       { label: 'A payer', value: formatMoney(sale.totalAmount) },
+      ...(Number(sale.advanceApplied ?? 0) > 0
+        ? [
+          { label: 'Avance deduite', value: `-${formatMoney(sale.advanceApplied!)}` },
+          {
+            label: 'Net encaisse',
+            value: formatMoney(Number(sale.totalAmount) - Number(sale.advanceApplied)),
+          },
+        ]
+        : []),
       ...(sale.cashReceived != null ? [{ label: 'Recu', value: formatMoney(sale.cashReceived) }] : []),
       ...(sale.changeGiven != null ? [{ label: 'Monnaie', value: formatMoney(sale.changeGiven) }] : []),
     ],

@@ -2159,6 +2159,12 @@ export interface PosQuote {
   consigneQuantity: number;
   consigneAmount: number;
   total: number;
+  /** Avance disponible au credit du client. */
+  advanceAvailable: number;
+  /** Part du total couverte par cette avance. */
+  advanceApplied: number;
+  /** Ce qui reste a encaisser au comptoir. */
+  netToPay: number;
 }
 
 export interface PosSale {
@@ -2169,6 +2175,8 @@ export interface PosSale {
   subtotal: string | number;
   bonus: string | number;
   consigneAmount?: string | number;
+  /** Part du ticket reglee par l'avance du client, non encaissee en caisse. */
+  advanceApplied?: string | number;
   totalAmount: string | number;
   cashReceived?: string | number | null;
   changeGiven?: string | number | null;

@@ -626,6 +626,8 @@ model PosSale {
   bonus         Decimal       @default(0) @db.Decimal(12, 2)
   /// Part de consigne facturee comprise dans le total.
   consigneAmount Decimal      @default(0) @map("consigne_amount") @db.Decimal(12, 2)
+  /// Part du total reglee par l'avance du client, donc non encaissee en caisse.
+  advanceApplied Decimal      @default(0) @map("advance_applied") @db.Decimal(12, 2)
   totalAmount   Decimal       @map("total_amount") @db.Decimal(12, 2)
   cashReceived  Decimal?      @map("cash_received") @db.Decimal(12, 2)
   changeGiven   Decimal?      @map("change_given") @db.Decimal(12, 2)

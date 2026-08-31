@@ -131,24 +131,29 @@ export class OrdersService {
     await this.consignes.assertWithinLimit(dto.clientId, consigneQuantityTotal);
     const totalAmount = goodsAmount.add(consigneTotal);
 
-    const created = await this.prisma.order.create({
-      data: {
-        orderNumber: await this.generateOrderNumber(),
-        clientId: dto.clientId,
-        tourId: dto.tourId,
-        notes: dto.notes,
-        totalAmount,
-        consigneAmount: consigneTotal,
-        status: OrderStatus.VALIDEE,
-        lines: { create: linesData },
-      },
-      include: {
-        client: true,
-        lines: { include: { product: true } },
-      },
+    // La commande et la consommation de son avance forment un tout : les
+    // separer laisserait une commande sans son imputation en cas d'echec.
+    const created = await this.prisma.$transaction(async (tx) => {
+      const order = await tx.order.create({
+        data: {
+          orderNumber: await this.generateOrderNumber(),
+          clientId: dto.clientId,
+          tourId: dto.tourId,
+          notes: dto.notes,
+          totalAmount,
+          consigneAmount: consigneTotal,
+          status: OrderStatus.VALIDEE,
+          lines: { create: linesData },
+        },
+        include: {
+          client: true,
+          lines: { include: { product: true } },
+        },
+      });
+      // Une avance laissee par un versement anterieur solde d'office la commande.
+      await this.allocations.consumeAdvance(tx, order.id, dto.clientId);
+      return order;
     });
-    // Une avance laissee par un versement anterieur solde d'office la commande.
-    await this.allocations.consumeAdvance(this.prisma, created.id, dto.clientId);
     await this.credit.refresh(dto.clientId);
     await this.notifications.notifyRoles(
       [UserRole.ADMIN, UserRole.COMMERCIAL, UserRole.CHEF_EXPLOITATION],
@@ -190,14 +195,17 @@ export class OrdersService {
     if (order.status === OrderStatus.LIVREE || order.status === OrderStatus.ANNULEE) {
       throw new BadRequestException('Impossible d\'annuler cette commande');
     }
-    const updated = await this.prisma.order.update({
-      where: { id },
-      data: { status: OrderStatus.ANNULEE },
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const cancelled = await tx.order.update({
+        where: { id },
+        data: { status: OrderStatus.ANNULEE },
+      });
+      // Ce qui avait ete impute sur cette commande redevient disponible.
+      await this.allocations.clearAllocations(tx, { orderId: id });
+      await this.allocations.refreshOrder(tx, id);
+      await this.allocations.refreshClient(tx, order.clientId);
+      return cancelled;
     });
-    // Ce qui avait ete impute sur cette commande redevient disponible.
-    await this.allocations.clearAllocations(this.prisma, { orderId: id });
-    await this.allocations.refreshOrder(this.prisma, id);
-    await this.allocations.refreshClient(this.prisma, order.clientId);
     await this.notifications.notifyRoles(
       [UserRole.ADMIN, UserRole.COMMERCIAL, UserRole.CHEF_EXPLOITATION],
       {

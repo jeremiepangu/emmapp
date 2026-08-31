@@ -129,13 +129,7 @@ export class PaymentsService {
           order: { select: { id: true, orderNumber: true } },
         },
       });
-      // Une avance est encaissee sans imputation : elle reste au credit du
-      // client tant qu'une commande ne vient pas la consommer.
-      if (dto.asAdvance) {
-        if (clientId) await this.allocations.refreshClient(tx, clientId);
-      } else {
-        await this.allocations.allocatePayment(tx, payment.id);
-      }
+      await this.allocations.allocatePayment(tx, payment.id);
       return payment;
     });
 
@@ -177,12 +171,7 @@ export class PaymentsService {
           collector: { select: { firstName: true, lastName: true } },
         },
       });
-      // Une avance modifiee reste une avance : on se garde de l'imputer.
-      if (existing.isAdvance) {
-        if (existing.clientId) await this.allocations.refreshClient(tx, existing.clientId);
-      } else {
-        await this.allocations.allocatePayment(tx, payment.id);
-      }
+      await this.allocations.allocatePayment(tx, payment.id);
       return payment;
     });
   }

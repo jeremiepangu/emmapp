@@ -193,8 +193,11 @@ export default function PosPage() {
     return sum + Number(product?.unitPrice ?? 0) * line.quantity;
   }, 0);
   const total = quote?.total ?? catalogTotal;
+  // L'avance deja versee par le client vient en deduction de l'espece a encaisser.
+  const advanceApplied = quote?.advanceApplied ?? 0;
+  const netToPay = quote?.netToPay ?? total;
   const received = Number(cashReceived || 0);
-  const change = method === 'ESPECES' && received > 0 ? Math.max(0, received - total) : 0;
+  const change = method === 'ESPECES' && received > 0 ? Math.max(0, received - netToPay) : 0;
 
   const openClosing = async () => {
     setClosingError('');
@@ -232,7 +235,7 @@ export default function PosPage() {
       clientId: clientId || null,
       lines: cart,
       method,
-      cashReceived: method === 'ESPECES' ? (received || total) : undefined,
+      cashReceived: method === 'ESPECES' ? (received || netToPay) : undefined,
       reference: reference.trim() || undefined,
       notes: notes.trim() || undefined,
     };
@@ -400,6 +403,18 @@ export default function PosPage() {
             <span>Total</span>
             <strong>{money(total)}</strong>
           </div>
+          {advanceApplied > 0 && (
+            <>
+              <div className="pos-cart-total">
+                <span>Avance du client</span>
+                <strong>− {money(advanceApplied)}</strong>
+              </div>
+              <div className="pos-cart-total">
+                <span>Net à encaisser</span>
+                <strong>{money(netToPay)}</strong>
+              </div>
+            </>
+          )}
           {consigneBalance && consigneBalance.totalQuantity > 0 && (
             <p className="erp-muted" style={{ marginBottom: 8 }}>
               Vidange due par ce client : {consigneBalance.totalQuantity} contenant(s) · {money(consigneBalance.totalAmount)}
@@ -421,7 +436,7 @@ export default function PosPage() {
           {method === 'ESPECES' && (
             <div className="form-group">
               <label>Montant reçu</label>
-              <input type="number" min={0} step={100} value={cashReceived} onChange={(e) => setCashReceived(e.target.value)} placeholder={total ? String(total) : ''} />
+              <input type="number" min={0} step={100} value={cashReceived} onChange={(e) => setCashReceived(e.target.value)} placeholder={netToPay ? String(netToPay) : ''} />
               {received > 0 && <p className="erp-muted">Monnaie : {money(change)}</p>}
             </div>
           )}
