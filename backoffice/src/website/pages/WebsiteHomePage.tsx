@@ -150,7 +150,7 @@ export default function WebsiteHomePage() {
           </div>
           <div className="hl-hero-visual">
             <img
-              src="/emma-pure-banner.jpg?v=3"
+              src="/emma-pure-banner.jpg?v=4"
               alt="EMMA PURE : bidon 5 L à 9 000 CDF et bonbonne 19 L à 40 000 CDF, offre 10+1. Nouvelle tarification dès le 1er novembre 2026."
             />
           </div>

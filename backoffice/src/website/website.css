@@ -225,8 +225,9 @@
 
 .hl-hero-visual img {
   width: 100%;
-  height: 420px;
-  object-fit: contain;
+  display: block;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
   background: #d8eef8;
 }
 
@@ -563,7 +564,7 @@
   .hl-contact,
   .hl-cta-inner,
   .hl-footer-grid { grid-template-columns: 1fr; }
-  .hl-hero-visual img { height: 280px; }
+  .hl-hero-visual img { max-height: 420px; }
   .hl-topbar p { display: none; }
   .hl-services,
   .hl-products,
