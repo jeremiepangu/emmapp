@@ -28,7 +28,7 @@ export default function RecouvrementPage() {
   const [search, setSearch] = useState('');
   const [situationClient, setSituationClient] = useState<RecouvrementRow | null>(null);
   const [payTarget, setPayTarget] = useState<RecouvrementRow | null>(null);
-  const [payForm, setPayForm] = useState({ amount: 0, method: 'ESPECES' as PaymentMethod, reference: '' });
+  const [payForm, setPayForm] = useState({ amount: 0, method: 'ESPECES' as PaymentMethod, reference: '', asAdvance: false });
   const [returnTarget, setReturnTarget] = useState<RecouvrementRow | null>(null);
   const [returnForm, setReturnForm] = useState({ productFormat: 'BONBONNE_19L', quantity: 1 });
   const [error, setError] = useState('');
@@ -48,9 +48,14 @@ export default function RecouvrementPage() {
   const totalEmpties = rows.reduce((sum, r) => sum + r.emptiesDue, 0);
   const totalAdvance = rows.reduce((sum, r) => sum + r.advance, 0);
 
-  const openPayment = (row: RecouvrementRow) => {
+  const openPayment = (row: RecouvrementRow, asAdvance = false) => {
     setError('');
-    setPayForm({ amount: Math.round(row.moneyDue), method: 'ESPECES', reference: '' });
+    setPayForm({
+      amount: asAdvance ? 0 : Math.round(row.moneyDue),
+      method: 'ESPECES',
+      reference: '',
+      asAdvance,
+    });
     setPayTarget(row);
   };
 
@@ -64,11 +69,32 @@ export default function RecouvrementPage() {
         amount: Number(payForm.amount),
         method: payForm.method,
         reference: payForm.reference || undefined,
+        asAdvance: payForm.asAdvance || undefined,
       });
       setPayTarget(null);
       load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Encaissement impossible');
+    }
+  };
+
+  /**
+   * Impute l'avance disponible sur les commandes dues du client, de la plus
+   * ancienne a la plus recente, jusqu'a epuisement.
+   */
+  const applyAdvance = async (row: RecouvrementRow) => {
+    setError('');
+    try {
+      const orders = await api.getOutstandingOrders(row.clientId);
+      let left = row.advance;
+      for (const order of orders) {
+        if (left <= 0) break;
+        const result = await api.applyAdvance(order.id);
+        left -= result.applied;
+      }
+      load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Imputation impossible');
     }
   };
 
@@ -192,6 +218,16 @@ export default function RecouvrementPage() {
                         Encaisser
                       </button>
                     )}
+                    {can('payments', 'create') && (
+                      <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => openPayment(r, true)}>
+                        Avance
+                      </button>
+                    )}
+                    {can('payments', 'create') && r.advance > 0 && r.moneyDue > 0 && (
+                      <button type="button" className="erp-btn erp-btn--sm" onClick={() => applyAdvance(r)}>
+                        Solder avec l’avance
+                      </button>
+                    )}
                     {can('consignes', 'create') && r.emptiesDue > 0 && (
                       <button
                         type="button"
@@ -236,14 +272,23 @@ export default function RecouvrementPage() {
       </Modal>
 
       <Modal
-        title={`Encaissement — ${payTarget?.name ?? ''}`}
+        title={`${payForm.asAdvance ? 'Avance' : 'Encaissement'} — ${payTarget?.name ?? ''}`}
         open={Boolean(payTarget)}
         onClose={() => setPayTarget(null)}
       >
         <form className="form-stack" onSubmit={submitPayment}>
           <p className="erp-muted">
-            Reste à recouvrer : {money(payTarget?.moneyDue ?? 0)}. Un versement partiel ou en
-            surplus est accepté ; le surplus est porté en avance sur compte.
+            {payForm.asAdvance ? (
+              <>
+                Avance actuelle : {money(payTarget?.advance ?? 0)}. Le montant encaissé reste au
+                crédit du client et soldera une commande plus tard.
+              </>
+            ) : (
+              <>
+                Reste à recouvrer : {money(payTarget?.moneyDue ?? 0)}. Un versement partiel ou en
+                surplus est accepté ; le surplus est porté en avance sur compte.
+              </>
+            )}
           </p>
           <div className="form-group">
             <label>Montant (CDF)</label>
@@ -262,7 +307,9 @@ export default function RecouvrementPage() {
             <input value={payForm.reference} onChange={(e) => setPayForm({ ...payForm, reference: e.target.value })} />
           </div>
           {error && <p className="error-msg">{error}</p>}
-          <button type="submit" className="erp-btn">Enregistrer l’encaissement</button>
+          <button type="submit" className="erp-btn">
+            {payForm.asAdvance ? 'Enregistrer l’avance' : 'Enregistrer l’encaissement'}
+          </button>
         </form>
       </Modal>
 

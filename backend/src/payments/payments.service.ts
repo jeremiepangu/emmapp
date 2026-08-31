@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   NotificationCategory,
   NotificationType,
@@ -58,7 +58,16 @@ export class PaymentsService {
         paymentStatus: { in: [OrderPaymentStatus.IMPAYEE, OrderPaymentStatus.PARTIELLE] },
       },
       include: {
-        client: { select: { id: true, code: true, name: true, creditLimit: true, creditBalance: true } },
+        client: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            creditLimit: true,
+            creditBalance: true,
+            advanceBalance: true,
+          },
+        },
       },
       orderBy: { createdAt: 'asc' },
       take: 500,
@@ -96,6 +105,10 @@ export class PaymentsService {
       ? (await this.prisma.order.findUnique({ where: { id: orderId } }))?.clientId
       : undefined);
 
+    if (dto.asAdvance && !clientId) {
+      throw new BadRequestException('Une avance doit etre rattachee a un client');
+    }
+
     const created = await this.prisma.$transaction(async (tx) => {
       const payment = await tx.payment.create({
         data: {
@@ -105,6 +118,7 @@ export class PaymentsService {
           clientId,
           amount,
           method: dto.method,
+          isAdvance: dto.asAdvance ?? false,
           reference: dto.reference,
           collectedBy,
           localId: dto.localId,
@@ -115,7 +129,13 @@ export class PaymentsService {
           order: { select: { id: true, orderNumber: true } },
         },
       });
-      await this.allocations.allocatePayment(tx, payment.id);
+      // Une avance est encaissee sans imputation : elle reste au credit du
+      // client tant qu'une commande ne vient pas la consommer.
+      if (dto.asAdvance) {
+        if (clientId) await this.allocations.refreshClient(tx, clientId);
+      } else {
+        await this.allocations.allocatePayment(tx, payment.id);
+      }
       return payment;
     });
 
@@ -157,7 +177,12 @@ export class PaymentsService {
           collector: { select: { firstName: true, lastName: true } },
         },
       });
-      await this.allocations.allocatePayment(tx, payment.id);
+      // Une avance modifiee reste une avance : on se garde de l'imputer.
+      if (existing.isAdvance) {
+        if (existing.clientId) await this.allocations.refreshClient(tx, existing.clientId);
+      } else {
+        await this.allocations.allocatePayment(tx, payment.id);
+      }
       return payment;
     });
   }
@@ -172,6 +197,42 @@ export class PaymentsService {
       if (existing.clientId) await this.allocations.refreshClient(tx, existing.clientId);
       return deleted;
     });
+  }
+
+  /**
+   * Solde une commande avec l'avance disponible du client. Complement manuel
+   * de l'imputation automatique faite a la creation d'une commande.
+   */
+  async applyAdvance(orderId: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, clientId: true, orderNumber: true },
+    });
+    if (!order) throw new NotFoundException('Commande introuvable');
+
+    const applied = await this.prisma.$transaction((tx) =>
+      this.allocations.consumeAdvance(tx, order.id, order.clientId),
+    );
+    if (Number(applied) <= 0) {
+      throw new BadRequestException(
+        'Aucune avance disponible a imputer sur cette commande',
+      );
+    }
+
+    const updated = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: { totalAmount: true, paidAmount: true, paymentStatus: true },
+    });
+    return {
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      applied: Number(applied),
+      paidAmount: Number(updated?.paidAmount ?? 0),
+      remaining: Number(
+        new Prisma.Decimal(updated?.totalAmount ?? 0).sub(updated?.paidAmount ?? 0),
+      ),
+      paymentStatus: updated?.paymentStatus,
+    };
   }
 
   /**

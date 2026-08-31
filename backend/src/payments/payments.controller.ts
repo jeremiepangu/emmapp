@@ -60,6 +60,12 @@ export class PaymentsController {
     return this.paymentsService.create(dto, req.user.id);
   }
 
+  @Roles(UserRole.LIVREUR, UserRole.CHARGE_LIVRAISON, UserRole.CAISSIER, UserRole.COMMERCIAL, UserRole.ADMIN, UserRole.COMPTABLE)
+  @Post('apply-advance')
+  applyAdvance(@Body() body: { orderId: string }) {
+    return this.paymentsService.applyAdvance(body.orderId);
+  }
+
   @Roles(UserRole.ADMIN, UserRole.CAISSIER, UserRole.COMPTABLE)
   @Patch(':id')
   update(

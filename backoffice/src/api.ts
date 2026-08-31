@@ -741,6 +741,15 @@ export const api = {
   deletePayment: (id: string) => request<void>(`/payments/${id}`, { method: 'DELETE' }),
   getOutstandingOrders: (clientId?: string) =>
     request<OutstandingOrder[]>(`/payments/outstanding${clientId ? `?clientId=${clientId}` : ''}`),
+  applyAdvance: (orderId: string) =>
+    request<{
+      orderId: string;
+      orderNumber: string;
+      applied: number;
+      paidAmount: number;
+      remaining: number;
+      paymentStatus: OrderPaymentStatus;
+    }>('/payments/apply-advance', { method: 'POST', body: JSON.stringify({ orderId }) }),
   previewAllocation: (params: { amount: number; orderId?: string; clientId?: string }) => {
     const q = new URLSearchParams({ amount: String(params.amount) });
     if (params.orderId) q.set('orderId', params.orderId);
@@ -1374,6 +1383,8 @@ export interface CreatePaymentInput {
   amount: number;
   method: PaymentMethod;
   reference?: string;
+  /** Garder le montant au credit du client au lieu de l'imputer tout de suite. */
+  asAdvance?: boolean;
 }
 
 export interface CreateQualityCheckInput {
@@ -1939,6 +1950,8 @@ export interface Payment {
   createdAt: string;
   clientId?: string;
   orderId?: string | null;
+  /** Encaissement anticipe, garde au credit du client. */
+  isAdvance?: boolean;
   client?: { name: string };
   order?: { id: string; orderNumber: string; totalAmount?: string | number; paidAmount?: string | number } | null;
 }
@@ -1948,7 +1961,14 @@ export interface OutstandingOrder {
   id: string;
   orderNumber: string;
   createdAt: string;
-  client?: { id: string; code: string; name: string; creditLimit: string | number; creditBalance: string | number };
+  client?: {
+    id: string;
+    code: string;
+    name: string;
+    creditLimit: string | number;
+    creditBalance: string | number;
+    advanceBalance?: string | number;
+  };
   totalAmount: number;
   consigneAmount: number;
   paidAmount: number;

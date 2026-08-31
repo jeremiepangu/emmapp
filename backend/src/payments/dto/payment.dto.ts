@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsEnum,
   IsNumber,
   IsOptional,
@@ -43,4 +44,13 @@ export class CreatePaymentDto {
   @IsOptional()
   @IsString()
   localId?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Encaisser en avance : le montant reste au credit du client au lieu '
+      + 'd etre impute sur ses commandes en cours.',
+  })
+  @IsOptional()
+  @IsBoolean()
+  asAdvance?: boolean;
 }

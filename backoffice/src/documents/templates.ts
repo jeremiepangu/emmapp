@@ -282,16 +282,19 @@ export function printOrdersList(orders: Order[]): void {
 
 export function printPaymentReceipt(p: Payment): void {
   printDocument({
-    kind: 'Reçu de paiement',
+    kind: p.isAdvance ? 'Reçu d’avance' : 'Reçu de paiement',
     reference: `REC-${p.id.slice(0, 8).toUpperCase()}`,
     date: p.createdAt,
     fields: [
       { label: 'Client', value: p.client?.name ?? '—' },
+      { label: 'Nature', value: p.isAdvance ? 'Avance sur compte' : 'Règlement' },
       { label: 'Mode', value: p.method },
       { label: 'Date', value: formatDate(p.createdAt) },
     ],
     totals: [{ label: 'Montant encaissé', value: formatMoney(p.amount) }],
-    notes: 'Reçu valable comme justificatif d\'encaissement EMMANUEL SERVICES SARLU.',
+    notes: p.isAdvance
+      ? 'Avance conservée au crédit du client, imputable sur ses prochaines commandes.'
+      : 'Reçu valable comme justificatif d\'encaissement EMMANUEL SERVICES SARLU.',
     signatures: ['Pour EMMANUEL SERVICES SARLU', 'Pour le payeur'],
   });
 }

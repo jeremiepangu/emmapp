@@ -569,6 +569,8 @@ model Payment {
   clientId    String?       @map("client_id")
   amount      Decimal       @db.Decimal(12, 2)
   method      PaymentMethod
+  /// Encaissement anticipe : reste au credit du client au lieu d'etre impute.
+  isAdvance   Boolean       @default(false) @map("is_advance")
   reference   String?
   collectedBy String        @map("collected_by")
   localId     String?       @unique @map("local_id")
