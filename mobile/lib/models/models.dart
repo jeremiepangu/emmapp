@@ -100,6 +100,7 @@ class Product {
     required this.unitPrice,
     this.consigneAmount = 0,
     this.isReusable = false,
+    this.imageUrl,
   });
 
   final String id;
@@ -109,6 +110,7 @@ class Product {
   final double unitPrice;
   final double consigneAmount;
   final bool isReusable;
+  final String? imageUrl;
 
   factory Product.fromJson(Map<String, dynamic> json) => Product(
         id: json['id'] as String,
@@ -118,6 +120,7 @@ class Product {
         unitPrice: double.tryParse(json['unitPrice']?.toString() ?? '') ?? 0,
         consigneAmount: double.tryParse((json['consigneAmount'] ?? 0).toString()) ?? 0,
         isReusable: json['isReusable'] as bool? ?? false,
+        imageUrl: json['imageUrl'] as String?,
       );
 }
 

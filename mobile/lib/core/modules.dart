@@ -123,7 +123,7 @@ const appModules = <AppModule>[
   ),
   AppModule(
     id: 'pricing',
-    label: 'Tarifs et remises',
+    label: 'Tarifs et bonus',
     resource: 'pricing',
     section: 'COMMANDES',
     icon: Icons.sell_outlined,

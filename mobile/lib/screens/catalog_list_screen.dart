@@ -4,6 +4,9 @@ import 'package:provider/provider.dart';
 import '../core/json_utils.dart';
 import '../core/modules.dart';
 import '../providers/auth_provider.dart';
+import '../widgets/agent_card.dart';
+import '../widgets/photo_picker.dart';
+import '../widgets/product_sale_card.dart';
 import 'client_form_screen.dart';
 import 'entity_detail_screen.dart';
 
@@ -22,6 +25,7 @@ class _CatalogListScreenState extends State<CatalogListScreen> {
   bool _fromCache = false;
   String? _error;
   String _query = '';
+  final Map<String, int> _preview = {};
 
   String get _path => widget.module.listPath ?? '/';
 
@@ -60,6 +64,132 @@ class _CatalogListScreenState extends State<CatalogListScreen> {
     if (id == 'stock') page = const StockAdjustScreen();
     if (page == null) return;
     Navigator.push(context, MaterialPageRoute(builder: (_) => page!)).then((_) => _load());
+  }
+
+  /// Enregistre la photo d'un produit ou d'un agent en data URL.
+  Future<void> _updatePhoto({
+    required String path,
+    required String field,
+    required String title,
+    required bool hasPhoto,
+  }) async {
+    final dataUrl = await pickPhotoDataUrl(context, title: title, canRemove: hasPhoto);
+    if (dataUrl == null || !mounted) return;
+    try {
+      final result = await context.read<AuthProvider>().offline.mutate(
+            method: 'PATCH',
+            path: path,
+            body: {field: dataUrl.isEmpty ? null : dataUrl},
+          );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.queued ? 'Photo en file hors ligne' : 'Photo enregistrée'),
+        ),
+      );
+      await _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  Widget _productGrid(List<Map<String, dynamic>> items, bool canUpdate) {
+    return GridView.builder(
+      padding: const EdgeInsets.all(12),
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 240,
+        mainAxisExtent: 320,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+      ),
+      itemCount: items.length,
+      itemBuilder: (context, i) {
+        final item = items[i];
+        final id = item['id']?.toString() ?? '';
+        final imageUrl = item['imageUrl'] as String?;
+        return ProductSaleCard(
+          name: item['name']?.toString() ?? '',
+          code: item['code']?.toString(),
+          format: item['format']?.toString(),
+          imageUrl: imageUrl,
+          price: double.tryParse(item['unitPrice']?.toString() ?? '') ?? 0,
+          quantity: _preview[id] ?? 1,
+          minQuantity: 1,
+          badge: (imageUrl == null || imageUrl.isEmpty) ? 'Photo manquante' : null,
+          metaLabel: 'Consigne',
+          metaValue: item['isReusable'] == true ? 'Consigné · réutilisable' : 'Usage unique',
+          onQuantityChanged: (q) => setState(() => _preview[id] = q),
+          onPhoto: canUpdate
+              ? () => _updatePhoto(
+                    path: '/products/$id',
+                    field: 'imageUrl',
+                    title: 'Photo du produit',
+                    hasPhoto: imageUrl != null && imageUrl.isNotEmpty,
+                  )
+              : null,
+          onAdd: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => EntityDetailScreen(
+                module: widget.module,
+                item: item,
+                onChanged: _load,
+              ),
+            ),
+          ),
+          addLabel: 'Voir la fiche',
+        );
+      },
+    );
+  }
+
+  Widget _agentList(List<Map<String, dynamic>> items, bool canUpdate) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(12),
+      itemCount: items.length,
+      itemBuilder: (context, i) {
+        final item = items[i];
+        final id = item['id']?.toString() ?? '';
+        final user = item['user'] is Map ? Map<String, dynamic>.from(item['user'] as Map) : null;
+        final photoUrl = item['photoUrl'] as String?;
+        final fullName = [user?['firstName'], user?['lastName']]
+            .where((e) => e != null && e.toString().isNotEmpty)
+            .join(' ');
+        return AgentCard(
+          fullName: fullName.isEmpty ? 'Agent' : fullName,
+          photoUrl: photoUrl,
+          matricule: item['matricule']?.toString(),
+          jobTitle: item['jobTitle']?.toString(),
+          department: item['department']?.toString(),
+          contractType: item['contractType']?.toString(),
+          hireDate: item['hireDate']?.toString(),
+          status: item['status']?.toString(),
+          phone: user?['phone']?.toString(),
+          email: user?['email']?.toString(),
+          onPhoto: canUpdate
+              ? () => _updatePhoto(
+                    path: '/hr/employees/$id',
+                    field: 'photoUrl',
+                    title: 'Photo de l’agent',
+                    hasPhoto: photoUrl != null && photoUrl.isNotEmpty,
+                  )
+              : null,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => EntityDetailScreen(
+                module: widget.module,
+                item: item,
+                onChanged: _load,
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -129,6 +259,10 @@ class _CatalogListScreenState extends State<CatalogListScreen> {
                                   Center(child: Text('Aucune donnée')),
                                 ],
                               )
+                            : widget.module.id == 'products'
+                            ? _productGrid(filtered, auth.canDo('products', 'update'))
+                            : widget.module.id == 'hr'
+                            ? _agentList(filtered, auth.canDo('hr', 'update'))
                             : ListView.builder(
                                 padding: const EdgeInsets.all(12),
                                 itemCount: filtered.length,

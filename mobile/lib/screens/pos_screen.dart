@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../core/json_utils.dart';
 import '../models/models.dart';
 import '../providers/auth_provider.dart';
+import '../widgets/product_sale_card.dart';
 
 class PosScreen extends StatefulWidget {
   const PosScreen({super.key});
@@ -17,6 +18,7 @@ class _PosScreenState extends State<PosScreen> {
   List<Client> _clients = [];
   String? _clientId;
   final Map<String, int> _cart = {};
+  final Map<String, int> _draftQty = {};
   String _method = 'ESPECES';
   bool _loading = true;
   bool _saving = false;
@@ -88,7 +90,10 @@ class _PosScreenState extends State<PosScreen> {
           backgroundColor: Colors.green,
         ),
       );
-      setState(() => _cart.clear());
+      setState(() {
+        _cart.clear();
+        _draftQty.clear();
+      });
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e'), backgroundColor: Colors.red));
@@ -127,28 +132,33 @@ class _PosScreenState extends State<PosScreen> {
           ),
         ),
         Expanded(
-          child: ListView.builder(
+          child: GridView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 240,
+              mainAxisExtent: 330,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+            ),
             itemCount: _products.length,
             itemBuilder: (context, i) {
               final p = _products[i];
-              final qty = _cart[p.id] ?? 0;
-              return ListTile(
-                title: Text(p.name),
-                subtitle: Text('${p.unitPrice.toStringAsFixed(0)} CDF · ${p.format}'),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      onPressed: qty == 0 ? null : () => setState(() => _cart[p.id] = qty - 1),
-                      icon: const Icon(Icons.remove_circle_outline),
-                    ),
-                    Text('$qty', style: const TextStyle(fontWeight: FontWeight.bold)),
-                    IconButton(
-                      onPressed: () => setState(() => _cart[p.id] = qty + 1),
-                      icon: const Icon(Icons.add_circle_outline),
-                    ),
-                  ],
-                ),
+              final inCart = _cart[p.id] ?? 0;
+              final draft = _draftQty[p.id] ?? 1;
+              return ProductSaleCard(
+                name: p.name,
+                code: p.code,
+                format: p.format,
+                imageUrl: p.imageUrl,
+                price: p.unitPrice,
+                quantity: draft,
+                minQuantity: 1,
+                selected: inCart > 0,
+                badge: inCart > 0 ? '$inCart au panier' : null,
+                metaLabel: 'Retrait',
+                metaValue: 'Immédiat en caisse',
+                onQuantityChanged: (q) => setState(() => _draftQty[p.id] = q),
+                onAdd: () => setState(() => _cart[p.id] = inCart + draft),
               );
             },
           ),
@@ -159,6 +169,26 @@ class _PosScreenState extends State<PosScreen> {
             padding: const EdgeInsets.all(12),
             child: Column(
               children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _cart.isEmpty
+                            ? 'Panier vide'
+                            : 'Panier : ${_cart.values.fold(0, (a, b) => a + b)} article(s)',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    if (_cart.isNotEmpty)
+                      TextButton(
+                        onPressed: () => setState(() {
+                          _cart.clear();
+                          _draftQty.clear();
+                        }),
+                        child: const Text('Vider'),
+                      ),
+                  ],
+                ),
                 DropdownButtonFormField<String>(
                   value: _method,
                   decoration: const InputDecoration(labelText: 'Paiement', isDense: true),
