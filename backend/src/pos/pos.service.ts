@@ -1,18 +1,22 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   ClientSegment,
+  ConsigneMovementSource,
   NotificationCategory,
   NotificationType,
+  OrderPaymentStatus,
   OrderStatus,
   PaymentMethod,
   PosSaleStatus,
   Prisma,
+  ProductFormat,
   StockLocationType,
   SyncStatus,
   UserRole,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.module';
 import { PricingService } from '../pricing/pricing.service';
+import { ConsignesService } from '../consignes/consignes.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { FinanceService } from '../finance/finance.service';
 import { PosCheckoutDto, PosLineDto } from './dto/pos.dto';
@@ -32,6 +36,7 @@ export class PosService {
   constructor(
     private prisma: PrismaService,
     private pricing: PricingService,
+    private consignes: ConsignesService,
     private notifications: NotificationsService,
     private finance: FinanceService,
   ) {}
@@ -112,12 +117,21 @@ export class PosService {
       quantity: number;
       catalogPrice: number;
       unitPrice: number;
-      discount: number;
+      bonusQuantity: number;
+      bonus: number;
+      isReusable: boolean;
+      emptiesReturned: number;
+      consigneQuantity: number;
+      consigneAmount: number;
       lineTotal: number;
       ruleName: string | null;
     }> = [];
     let subtotal = new Prisma.Decimal(0);
-    let discount = new Prisma.Decimal(0);
+    let bonus = new Prisma.Decimal(0);
+    let goods = new Prisma.Decimal(0);
+    let consigneTotal = new Prisma.Decimal(0);
+    let bonusQuantity = 0;
+    let consigneQuantityTotal = 0;
     for (const line of this.mergeLines(lines)) {
       const product = await this.prisma.product.findUnique({ where: { id: line.productId } });
       if (!product || !product.isActive) {
@@ -126,7 +140,20 @@ export class PosService {
       const result = await this.pricing.priceLine(ctx, product, line.quantity);
       const lineTotal = result.unitPrice.mul(line.quantity);
       subtotal = subtotal.add(result.catalogPrice.mul(line.quantity));
-      discount = discount.add(result.discount);
+      goods = goods.add(lineTotal);
+      bonus = bonus.add(result.bonus);
+      bonusQuantity += result.bonusQuantity;
+
+      // Chaque contenant sorti sans vide rendu en echange est consigne.
+      const containersOut = product.isReusable ? line.quantity + result.bonusQuantity : 0;
+      const emptiesReturned = product.isReusable
+        ? Math.min(line.emptiesReturned, containersOut)
+        : 0;
+      const consigneQuantity = Math.max(0, containersOut - emptiesReturned);
+      const consigneAmount = new Prisma.Decimal(product.consigneAmount).mul(consigneQuantity);
+      consigneTotal = consigneTotal.add(consigneAmount);
+      consigneQuantityTotal += consigneQuantity;
+
       priced.push({
         productId: product.id,
         code: product.code,
@@ -135,23 +162,33 @@ export class PosService {
         quantity: line.quantity,
         catalogPrice: Number(result.catalogPrice),
         unitPrice: Number(result.unitPrice),
-        discount: Number(result.discount),
+        bonusQuantity: result.bonusQuantity,
+        bonus: Number(result.bonus),
+        isReusable: product.isReusable,
+        emptiesReturned,
+        consigneQuantity,
+        consigneAmount: Number(consigneAmount),
         lineTotal: Number(lineTotal),
         ruleName: result.ruleName,
       });
     }
-    const total = subtotal.sub(discount);
+    const total = goods.add(consigneTotal);
     return {
       client: { id: client.id, code: client.code, name: client.name, segment: client.segment },
       lines: priced,
       subtotal: Number(subtotal),
-      discount: Number(discount),
+      bonusQuantity,
+      bonus: Number(bonus),
+      goodsAmount: Number(goods.toDecimalPlaces(2)),
+      consigneQuantity: consigneQuantityTotal,
+      consigneAmount: Number(consigneTotal.toDecimalPlaces(2)),
       total: Number(total.toDecimalPlaces(2)),
     };
   }
 
   async checkout(dto: PosCheckoutDto, cashierId: string) {
     const quoted = await this.quote(dto.clientId, dto.lines);
+    await this.consignes.assertWithinLimit(quoted.client.id, quoted.consigneQuantity);
     if (dto.method === PaymentMethod.ESPECES) {
       const received = dto.cashReceived ?? quoted.total;
       if (received + 0.001 < quoted.total) {
@@ -176,13 +213,20 @@ export class PosService {
           clientId: quoted.client.id,
           notes: [`Vente comptoir ${saleNumber}`, dto.notes?.trim()].filter(Boolean).join(' - '),
           totalAmount: quoted.total,
+          consigneAmount: quoted.consigneAmount,
+          paidAmount: quoted.total,
+          paymentStatus: OrderPaymentStatus.SOLDEE,
           status: OrderStatus.LIVREE,
           lines: {
             create: quoted.lines.map((l) => ({
               productId: l.productId,
               quantity: l.quantity,
               unitPrice: l.unitPrice,
-              discount: l.discount,
+              bonusQuantity: l.bonusQuantity,
+              bonus: l.bonus,
+              emptiesReturned: l.emptiesReturned,
+              consigneQuantity: l.consigneQuantity,
+              consigneAmount: l.consigneAmount,
             })),
           },
         },
@@ -211,7 +255,8 @@ export class PosService {
           method: dto.method,
           status: PosSaleStatus.PAYEE,
           subtotal: quoted.subtotal,
-          discount: quoted.discount,
+          bonus: quoted.bonus,
+          consigneAmount: quoted.consigneAmount,
           totalAmount: quoted.total,
           cashReceived,
           changeGiven,
@@ -222,7 +267,11 @@ export class PosService {
               quantity: l.quantity,
               catalogPrice: l.catalogPrice,
               unitPrice: l.unitPrice,
-              discount: l.discount,
+              bonusQuantity: l.bonusQuantity,
+              bonus: l.bonus,
+              emptiesReturned: l.emptiesReturned,
+              consigneQuantity: l.consigneQuantity,
+              consigneAmount: l.consigneAmount,
             })),
           },
         },
@@ -230,6 +279,19 @@ export class PosService {
       });
 
       await this.adjustFinishedGoods(tx, quoted.lines, -1);
+      for (const line of quoted.lines) {
+        if (!line.isReusable) continue;
+        await this.consignes.recordMovement({
+          clientId: quoted.client.id,
+          orderId: order.id,
+          posSaleId: sale.id,
+          productFormat: line.format as ProductFormat,
+          source: ConsigneMovementSource.POS,
+          qtyIn: line.emptiesReturned,
+          qtyOut: line.quantity + line.bonusQuantity,
+          tx,
+        });
+      }
       const points = quoted.lines.reduce((s, l) => s + l.quantity, 0);
       if (points > 0) {
         await tx.client.update({
@@ -279,9 +341,27 @@ export class PosService {
       }
       await this.adjustFinishedGoods(
         tx,
-        sale.lines.map((l) => ({ productId: l.productId, quantity: l.quantity })),
+        sale.lines.map((l) => ({
+          productId: l.productId,
+          quantity: l.quantity,
+          bonusQuantity: l.bonusQuantity,
+        })),
         1,
       );
+      // On rend au client la situation de consigne d'avant la vente.
+      for (const line of sale.lines) {
+        if (line.consigneQuantity === 0 && line.emptiesReturned === 0) continue;
+        await this.consignes.recordMovement({
+          clientId: sale.clientId,
+          posSaleId: sale.id,
+          productFormat: line.product.format,
+          source: ConsigneMovementSource.AJUSTEMENT,
+          qtyIn: line.quantity + line.bonusQuantity,
+          qtyOut: line.emptiesReturned,
+          notes: `Annulation ${sale.saleNumber}`,
+          tx,
+        });
+      }
       return tx.posSale.update({
         where: { id },
         data: { status: PosSaleStatus.ANNULEE },
@@ -303,11 +383,14 @@ export class PosService {
   }
 
   private mergeLines(lines: PosLineDto[]) {
-    const map = new Map<string, number>();
+    const map = new Map<string, { quantity: number; emptiesReturned: number }>();
     for (const line of lines) {
-      map.set(line.productId, (map.get(line.productId) ?? 0) + line.quantity);
+      const current = map.get(line.productId) ?? { quantity: 0, emptiesReturned: 0 };
+      current.quantity += line.quantity;
+      current.emptiesReturned += Math.max(0, Math.floor(line.emptiesReturned ?? 0));
+      map.set(line.productId, current);
     }
-    return [...map.entries()].map(([productId, quantity]) => ({ productId, quantity }));
+    return [...map.entries()].map(([productId, values]) => ({ productId, ...values }));
   }
 
   private async resolveClient(clientId?: string | null) {
@@ -346,7 +429,7 @@ export class PosService {
 
   private async adjustFinishedGoods(
     tx: Prisma.TransactionClient,
-    lines: Array<{ productId: string; quantity: number }>,
+    lines: Array<{ productId: string; quantity: number; bonusQuantity?: number }>,
     sign: 1 | -1,
   ) {
     const location = await tx.stockLocation.findFirst({
@@ -359,7 +442,7 @@ export class PosService {
         where: { productId: line.productId, locationId: location.id },
       });
       if (!item) continue;
-      const next = item.quantity + sign * line.quantity;
+      const next = item.quantity + sign * (line.quantity + (line.bonusQuantity ?? 0));
       await tx.stockItem.update({
         where: { id: item.id },
         data: { quantity: next < 0 ? 0 : next },

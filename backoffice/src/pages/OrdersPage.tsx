@@ -177,9 +177,9 @@ export default function OrdersPage() {
               Prix catalogue {preview.catalogPrice.toLocaleString('fr-FR')} CDF
               {' · '}
               Prix applique {preview.unitPrice.toLocaleString('fr-FR')} CDF
-              {preview.discountPct > 0 ? ` · Remise ${preview.discountPct} %` : ''}
-              {preview.discountedQuantity != null && preview.fullPriceQuantity
-                ? ` · ${preview.discountedQuantity} articles remisés, ${preview.fullPriceQuantity} au tarif`
+              {preview.bonusQuantity ? ` · Bonus ${preview.bonusQuantity} article${preview.bonusQuantity > 1 ? 's' : ''} offert${preview.bonusQuantity > 1 ? 's' : ''}` : ''}
+              {preview.deliveredQuantity
+                ? ` · ${preview.deliveredQuantity} articles livrés`
                 : ''}
               {' · '}
               Ligne {preview.lineTotal.toLocaleString('fr-FR')} CDF

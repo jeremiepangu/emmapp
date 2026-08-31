@@ -41,7 +41,7 @@ export type ProductSaleCardProps = {
   code?: string;
   /** Photo du produit ; une illustration est générée quand elle est absente. */
   imageUrl?: string | null;
-  /** Prix unitaire déjà calculé (remises appliquées le cas échéant). */
+  /** Prix unitaire déjà calculé (bonus appliqués le cas échéant). */
   price: number;
   currency?: string;
   quantity: number;

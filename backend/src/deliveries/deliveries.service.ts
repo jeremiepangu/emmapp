@@ -3,9 +3,19 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { DeliveryStatus, NotificationCategory, NotificationType, ProductFormat, SyncStatus, UserRole } from '@prisma/client';
+import {
+  ConsigneMovementSource,
+  DeliveryStatus,
+  DiscrepancyKind,
+  NotificationCategory,
+  NotificationType,
+  Product,
+  SyncStatus,
+  UserRole,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.module';
 import { ConsignesService } from '../consignes/consignes.service';
+import { DiscrepanciesService } from '../ecarts/discrepancies.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateDeliveryDto } from './dto/delivery.dto';
 
@@ -14,8 +24,33 @@ export class DeliveriesService {
   constructor(
     private prisma: PrismaService,
     private consignesService: ConsignesService,
+    private discrepancies: DiscrepanciesService,
     private notifications: NotificationsService,
   ) {}
+
+  /**
+   * Un contenant livre doit revenir en echange. Tout ecart entre les
+   * contenants sortis et les vides rendus est journalise pour suivi.
+   */
+  private async recordEmptiesDiscrepancy(
+    delivery: { id: string; deliveryNumber: string },
+    clientId: string,
+    product: Product,
+    line: { qtyDelivered: number; qtyReturned?: number },
+  ) {
+    const expected = line.qtyDelivered;
+    const actual = line.qtyReturned ?? 0;
+    if (expected === actual) return;
+    await this.discrepancies.record({
+      kind: DiscrepancyKind.VIDANGE,
+      reference: delivery.deliveryNumber,
+      label: `${delivery.deliveryNumber} — ${product.name}`,
+      expected,
+      actual,
+      clientId,
+      productFormat: product.format,
+    });
+  }
 
   private async generateDeliveryNumber(): Promise<string> {
     const count = await this.prisma.delivery.count();
@@ -68,19 +103,14 @@ export class DeliveriesService {
       if (existing) return existing;
     }
 
+    let netConsignes = 0;
     for (const line of dto.lines) {
       const product = order.lines.find((l) => l.productId === line.productId)?.product;
       if (product?.isReusable) {
-        const netConsignes =
-          line.qtyDelivered - (line.qtyReturned ?? 0);
-        const newBalance = order.client.consigneBalance + netConsignes;
-        if (newBalance > order.client.consigneLimit) {
-          throw new BadRequestException(
-            `Plafond de consignes dépassé pour ${order.client.name} (${newBalance}/${order.client.consigneLimit})`,
-          );
-        }
+        netConsignes += line.qtyDelivered - (line.qtyReturned ?? 0);
       }
     }
+    await this.consignesService.assertWithinLimit(order.clientId, netConsignes);
 
     const delivery = await this.prisma.delivery.create({
       data: {
@@ -118,19 +148,18 @@ export class DeliveriesService {
 
     for (const line of dto.lines) {
       const product = order.lines.find((l) => l.productId === line.productId)?.product;
-      if (product?.isReusable) {
-        const format =
-          product.format === ProductFormat.BONBONNE_19L
-            ? ProductFormat.BONBONNE_19L
-            : ProductFormat.BIDON_5L;
-        await this.consignesService.recordMovement({
-          clientId: order.clientId,
-          deliveryId: delivery.id,
-          productFormat: format,
-          qtyIn: line.qtyReturned ?? 0,
-          qtyOut: line.qtyDelivered,
-        });
-      }
+      if (!product?.isReusable) continue;
+      await this.consignesService.recordMovement({
+        clientId: order.clientId,
+        deliveryId: delivery.id,
+        orderId: order.id,
+        productFormat: product.format,
+        source: ConsigneMovementSource.LIVRAISON,
+        qtyIn: line.qtyReturned ?? 0,
+        qtyOut: line.qtyDelivered,
+        unitValue: product.consigneAmount,
+      });
+      await this.recordEmptiesDiscrepancy(delivery, order.clientId, product, line);
     }
 
     await this.notifications.notifyRoles(

@@ -334,7 +334,7 @@ export function sheetPricing(rows: PricingRule[], canWrite: boolean): ExcelSheet
         required: (row) => (!cell(row, 'nom', 'name') ? 'Nom requis' : null),
         create: (row) => api.createPricingRule({
           name: cell(row, 'nom', 'name'),
-          type: (cell(row, 'type') === 'FIXED' ? 'FIXED' : 'PERCENT'),
+          type: (cell(row, 'type') === 'FIXED' ? 'FIXED' : 'ARTICLE_OFFERT'),
           value: num(row, 'valeur', 'value'),
           minQuantity: num(row, 'qte min', 'minQuantity') || 1,
           maxQuantity: num(row, 'qte max', 'maxQuantity') || null,

@@ -28,7 +28,7 @@ export const ACL_RESOURCES: {
   { id: 'portal', label: 'Comptes portail', section: 'ANNUAIRES', path: '/portal-accounts', description: 'Accès self-service clients' },
   { id: 'orders', label: 'Commandes', section: 'COMMANDES', path: '/orders', description: 'Saisie et historique des commandes' },
   { id: 'products', label: 'Catalogue produits', section: 'COMMANDES', path: '/products', description: 'Bidons, bonbonnes, prix' },
-  { id: 'pricing', label: 'Tarifs et remises', section: 'COMMANDES', path: '/pricing', description: 'Règles tarifaires' },
+  { id: 'pricing', label: 'Tarifs et bonus', section: 'COMMANDES', path: '/pricing', description: 'Règles tarifaires' },
   { id: 'pos', label: 'Point de vente', section: 'COMMANDES', path: '/pos', description: 'Caisse et ventes comptoir' },
   { id: 'stock', label: 'Stocks & achats', section: 'ACHATS', path: '/stock', description: 'Inventaire et emplacements' },
   { id: 'packaging', label: 'Emballages', section: 'ACHATS', path: '/packaging', description: 'Bidons vides, étiquettes, bouchons' },
@@ -41,6 +41,7 @@ export const ACL_RESOURCES: {
   { id: 'iot', label: 'Capteurs & télémétrie', section: 'OBJETS CONNECTÉS', path: '/iot', description: 'Capteurs ligne, véhicules, fontaines' },
   { id: 'payments', label: 'Factures & paiements', section: 'FACTURES', path: '/payments', description: 'Encaissements' },
   { id: 'finance', label: 'Comptabilité', section: 'FACTURES', path: '/finance', description: 'Caisse, banque, dépenses, inventaire et budget' },
+  { id: 'ecarts', label: 'Écarts et clôtures', section: 'FACTURES', path: '/ecarts', description: 'Écarts de caisse, de tournée et de vidange' },
   { id: 'loyalty', label: 'Fidélité', section: 'COMMERCE', path: '/loyalty', description: 'Points, paliers, wallet' },
   { id: 'consignes', label: 'Consignes circulaires', section: 'COMMERCE', path: '/consignes', description: 'Emballages consignés et fontaines' },
   { id: 'marketplace', label: 'Marketplace B2B', section: 'COMMERCE', path: '/marketplace', description: 'Demandes de cotation' },
@@ -297,7 +298,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, AclMatrix> = {
   ADMIN: Object.fromEntries(ALL_RESOURCES.map((id) => [id, FULL])),
   DG: {
     dashboard: R, clients: R, orders: R, products: R, tours: R, stock: R, deliveries: R,
-    payments: R, finance: RUV, production: R, quality: R, loyalty: R, consignes: R, hr: R, payroll: R,
+    payments: R, finance: RUV, ecarts: R, production: R, quality: R, loyalty: R, consignes: R, hr: R, payroll: R,
     observability: R, users: R, notifications: R, authorizations: R, contracts: RUV,
     ai: R, assistant: RC, iot: R, routing: R, esg: R, security: R, portal: R, marketplace: R, pricing: R, packaging: R, vehicles: R, objectives: R, pos: R,
     activity: RUV,
@@ -309,7 +310,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, AclMatrix> = {
   },
   CHEF_EXPLOITATION: {
     dashboard: R, orders: FULL, tours: FULL, deliveries: RUV, stock: R, packaging: R, vehicles: FULL, clients: R, notifications: R,
-    ai: R, assistant: RC, routing: RCUV, iot: R, esg: R, hr: RUV, contracts: R, objectives: RCUV, pos: R, finance: R,
+    ai: R, assistant: RC, routing: RCUV, iot: R, esg: R, hr: RUV, contracts: R, objectives: RCUV, pos: R, finance: R, ecarts: RCUV,
     activity: RCUV,
   },
   CHARGE_EXPLOITATION: {
@@ -354,11 +355,11 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, AclMatrix> = {
   },
   CAISSIER: {
     dashboard: R, payments: FULL, clients: R, orders: R, notifications: R,
-    assistant: RC, hr: R, pos: FULL, finance: RCU,
+    assistant: RC, hr: R, pos: FULL, finance: RCU, ecarts: RC,
     activity: RC,
   },
   COMPTABLE: {
-    payments: RCU, finance: FULL, clients: R, orders: R, dashboard: R, notifications: R,
+    payments: RCU, finance: FULL, ecarts: FULL, clients: R, orders: R, dashboard: R, notifications: R,
     ai: R, assistant: RC, payroll: RCUV, hr: R, contracts: RCUV, pos: R,
     activity: RCUV,
   },
@@ -483,6 +484,7 @@ const PATH_MAP: Array<[string, string]> = [
   ['/payments', 'payments'],
   ['/finance', 'finance'],
   ['/consignes', 'consignes'],
+  ['/ecarts', 'ecarts'],
   ['/users', 'users'],
   ['/ai', 'ai'],
   ['/assistant', 'assistant'],

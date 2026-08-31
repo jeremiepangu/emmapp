@@ -30,20 +30,13 @@ function priceForQty(item: PortalCatalogItem, quantity: number) {
     return ((a.maxQuantity ?? 1_000_000) - a.minQuantity) - ((b.maxQuantity ?? 1_000_000) - b.minQuantity);
   });
   const tier = matches[0];
-  if (!tier) return { unit: item.basePrice, pct: 0, name: null as string | null };
-  if (tier.type === 'PERCENT') {
+  if (!tier) return { unit: item.basePrice, offered: 0, name: null as string | null };
+  if (tier.type === 'ARTICLE_OFFERT') {
     const step = Math.max(1, tier.stepQuantity ?? 10);
-    const billed = step > 1 ? Math.floor(qty / step) * step : qty;
-    const rest = qty - billed;
-    const discountedUnit = Math.round(item.basePrice * (1 - tier.value / 100) * 100) / 100;
-    const total = discountedUnit * billed + item.basePrice * rest;
-    const unit = Math.round((total / qty) * 100) / 100;
-    const pct = item.basePrice > 0 ? Math.round(((item.basePrice - unit) / item.basePrice) * 10000) / 100 : 0;
-    return { unit, pct, name: tier.name };
+    const offered = Math.floor(qty / step) * Math.max(0, Math.floor(tier.value));
+    return { unit: item.basePrice, offered, name: tier.name };
   }
-  const unit = Number(tier.value);
-  const pct = item.basePrice > 0 ? Math.round(((item.basePrice - unit) / item.basePrice) * 10000) / 100 : 0;
-  return { unit, pct, name: tier.name };
+  return { unit: Number(tier.value), offered: 0, name: tier.name };
 }
 
 export function PortalLayout() {
@@ -192,14 +185,14 @@ export function PortalCatalogPage() {
           sheets: [
             exportSheet('Catalogue', [
               ['code', 'Code'], ['produit', 'Produit'], ['format', 'Format'],
-              ['prix', 'Prix catalogue'], ['prixSegment', 'Prix segment'], ['remise', 'Remise %'],
+              ['prix', 'Prix catalogue'], ['prixSegment', 'Prix segment'], ['bonus', 'Articles offerts pour 10'],
             ], items.map((row) => ({
               code: row.code,
               produit: row.name,
               format: row.format,
               prix: row.basePrice,
               prixSegment: row.segmentPrice,
-              remise: row.discountPct,
+              bonus: priceForQty(row, 10).offered,
             }))),
           ],
         }}
@@ -209,10 +202,10 @@ export function PortalCatalogPage() {
             onClick={() => printDocument({
               kind: 'Grille tarifaire',
               tables: [{
-                headers: ['Produit', 'Format', 'Prix catalogue', 'Prix applique', 'Remise'],
+                headers: ['Produit', 'Format', 'Prix catalogue', 'Prix applique', 'Bonus'],
                 rows: items.map((p) => {
                   const priced = priceForQty(p, qty[p.id] || 1);
-                  return [p.name, p.format, formatMoney(p.basePrice), formatMoney(priced.unit), `${priced.pct} %`];
+                  return [p.name, p.format, formatMoney(p.basePrice), formatMoney(priced.unit), `${priced.offered} offert(s)`];
                 }),
               }],
               signatures: ['Pour EMMANUEL SERVICES SARLU'],
@@ -245,14 +238,14 @@ export function PortalCatalogPage() {
                   metaValue="Sous 24 h après validation"
                   note={
                     <>
-                      {priced.pct > 0 && (
+                      {priced.offered > 0 && (
                         <div>
-                          Prix catalogue {p.basePrice.toLocaleString('fr-FR')} CDF · remise {priced.pct} %
+                          {priced.offered} article{priced.offered > 1 ? 's' : ''} offert{priced.offered > 1 ? 's' : ''} · {q + priced.offered} livrés
                         </div>
                       )}
                       {p.tiers?.map((t) => (
                         <div key={t.id}>
-                          {t.minQuantity}{t.maxQuantity != null ? `-${t.maxQuantity}` : '+'} : {t.type === 'PERCENT' ? `${t.value} % tous les ${t.stepQuantity ?? 10}` : `${t.value.toLocaleString('fr-FR')} CDF`}
+                          {t.minQuantity}{t.maxQuantity != null ? `-${t.maxQuantity}` : '+'} : {t.type === 'ARTICLE_OFFERT' ? `${t.value} offert(s) pour ${t.stepQuantity ?? 10} achetés` : `${t.value.toLocaleString('fr-FR')} CDF`}
                         </div>
                       ))}
                     </>

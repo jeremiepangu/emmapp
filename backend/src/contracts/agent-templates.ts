@@ -67,7 +67,7 @@ export const AGENT_JOBS: AgentJobSpec[] = [
     kinds: [BusinessContractKind.CDI, BusinessContractKind.CDD, BusinessContractKind.STAGE],
     missions: [
       'Visiter les détaillants et boutiques de la zone assignée, prendre les commandes, animer le point de vente et collecter les informations marché.',
-      'Transmettre quotidiennement le reporting au commercial responsable et respecter les prix et remises autorisés.',
+      'Transmettre quotidiennement le reporting au commercial responsable et respecter les prix et bonus autorisés.',
     ],
   },
   {

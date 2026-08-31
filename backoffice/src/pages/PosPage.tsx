@@ -1,6 +1,8 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import {
   api,
+  CashClosing,
+  ConsigneBalances,
   PaymentMethod,
   PosCatalog,
   PosCheckoutInput,
@@ -41,7 +43,7 @@ function todayBounds() {
   return { from: start.toISOString(), to: end.toISOString() };
 }
 
-type CartLine = { productId: string; quantity: number };
+type CartLine = { productId: string; quantity: number; emptiesReturned: number };
 
 export default function PosPage() {
   const { can } = usePermissions();
@@ -57,6 +59,10 @@ export default function PosPage() {
   const [notes, setNotes] = useState('');
   const [sales, setSales] = useState<PosSale[]>([]);
   const [summary, setSummary] = useState({ tickets: 0, cancelled: 0, revenue: 0, averageTicket: 0 });
+  const [consigneBalance, setConsigneBalance] = useState<ConsigneBalances | null>(null);
+  const [closing, setClosing] = useState<CashClosing | null>(null);
+  const [countedAmount, setCountedAmount] = useState('');
+  const [closingError, setClosingError] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [lastSale, setLastSale] = useState<PosSale | null>(null);
@@ -76,8 +82,19 @@ export default function PosPage() {
       setClientId(c.walkInClient.id);
     }).catch(() => setError('Impossible de charger le catalogue caisse'));
     loadSales().catch(() => setSales([]));
+    api.getCurrentCashClosing().then(setClosing).catch(() => setClosing(null));
     setHeld(Boolean(sessionStorage.getItem(HOLD_KEY)));
   }, []);
+
+  useEffect(() => {
+    if (!clientId) {
+      setConsigneBalance(null);
+      return;
+    }
+    api.getClientConsigneBalances(clientId)
+      .then(setConsigneBalance)
+      .catch(() => setConsigneBalance(null));
+  }, [clientId, sales.length]);
 
   useEffect(() => {
     if (!cart.length) {
@@ -106,15 +123,23 @@ export default function PosPage() {
     setCart((prev) => {
       const found = prev.find((l) => l.productId === productId);
       if (found) return prev.map((l) => l.productId === productId ? { ...l, quantity: l.quantity + amount } : l);
-      return [...prev, { productId, quantity: amount }];
+      return [...prev, { productId, quantity: amount, emptiesReturned: 0 }];
     });
   };
 
   const setQty = (productId: string, quantity: number) => {
     setCart((prev) => {
       if (quantity < 1) return prev.filter((l) => l.productId !== productId);
-      return prev.map((l) => l.productId === productId ? { ...l, quantity } : l);
+      return prev.map((l) => l.productId === productId
+        ? { ...l, quantity, emptiesReturned: Math.min(l.emptiesReturned, quantity) }
+        : l);
     });
+  };
+
+  const setEmpties = (productId: string, value: number) => {
+    setCart((prev) => prev.map((l) => l.productId === productId
+      ? { ...l, emptiesReturned: Math.max(0, Math.min(value, l.quantity)) }
+      : l));
   };
 
   const clearCart = () => {
@@ -139,7 +164,7 @@ export default function PosPage() {
     if (!raw) return;
     try {
       const saved = JSON.parse(raw) as { cart: CartLine[]; clientId?: string; method?: PaymentMethod; notes?: string };
-      setCart(saved.cart ?? []);
+      setCart((saved.cart ?? []).map((l) => ({ ...l, emptiesReturned: l.emptiesReturned ?? 0 })));
       if (saved.clientId) setClientId(saved.clientId);
       if (saved.method) setMethod(saved.method);
       if (saved.notes) setNotes(saved.notes);
@@ -158,6 +183,33 @@ export default function PosPage() {
   const total = quote?.total ?? catalogTotal;
   const received = Number(cashReceived || 0);
   const change = method === 'ESPECES' && received > 0 ? Math.max(0, received - total) : 0;
+
+  const openClosing = async () => {
+    setClosingError('');
+    try {
+      setClosing(await api.openCashClosing());
+    } catch (err) {
+      setClosingError(err instanceof Error ? err.message : 'Ouverture impossible');
+    }
+  };
+
+  const closeClosing = async () => {
+    if (!closing) return;
+    setClosingError('');
+    try {
+      const result = await api.closeCashClosing(closing.id, { countedAmount: Number(countedAmount || 0) });
+      setClosing(null);
+      setCountedAmount('');
+      const variance = Number(result.variance);
+      setClosingError(
+        variance === 0
+          ? `Caisse ${result.reference} cloturée sans écart.`
+          : `Caisse ${result.reference} cloturée avec un écart de ${money(variance)}.`,
+      );
+    } catch (err) {
+      setClosingError(err instanceof Error ? err.message : 'Clôture impossible');
+    }
+  };
 
   const checkout = async (e: FormEvent) => {
     e.preventDefault();
@@ -279,11 +331,29 @@ export default function PosPage() {
               const name = priced?.name ?? product?.name ?? line.productId;
               const unit = priced?.unitPrice ?? Number(product?.unitPrice ?? 0);
               const lineTotal = priced?.lineTotal ?? unit * line.quantity;
+              const reusable = priced?.isReusable ?? product?.isReusable ?? false;
               return (
                 <div key={line.productId} className="pos-cart-line">
                   <div>
                     <strong>{name}</strong>
                     <p>{money(unit)} / u. × {line.quantity}{priced?.ruleName ? ` · ${priced.ruleName}` : ''}</p>
+                    {reusable && (
+                      <label className="pos-cart-empties">
+                        Vides rendus
+                        <input
+                          type="number"
+                          min={0}
+                          max={line.quantity}
+                          value={line.emptiesReturned}
+                          onChange={(e) => setEmpties(line.productId, Number(e.target.value))}
+                        />
+                        {priced && priced.consigneQuantity > 0 && (
+                          <span className="erp-muted">
+                            {priced.consigneQuantity} consigné(s) · {money(priced.consigneAmount)}
+                          </span>
+                        )}
+                      </label>
+                    )}
                   </div>
                   <strong>{money(lineTotal)}</strong>
                 </div>
@@ -295,12 +365,31 @@ export default function PosPage() {
               </p>
             )}
           </div>
+          {quote && quote.consigneAmount > 0 && (
+            <>
+              <div className="pos-cart-subtotal">
+                <span>Marchandise</span>
+                <span>{money(quote.goodsAmount)}</span>
+              </div>
+              <div className="pos-cart-subtotal">
+                <span>Consigne ({quote.consigneQuantity} contenant{quote.consigneQuantity > 1 ? 's' : ''})</span>
+                <span>{money(quote.consigneAmount)}</span>
+              </div>
+            </>
+          )}
           <div className="pos-cart-total">
             <span>Total</span>
             <strong>{money(total)}</strong>
           </div>
-          {quote && quote.discount > 0 && (
-            <p className="erp-muted" style={{ marginBottom: 8 }}>Remise {money(quote.discount)}</p>
+          {consigneBalance && consigneBalance.totalQuantity > 0 && (
+            <p className="erp-muted" style={{ marginBottom: 8 }}>
+              Vidange due par ce client : {consigneBalance.totalQuantity} contenant(s) · {money(consigneBalance.totalAmount)}
+            </p>
+          )}
+          {quote && quote.bonusQuantity > 0 && (
+            <p className="erp-muted" style={{ marginBottom: 8 }}>
+              Bonus : {quote.bonusQuantity} article{quote.bonusQuantity > 1 ? 's' : ''} offert{quote.bonusQuantity > 1 ? 's' : ''} ({money(quote.bonus)})
+            </p>
           )}
           <div className="form-group">
             <label>Mode de paiement</label>
@@ -344,6 +433,38 @@ export default function PosPage() {
           </div>
         </aside>
       </form>
+
+      <ErpPanel title="Clôture de caisse">
+        {closing ? (
+          <div className="pos-closing">
+            <p>
+              Session <strong>{closing.reference}</strong> ouverte le{' '}
+              {new Date(closing.openedAt).toLocaleString('fr-FR')}.
+            </p>
+            <div className="form-group">
+              <label>Montant compté en caisse</label>
+              <input
+                type="number"
+                min={0}
+                step={100}
+                value={countedAmount}
+                onChange={(e) => setCountedAmount(e.target.value)}
+              />
+            </div>
+            <button type="button" className="erp-btn" onClick={closeClosing}>
+              Clôturer la caisse
+            </button>
+          </div>
+        ) : (
+          <div className="pos-closing">
+            <p className="erp-muted">Aucune session de caisse ouverte.</p>
+            <button type="button" className="erp-btn" onClick={openClosing}>
+              Ouvrir une session
+            </button>
+          </div>
+        )}
+        {closingError && <p className="erp-muted">{closingError}</p>}
+      </ErpPanel>
 
       <ErpPanel title={`Ventes du jour (${sales.length})`}>
         <table className="erp-table">

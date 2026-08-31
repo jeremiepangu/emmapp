@@ -6,6 +6,8 @@ import {
 import { NotificationCategory, NotificationType, OrderStatus, Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.module';
 import { PricingService } from '../pricing/pricing.service';
+import { ConsignesService } from '../consignes/consignes.service';
+import { ClientCreditService } from '../payments/client-credit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateOrderDto } from './dto/order.dto';
 
@@ -14,6 +16,8 @@ export class OrdersService {
   constructor(
     private prisma: PrismaService,
     private pricing: PricingService,
+    private consignes: ConsignesService,
+    private credit: ClientCreditService,
     private notifications: NotificationsService,
   ) {}
 
@@ -69,12 +73,18 @@ export class OrdersService {
     }
     const ctx = this.pricing.ctxFromClient(client, driverId);
 
-    let totalAmount = new Prisma.Decimal(0);
+    let goodsAmount = new Prisma.Decimal(0);
+    let consigneTotal = new Prisma.Decimal(0);
+    let consigneQuantityTotal = 0;
     const linesData: Array<{
       productId: string;
       quantity: number;
       unitPrice: Prisma.Decimal;
-      discount: Prisma.Decimal;
+      bonusQuantity: number;
+      bonus: Prisma.Decimal;
+      emptiesReturned: number;
+      consigneQuantity: number;
+      consigneAmount: Prisma.Decimal;
     }> = [];
 
     for (const line of dto.lines) {
@@ -85,16 +95,37 @@ export class OrdersService {
         throw new NotFoundException(`Produit ${line.productId} introuvable`);
       }
       const priced = await this.pricing.priceLine(ctx, product, line.quantity);
-      const extra = new Prisma.Decimal(line.discount ?? 0);
-      const discount = priced.discount.add(extra);
-      totalAmount = totalAmount.add(priced.unitPrice.mul(line.quantity).sub(extra));
+      const extraQty = Math.max(0, Math.floor(line.bonusQuantity ?? 0));
+      const bonusQuantity = priced.bonusQuantity + extraQty;
+      const bonus = priced.catalogPrice.mul(bonusQuantity).toDecimalPlaces(2);
+      goodsAmount = goodsAmount.add(priced.unitPrice.mul(line.quantity));
+
+      // Chaque contenant sorti sans vide rendu en echange est consigne.
+      const containersOut = product.isReusable ? line.quantity + bonusQuantity : 0;
+      const emptiesReturned = product.isReusable
+        ? Math.min(Math.max(0, Math.floor(line.emptiesReturned ?? 0)), containersOut)
+        : 0;
+      const consigneQuantity = Math.max(0, containersOut - emptiesReturned);
+      const consigneAmount = new Prisma.Decimal(product.consigneAmount)
+        .mul(consigneQuantity)
+        .toDecimalPlaces(2);
+      consigneTotal = consigneTotal.add(consigneAmount);
+      consigneQuantityTotal += consigneQuantity;
+
       linesData.push({
         productId: line.productId,
         quantity: line.quantity,
         unitPrice: priced.unitPrice,
-        discount,
+        bonusQuantity,
+        bonus,
+        emptiesReturned,
+        consigneQuantity,
+        consigneAmount,
       });
     }
+
+    await this.consignes.assertWithinLimit(dto.clientId, consigneQuantityTotal);
+    const totalAmount = goodsAmount.add(consigneTotal);
 
     const created = await this.prisma.order.create({
       data: {
@@ -103,6 +134,7 @@ export class OrdersService {
         tourId: dto.tourId,
         notes: dto.notes,
         totalAmount,
+        consigneAmount: consigneTotal,
         status: OrderStatus.VALIDEE,
         lines: { create: linesData },
       },
@@ -111,6 +143,7 @@ export class OrdersService {
         lines: { include: { product: true } },
       },
     });
+    await this.credit.refresh(dto.clientId);
     await this.notifications.notifyRoles(
       [UserRole.ADMIN, UserRole.COMMERCIAL, UserRole.CHEF_EXPLOITATION],
       {
@@ -155,6 +188,7 @@ export class OrdersService {
       where: { id },
       data: { status: OrderStatus.ANNULEE },
     });
+    await this.credit.refresh(order.clientId);
     await this.notifications.notifyRoles(
       [UserRole.ADMIN, UserRole.COMMERCIAL, UserRole.CHEF_EXPLOITATION],
       {

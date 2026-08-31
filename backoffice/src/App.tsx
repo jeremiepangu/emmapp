@@ -29,6 +29,7 @@ import ObjectivesPage from './pages/ObjectivesPage';
 import ActivityPage from './pages/ActivityPage';
 import PayrollPage from './pages/PayrollPage';
 import ConsignesPage from './pages/ConsignesPage';
+import EcartsPage from './pages/EcartsPage';
 import ObservabilityPage from './pages/ObservabilityPage';
 import UsersPage from './pages/UsersPage';
 import NotificationsPage from './pages/NotificationsPage';
@@ -172,6 +173,7 @@ function AppRoutes() {
         <Route path="/quality" element={<GuardedRoute resource="quality" element={<QualityPage />} />} />
         <Route path="/loyalty" element={<GuardedRoute resource="loyalty" element={<LoyaltyPage />} />} />
         <Route path="/consignes" element={<GuardedRoute resource="consignes" element={<ConsignesPage />} />} />
+        <Route path="/ecarts" element={<GuardedRoute resource="ecarts" element={<EcartsPage />} />} />
         <Route path="/hr" element={<GuardedRoute resource="hr" element={<HrPage />} />} />
         <Route path="/objectives" element={<GuardedRoute resource="objectives" element={<ObjectivesPage />} />} />
         <Route path="/activity" element={<GuardedRoute resource="activity" element={<ActivityPage />} />} />

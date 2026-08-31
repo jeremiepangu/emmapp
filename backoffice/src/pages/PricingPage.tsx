@@ -20,21 +20,22 @@ const emptyForm: CreatePricingRuleInput = {
   minQuantity: 1,
   maxQuantity: null,
   stepQuantity: 10,
-  type: 'PERCENT',
-  value: 5,
+  type: 'ARTICLE_OFFERT',
+  value: 1,
   priority: 0,
   isActive: true,
 };
 
 function qtyLabel(rule: PricingRule): string {
   const range = rule.maxQuantity == null ? `dès ${rule.minQuantity} unités` : `${rule.minQuantity} à ${rule.maxQuantity}`;
-  if (rule.type === 'PERCENT') return `${range} · lots de ${rule.stepQuantity ?? 10}`;
+  if (rule.type === 'ARTICLE_OFFERT') return `${range} · lots de ${rule.stepQuantity ?? 10}`;
   return range;
 }
 
 function valueLabel(rule: PricingRule): string {
   const n = Number(rule.value);
-  return rule.type === 'PERCENT' ? `${n} %` : `${n.toLocaleString('fr-FR')} CDF`;
+  if (rule.type !== 'ARTICLE_OFFERT') return `${n.toLocaleString('fr-FR')} CDF`;
+  return `${n} offert${n > 1 ? 's' : ''} pour ${rule.stepQuantity ?? 10} achetés`;
 }
 
 function scopeLabel(rule: PricingRule): string {
@@ -126,8 +127,8 @@ export default function PricingPage() {
   return (
     <div className="erp-page">
       <ErpPageHeader
-        title="Tarifs et remises"
-        subtitle="Prix préférentiel et remise par catégorie, client, zone, livreur. La remise s'applique uniquement par lots de 10 articles vendus."
+        title="Tarifs et bonus"
+        subtitle="Prix préférentiel et bonus par catégorie, client, zone, livreur. Le bonus offre un article par tranche de 10 achetés : le client paie 10 et reçoit 11."
         excel={{ filename: 'tarifs', sheets: [sheetPricing(rules, can('pricing', 'create'))], onImported: load }}
         actions={
           <>
@@ -160,7 +161,7 @@ export default function PricingPage() {
                 <td>{scopeLabel(r)}</td>
                 <td>{r.product?.name ?? 'Tous les produits'}</td>
                 <td>{qtyLabel(r)}</td>
-                <td>{r.type === 'PERCENT' ? 'Remise %' : 'Prix fixe'}</td>
+                <td>{r.type === 'ARTICLE_OFFERT' ? 'Article offert' : 'Prix fixe'}</td>
                 <td>{valueLabel(r)}</td>
                 <td>{r.priority}</td>
                 <td><StatusPill status={r.isActive ? 'ACTIF' : 'IGNOREE'} /></td>
@@ -243,23 +244,23 @@ export default function PricingPage() {
               />
             </div>
           </div>
-          {form.type === 'PERCENT' && (
+          {form.type === 'ARTICLE_OFFERT' && (
             <div className="form-group">
-              <label>Remise tous les N articles</label>
+              <label>Taille du lot (articles achetés)</label>
               <input type="number" min={1} value={form.stepQuantity ?? 10} onChange={(e) => setForm({ ...form, stepQuantity: Number(e.target.value) })} required />
-              <p className="erp-muted">Exemple : lot de 10. Pour 23 articles, 20 sont remisés et 3 restent au tarif catalogue.</p>
+              <p className="erp-muted">Exemple : lot de 10. Pour 23 articles achetés, 2 articles sont offerts et 25 sont livrés.</p>
             </div>
           )}
           <div className="form-group">
             <label>Type</label>
-            <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as PricingRuleType, value: e.target.value === 'PERCENT' ? 5 : 0 })}>
-              <option value="PERCENT">Remise en pourcentage</option>
+            <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as PricingRuleType, value: e.target.value === 'ARTICLE_OFFERT' ? 1 : 0 })}>
+              <option value="ARTICLE_OFFERT">Bonus en articles offerts</option>
               <option value="FIXED">Fixation de prix unitaire (CDF)</option>
             </select>
           </div>
           <div className="form-group">
-            <label>{form.type === 'PERCENT' ? 'Remise (%)' : 'Prix unitaire (CDF)'}</label>
-            <input type="number" min={0} max={form.type === 'PERCENT' ? 100 : undefined} step={form.type === 'PERCENT' ? 0.1 : 1} value={form.value} onChange={(e) => setForm({ ...form, value: Number(e.target.value) })} required />
+            <label>{form.type === 'ARTICLE_OFFERT' ? 'Articles offerts par lot' : 'Prix unitaire (CDF)'}</label>
+            <input type="number" min={form.type === 'ARTICLE_OFFERT' ? 1 : 0} max={form.type === 'ARTICLE_OFFERT' ? (form.stepQuantity ?? 10) : undefined} step={1} value={form.value} onChange={(e) => setForm({ ...form, value: Number(e.target.value) })} required />
           </div>
           <div className="form-group">
             <label>Priorité (la plus élevée gagne en cas de chevauchement)</label>

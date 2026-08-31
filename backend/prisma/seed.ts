@@ -230,12 +230,12 @@ async function main() {
   if (existingRules === 0) {
     await prisma.pricingRule.createMany({
       data: [
-        { name: 'Remise boutique', segment: ClientSegment.BOUTIQUE, minQuantity: 1, stepQuantity: 10, type: PricingRuleType.PERCENT, value: 3, priority: 0 },
-        { name: 'Remise detaillant', segment: ClientSegment.DETAILLANT, minQuantity: 1, stepQuantity: 10, type: PricingRuleType.PERCENT, value: 5, priority: 0 },
-        { name: 'Remise supermarche 1-49', segment: ClientSegment.SUPERMARCHE, minQuantity: 1, maxQuantity: 49, stepQuantity: 10, type: PricingRuleType.PERCENT, value: 7, priority: 0 },
-        { name: 'Remise supermarche volume', segment: ClientSegment.SUPERMARCHE, minQuantity: 50, stepQuantity: 10, type: PricingRuleType.PERCENT, value: 10, priority: 10 },
-        { name: 'Remise hotel restaurant', segment: ClientSegment.HOTEL_RESTAURANT, minQuantity: 1, stepQuantity: 10, type: PricingRuleType.PERCENT, value: 8, priority: 0 },
-        { name: 'Remise entreprise', segment: ClientSegment.ENTREPRISE, minQuantity: 1, stepQuantity: 10, type: PricingRuleType.PERCENT, value: 10, priority: 0 },
+        { name: 'Bonus boutique', segment: ClientSegment.BOUTIQUE, minQuantity: 1, stepQuantity: 10, type: PricingRuleType.ARTICLE_OFFERT, value: 1, priority: 0 },
+        { name: 'Bonus detaillant', segment: ClientSegment.DETAILLANT, minQuantity: 1, stepQuantity: 10, type: PricingRuleType.ARTICLE_OFFERT, value: 1, priority: 0 },
+        { name: 'Bonus supermarche 1-49', segment: ClientSegment.SUPERMARCHE, minQuantity: 1, maxQuantity: 49, stepQuantity: 10, type: PricingRuleType.ARTICLE_OFFERT, value: 1, priority: 0 },
+        { name: 'Bonus supermarche volume', segment: ClientSegment.SUPERMARCHE, minQuantity: 50, stepQuantity: 10, type: PricingRuleType.ARTICLE_OFFERT, value: 1, priority: 10 },
+        { name: 'Bonus hotel restaurant', segment: ClientSegment.HOTEL_RESTAURANT, minQuantity: 1, stepQuantity: 10, type: PricingRuleType.ARTICLE_OFFERT, value: 1, priority: 0 },
+        { name: 'Bonus entreprise', segment: ClientSegment.ENTREPRISE, minQuantity: 1, stepQuantity: 10, type: PricingRuleType.ARTICLE_OFFERT, value: 1, priority: 0 },
       ],
     });
   }
@@ -1079,7 +1079,7 @@ async function main() {
       validatedAt: new Date('2026-02-01'),
       signedByCompany: 'EMMANUEL SERVICES SARLU',
       signedByParty: 'Supermarche Kin Marche',
-      clauses: 'Livraison 3 fois par semaine. Consignes selon bareme en vigueur. Remise volume catalogue.',
+      clauses: 'Livraison 3 fois par semaine. Consignes selon bareme en vigueur. Bonus volume catalogue.',
     },
   });
   const notifTemplates: Array<{

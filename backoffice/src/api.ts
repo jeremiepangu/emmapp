@@ -730,7 +730,7 @@ export const api = {
     const qs = q.toString();
     return request<PosSalesResponse>(`/pos/sales${qs ? `?${qs}` : ''}`);
   },
-  quotePos: (data: { clientId?: string | null; lines: Array<{ productId: string; quantity: number }> }) =>
+  quotePos: (data: { clientId?: string | null; lines: Array<{ productId: string; quantity: number; emptiesReturned?: number }> }) =>
     request<PosQuote>('/pos/quote', { method: 'POST', body: JSON.stringify(data) }),
   checkoutPos: (data: PosCheckoutInput) =>
     request<PosSale>('/pos/checkout', { method: 'POST', body: JSON.stringify(data) }),
@@ -739,6 +739,8 @@ export const api = {
   updatePayment: (id: string, data: Partial<CreatePaymentInput>) =>
     request<Payment>(`/payments/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deletePayment: (id: string) => request<void>(`/payments/${id}`, { method: 'DELETE' }),
+  getOutstandingOrders: (clientId?: string) =>
+    request<OutstandingOrder[]>(`/payments/outstanding${clientId ? `?clientId=${clientId}` : ''}`),
 
   getProductionOrders: () => request<ProductionOrder[]>('/emmapure/production'),
   createProductionOrder: (data: { productFormat: string; lineCode: string; plannedQty: number }) =>
@@ -935,6 +937,34 @@ export const api = {
   updateConsigneMovement: (id: string, data: { productFormat?: string; qtyIn?: number; qtyOut?: number; notes?: string }) =>
     request<ConsigneMovement>(`/consignes/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteConsigneMovement: (id: string) => request<void>(`/consignes/${id}`, { method: 'DELETE' }),
+  getConsigneDebtors: () => request<ConsigneDebtor[]>('/consignes/debtors'),
+  getClientConsigneBalances: (clientId: string) =>
+    request<ConsigneBalances>(`/consignes/client/${clientId}/balances`),
+  recordConsigneReturn: (data: { clientId: string; productFormat: string; quantity: number; notes?: string }) =>
+    request<ConsigneMovement>('/consignes/returns', { method: 'POST', body: JSON.stringify(data) }),
+
+  getDiscrepancies: (params?: { kind?: DiscrepancyKind; status?: DiscrepancyStatus }) => {
+    const q = new URLSearchParams();
+    if (params?.kind) q.set('kind', params.kind);
+    if (params?.status) q.set('status', params.status);
+    const qs = q.toString();
+    return request<Discrepancy[]>(`/ecarts${qs ? `?${qs}` : ''}`);
+  },
+  getDiscrepancySummary: () =>
+    request<Array<{ kind: DiscrepancyKind; status: DiscrepancyStatus; count: number; variance: number }>>('/ecarts/summary'),
+  resolveDiscrepancy: (id: string, data: { status: DiscrepancyStatus; notes?: string }) =>
+    request<Discrepancy>(`/ecarts/${id}/resolve`, { method: 'PATCH', body: JSON.stringify(data) }),
+  getCashClosings: () => request<CashClosing[]>('/ecarts/cash-closings'),
+  getCurrentCashClosing: () => request<CashClosing | null>('/ecarts/cash-closings/current'),
+  openCashClosing: (notes?: string) =>
+    request<CashClosing>('/ecarts/cash-closings/open', { method: 'POST', body: JSON.stringify({ notes }) }),
+  closeCashClosing: (id: string, data: { countedAmount: number; notes?: string }) =>
+    request<CashClosing>(`/ecarts/cash-closings/${id}/close`, { method: 'POST', body: JSON.stringify(data) }),
+  validateCashClosing: (id: string) =>
+    request<CashClosing>(`/ecarts/cash-closings/${id}/validate`, { method: 'POST' }),
+  getTourReconciliation: (tourId: string) => request<TourReconciliation>(`/ecarts/tours/${tourId}`),
+  reconcileTour: (tourId: string) =>
+    request<TourReconciliation>(`/ecarts/tours/${tourId}/reconcile`, { method: 'POST' }),
 
   getNotifications: (unreadOnly?: boolean) =>
     request<NotificationItem[]>(`/notifications${unreadOnly ? '?unread=true' : ''}`),
@@ -1240,10 +1270,10 @@ export interface CreateOrderInput {
   tourId?: string;
   driverId?: string;
   notes?: string;
-  lines: Array<{ productId: string; quantity: number; discount?: number }>;
+  lines: Array<{ productId: string; quantity: number; bonusQuantity?: number; emptiesReturned?: number }>;
 }
 
-export type PricingRuleType = 'PERCENT' | 'FIXED';
+export type PricingRuleType = 'ARTICLE_OFFERT' | 'FIXED';
 
 export interface PricingRule {
   id: string;
@@ -1288,14 +1318,14 @@ export interface PricePreview {
   catalogPrice: number;
   unitPrice: number;
   lineTotal: number;
-  discount: number;
-  discountPct: number;
+  bonus: number;
+  bonusPct: number;
   ruleId: string | null;
   ruleName: string | null;
   type: PricingRuleType | null;
   stepQuantity?: number;
-  discountedQuantity?: number;
-  fullPriceQuantity?: number;
+  bonusQuantity?: number;
+  deliveredQuantity?: number;
 }
 
 export interface CreateDeliveryInput {
@@ -1316,6 +1346,7 @@ export interface CreateDeliveryInput {
 export interface CreatePaymentInput {
   clientId?: string;
   deliveryId?: string;
+  orderId?: string;
   amount: number;
   method: PaymentMethod;
   reference?: string;
@@ -1721,6 +1752,8 @@ export interface Client {
   longitude?: number;
   consigneBalance: number;
   consigneLimit: number;
+  creditBalance?: string | number;
+  creditLimit?: string | number;
 }
 
 export interface Product {
@@ -1751,6 +1784,9 @@ export interface Order {
   status: string;
   clientId?: string;
   totalAmount: string | number;
+  consigneAmount?: string | number;
+  paidAmount?: string | number;
+  paymentStatus?: OrderPaymentStatus;
   createdAt?: string;
   client?: { name: string; segment?: string };
   posSale?: { id: string } | null;
@@ -1758,10 +1794,16 @@ export interface Order {
     productId: string;
     quantity: number;
     unitPrice: string | number;
-    discount?: string | number;
+    bonusQuantity?: number;
+    bonus?: string | number;
+    emptiesReturned?: number;
+    consigneQuantity?: number;
+    consigneAmount?: string | number;
     product?: { name: string; isReusable: boolean };
   }>;
 }
+
+export type OrderPaymentStatus = 'IMPAYEE' | 'PARTIELLE' | 'SOLDEE';
 
 export interface StockItem {
   id: string;
@@ -1868,7 +1910,88 @@ export interface Payment {
   reference?: string;
   createdAt: string;
   clientId?: string;
+  orderId?: string | null;
   client?: { name: string };
+  order?: { id: string; orderNumber: string; totalAmount?: string | number; paidAmount?: string | number } | null;
+}
+
+/** Commande non soldee, avec son reste a payer. */
+export interface OutstandingOrder {
+  id: string;
+  orderNumber: string;
+  createdAt: string;
+  client?: { id: string; code: string; name: string; creditLimit: string | number; creditBalance: string | number };
+  totalAmount: number;
+  consigneAmount: number;
+  paidAmount: number;
+  remaining: number;
+  paymentStatus: OrderPaymentStatus;
+}
+
+export interface ConsigneBalances {
+  formats: Array<{ productFormat: string; quantity: number; amount: number }>;
+  totalQuantity: number;
+  totalAmount: number;
+}
+
+export interface ConsigneDebtor {
+  client: { id: string; code: string; name: string; segment: string; consigneLimit: number; phone?: string | null };
+  totalQuantity: number;
+  totalAmount: number;
+  formats: Array<{ productFormat: string; quantity: number; amount: number }>;
+}
+
+export type DiscrepancyKind = 'CAISSE' | 'TOURNEE' | 'VIDANGE';
+export type DiscrepancyStatus = 'OUVERT' | 'JUSTIFIE' | 'REGULARISE';
+
+export interface Discrepancy {
+  id: string;
+  reference: string;
+  kind: DiscrepancyKind;
+  status: DiscrepancyStatus;
+  label: string;
+  expected: string | number;
+  actual: string | number;
+  variance: string | number;
+  productFormat?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  resolvedAt?: string | null;
+  client?: { id: string; code: string; name: string } | null;
+  tour?: { id: string; tourNumber: string; zone: string } | null;
+  resolvedBy?: { id: string; firstName: string; lastName: string } | null;
+}
+
+export interface CashClosing {
+  id: string;
+  reference: string;
+  openedAt: string;
+  closedAt?: string | null;
+  expectedAmount: string | number;
+  countedAmount: string | number;
+  variance: string | number;
+  status: 'OUVERTE' | 'CLOTUREE' | 'VALIDEE';
+  notes?: string | null;
+  cashier?: { id: string; firstName: string; lastName: string };
+  discrepancies?: Discrepancy[];
+}
+
+export interface TourReconciliation {
+  tour: { id: string; tourNumber: string; zone: string; date: string; driver: string };
+  hasLoadSheet: boolean;
+  lines: Array<{
+    productId: string;
+    productName: string;
+    loaded: number;
+    delivered: number;
+    returned: number;
+    refused: number;
+    damaged: number;
+    accounted: number;
+    variance: number;
+  }>;
+  totals: { loaded: number; accounted: number; variance: number };
+  recorded?: number;
 }
 
 export interface PosCatalog {
@@ -1886,7 +2009,12 @@ export interface PosQuoteLine {
   quantity: number;
   catalogPrice: number;
   unitPrice: number;
-  discount: number;
+  bonusQuantity: number;
+  bonus: number;
+  isReusable: boolean;
+  emptiesReturned: number;
+  consigneQuantity: number;
+  consigneAmount: number;
   lineTotal: number;
   ruleName: string | null;
 }
@@ -1895,7 +2023,11 @@ export interface PosQuote {
   client: { id: string; code: string; name: string; segment: string };
   lines: PosQuoteLine[];
   subtotal: number;
-  discount: number;
+  bonusQuantity: number;
+  bonus: number;
+  goodsAmount: number;
+  consigneQuantity: number;
+  consigneAmount: number;
   total: number;
 }
 
@@ -1905,7 +2037,8 @@ export interface PosSale {
   method: PaymentMethod;
   status: 'PAYEE' | 'ANNULEE';
   subtotal: string | number;
-  discount: string | number;
+  bonus: string | number;
+  consigneAmount?: string | number;
   totalAmount: string | number;
   cashReceived?: string | number | null;
   changeGiven?: string | number | null;
@@ -1920,7 +2053,11 @@ export interface PosSale {
     quantity: number;
     catalogPrice: string | number;
     unitPrice: string | number;
-    discount: string | number;
+    bonusQuantity?: number;
+    bonus: string | number;
+    emptiesReturned?: number;
+    consigneQuantity?: number;
+    consigneAmount?: string | number;
     product?: { id: string; code: string; name: string; format: string };
   }>;
 }
@@ -1932,7 +2069,7 @@ export interface PosSalesResponse {
 
 export interface PosCheckoutInput {
   clientId?: string | null;
-  lines: Array<{ productId: string; quantity: number }>;
+  lines: Array<{ productId: string; quantity: number; emptiesReturned?: number }>;
   method: PaymentMethod;
   cashReceived?: number;
   reference?: string;
@@ -2373,7 +2510,7 @@ export interface PortalCatalogItem {
   imageUrl?: string | null;
   basePrice: number;
   segmentPrice: number;
-  discountPct: number;
+  bonusPct: number;
   tiers?: Array<{
     id: string;
     name: string;

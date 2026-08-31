@@ -25,8 +25,17 @@ export class PaymentsController {
   constructor(private paymentsService: PaymentsService) {}
 
   @Get()
-  findAll(@Query('deliveryId') deliveryId?: string) {
-    return this.paymentsService.findAll({ deliveryId });
+  findAll(
+    @Query('deliveryId') deliveryId?: string,
+    @Query('orderId') orderId?: string,
+    @Query('clientId') clientId?: string,
+  ) {
+    return this.paymentsService.findAll({ deliveryId, orderId, clientId });
+  }
+
+  @Get('outstanding')
+  outstanding(@Query('clientId') clientId?: string) {
+    return this.paymentsService.outstanding(clientId);
   }
 
   @Roles(UserRole.LIVREUR, UserRole.CHARGE_LIVRAISON, UserRole.CAISSIER, UserRole.COMMERCIAL, UserRole.ADMIN)

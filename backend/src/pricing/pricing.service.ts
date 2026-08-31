@@ -19,15 +19,16 @@ export interface PricingContext {
 
 export interface PricedLine {
   unitPrice: Prisma.Decimal;
-  discount: Prisma.Decimal;
+  /** Valeur des articles offerts. Informative : elle n'est pas deduite du total. */
+  bonus: Prisma.Decimal;
   catalogPrice: Prisma.Decimal;
-  discountPct: number;
+  bonusPct: number;
   ruleId: string | null;
   ruleName: string | null;
   type: PricingRuleType | null;
   stepQuantity: number;
-  discountedQuantity: number;
-  fullPriceQuantity: number;
+  /** Articles offerts, livres en plus de la quantite facturee. */
+  bonusQuantity: number;
 }
 
 function emptyToNull(value?: string | null): string | null {
@@ -65,8 +66,8 @@ export class PricingService {
 
   async create(dto: CreatePricingRuleDto) {
     this.assertRange(dto.minQuantity ?? 1, dto.maxQuantity);
-    this.assertValue(dto.type, dto.value);
     this.assertStep(dto.stepQuantity ?? 10);
+    this.assertValue(dto.type, dto.value, dto.stepQuantity ?? 10);
     await this.assertRefs(dto.clientId, dto.driverId);
     const created = await this.prisma.pricingRule.create({
       data: this.toData(dto),
@@ -93,8 +94,8 @@ export class PricingService {
     const value = dto.value ?? Number(current.value);
     const stepQuantity = dto.stepQuantity ?? current.stepQuantity;
     this.assertRange(minQuantity, maxQuantity);
-    this.assertValue(type, value);
     this.assertStep(stepQuantity);
+    this.assertValue(type, value, stepQuantity);
     await this.assertRefs(
       dto.clientId === undefined ? current.clientId : dto.clientId,
       dto.driverId === undefined ? current.driverId : dto.driverId,
@@ -143,14 +144,14 @@ export class PricingService {
       catalogPrice: Number(priced.catalogPrice),
       unitPrice: Number(priced.unitPrice),
       lineTotal: Number(priced.unitPrice.mul(quantity)),
-      discount: Number(priced.discount),
-      discountPct: priced.discountPct,
+      bonus: Number(priced.bonus),
+      bonusPct: priced.bonusPct,
       ruleId: priced.ruleId,
       ruleName: priced.ruleName,
       type: priced.type,
       stepQuantity: priced.stepQuantity,
-      discountedQuantity: priced.discountedQuantity,
-      fullPriceQuantity: priced.fullPriceQuantity,
+      bonusQuantity: priced.bonusQuantity,
+      deliveredQuantity: quantity + priced.bonusQuantity,
     };
   }
 
@@ -184,44 +185,30 @@ export class PricingService {
     const catalog = new Prisma.Decimal(product.unitPrice);
     const rule = this.pickRule(rules, ctx, product.id, quantity);
     const step = Math.max(1, rule?.stepQuantity ?? 1);
-    let discountedQty = quantity;
-    let fullPriceQty = 0;
+    let bonusQty = 0;
     let unit = catalog;
-    if (rule?.type === PricingRuleType.PERCENT) {
-      const pct = Math.min(100, Math.max(0, Number(rule.value)));
-      const discountedUnit = catalog.mul(1 - pct / 100);
-      discountedQty = step > 1 ? Math.floor(quantity / step) * step : quantity;
-      fullPriceQty = quantity - discountedQty;
-      if (discountedQty === 0) {
-        unit = catalog;
-      } else if (fullPriceQty === 0) {
-        unit = discountedUnit;
-      } else {
-        const lineTotal = discountedUnit.mul(discountedQty).add(catalog.mul(fullPriceQty));
-        unit = lineTotal.div(quantity);
-      }
+    if (rule?.type === PricingRuleType.ARTICLE_OFFERT) {
+      const perLot = Math.max(0, Math.floor(Number(rule.value)));
+      bonusQty = Math.floor(quantity / step) * perLot;
     } else if (rule?.type === PricingRuleType.FIXED) {
       unit = new Prisma.Decimal(rule.value);
-      discountedQty = quantity;
-      fullPriceQty = 0;
     }
     if (unit.lt(0)) unit = new Prisma.Decimal(0);
     unit = unit.toDecimalPlaces(2);
-    const discount = catalog.mul(quantity).sub(unit.mul(quantity)).toDecimalPlaces(2);
-    const discountPct = Number(catalog) > 0
-      ? Math.round(((Number(catalog) - Number(unit)) / Number(catalog)) * 10000) / 100
+    const bonus = catalog.mul(bonusQty).toDecimalPlaces(2);
+    const bonusPct = quantity > 0
+      ? Math.round((bonusQty / quantity) * 10000) / 100
       : 0;
     return {
       catalogPrice: catalog,
       unitPrice: unit,
-      discount,
-      discountPct,
+      bonus,
+      bonusPct,
       ruleId: rule?.id ?? null,
       ruleName: rule?.name ?? null,
       type: rule?.type ?? null,
-      stepQuantity: rule?.type === PricingRuleType.PERCENT ? step : 1,
-      discountedQuantity: discountedQty,
-      fullPriceQuantity: fullPriceQty,
+      stepQuantity: rule?.type === PricingRuleType.ARTICLE_OFFERT ? step : 1,
+      bonusQuantity: bonusQty,
     };
   }
 
@@ -316,13 +303,17 @@ export class PricingService {
 
   private assertStep(stepQuantity: number) {
     if (stepQuantity < 1) {
-      throw new BadRequestException('Le lot de remise doit etre d au moins 1 article');
+      throw new BadRequestException('Le lot de bonus doit etre d au moins 1 article');
     }
   }
 
-  private assertValue(type: PricingRuleType, value: number) {
-    if (type === PricingRuleType.PERCENT && value > 100) {
-      throw new BadRequestException('La remise ne peut pas depasser 100 %');
+  private assertValue(type: PricingRuleType, value: number, stepQuantity = 10) {
+    if (type !== PricingRuleType.ARTICLE_OFFERT) return;
+    if (!Number.isInteger(value) || value < 1) {
+      throw new BadRequestException('Le bonus doit etre un nombre entier d au moins 1 article offert');
+    }
+    if (value > stepQuantity) {
+      throw new BadRequestException('Le nombre d articles offerts ne peut pas depasser la taille du lot');
     }
   }
 }

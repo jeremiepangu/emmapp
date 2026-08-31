@@ -157,7 +157,7 @@ export const PAPER_FORMS: PaperFormSpec[] = [
   f('/orders', 'commande', 'Bon de commande papier', {
     instructions: 'Prise de commande hors connexion. À saisir ensuite dans l\'historique commandes.',
     handFields: [...ID, { label: 'Client' }, { label: 'Zone / tournée' }, { label: 'Date de livraison souhaitée' }],
-    blankTable: { title: 'Lignes', headers: ['Produit', 'Format', 'Qté', 'Prix', 'Remise', 'Total'], rowCount: 10 },
+    blankTable: { title: 'Lignes', headers: ['Produit', 'Format', 'Qté', 'Prix', 'Bonus', 'Total'], rowCount: 10 },
     checks: ['Crédit', 'Comptant', 'Mobile money', 'Consigne à suivre'],
     signatures: ['Commercial', 'Client'],
   }),
@@ -177,7 +177,7 @@ export const PAPER_FORMS: PaperFormSpec[] = [
     checks: ['Réutilisable / consigné', 'Nouveau', 'Retrait catalogue'],
     signatures: ['Demandeur', 'Validation catalogue'],
   }),
-  f('/pricing', 'tarif', 'Demande de tarif / remise', {
+  f('/pricing', 'tarif', 'Demande de tarif / bonus', {
     instructions: 'Validation manuelle d\'une exception tarifaire.',
     handFields: [
       { label: 'Client / zone / agent' }, { label: 'Produit (ou tous)' },

@@ -199,7 +199,8 @@ export default function ClientsPage() {
               <th>Commune</th>
               <th>Téléphone</th>
               <th>Pièce</th>
-              <th>Consignes</th>
+              <th>Dette vidange</th>
+              <th>Dette argent</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -213,8 +214,20 @@ export default function ClientsPage() {
                 <td>{c.phone ?? '—'}</td>
                 <td>{c.idDocumentType ? `${ID_DOCUMENT_TYPES.find((t) => t.value === c.idDocumentType)?.label ?? c.idDocumentType}${c.idDocumentNumber ? ` ${c.idDocumentNumber}` : ''}` : '—'}</td>
                 <td>
-                  {c.consigneBalance} / {c.consigneLimit}
+                  {c.consigneBalance} / {c.consigneLimit} contenant(s)
                   {c.consigneBalance > c.consigneLimit * 0.8 && <StatusPill status="ALERTE" label="Proche plafond" />}
+                </td>
+                <td>
+                  {Number(c.creditBalance ?? 0).toLocaleString('fr-FR')} CDF
+                  {Number(c.creditLimit ?? 0) > 0 && (
+                    <>
+                      {' / '}
+                      {Number(c.creditLimit).toLocaleString('fr-FR')}
+                      {Number(c.creditBalance ?? 0) > Number(c.creditLimit) && (
+                        <StatusPill status="ALERTE" label="Plafond dépassé" />
+                      )}
+                    </>
+                  )}
                 </td>
                 <td className="erp-row-actions">
                   <DocButton onClick={() => printClientSheet(c)} />

@@ -62,7 +62,7 @@ export class CreatePricingRuleDto {
   @Min(1)
   maxQuantity?: number | null;
 
-  @ApiPropertyOptional({ default: 10, description: 'Remise appliquee par lots (tous les N articles vendus)' })
+  @ApiPropertyOptional({ default: 10, description: 'Bonus applique par lots (tous les N articles vendus)' })
   @IsOptional()
   @Type(() => Number)
   @IsInt()

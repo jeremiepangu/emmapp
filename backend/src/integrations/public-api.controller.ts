@@ -44,7 +44,7 @@ export class PublicApiController {
     const count = await this.prisma.order.count();
     const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     let total = new Prisma.Decimal(0);
-    const linesData: Array<{ productId: string; quantity: number; unitPrice: Prisma.Decimal; discount: Prisma.Decimal }> = [];
+    const linesData: Array<{ productId: string; quantity: number; unitPrice: Prisma.Decimal; bonusQuantity: number; bonus: Prisma.Decimal }> = [];
     for (const line of body.lines ?? []) {
       const product = await this.prisma.product.findUnique({ where: { code: line.productCode } });
       if (!product) throw new NotFoundException(`Produit ${line.productCode} introuvable`);
@@ -54,7 +54,8 @@ export class PublicApiController {
         productId: product.id,
         quantity: line.quantity,
         unitPrice: priced.unitPrice,
-        discount: priced.discount,
+        bonusQuantity: priced.bonusQuantity,
+        bonus: priced.bonus,
       });
     }
     return this.prisma.order.create({

@@ -21,11 +21,17 @@ export class OrderLineDto {
   @Min(1)
   quantity: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ description: 'Articles offerts en plus du bonus calcule par les regles tarifaires' })
   @IsOptional()
   @IsNumber()
   @Min(0)
-  discount?: number;
+  bonusQuantity?: number;
+
+  @ApiPropertyOptional({ description: 'Contenants vides rendus en echange par le client' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  emptiesReturned?: number;
 }
 
 export class CreateOrderDto {

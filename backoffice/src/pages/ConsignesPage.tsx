@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { api, Client, ConsigneMovement, FountainAsset, PackagingUnit } from '../api';
+import { api, Client, ConsigneDebtor, ConsigneMovement, FountainAsset, PackagingUnit } from '../api';
 import { usePermissions } from '../hooks/usePermissions';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
@@ -8,6 +8,10 @@ import { printConsigneMovement, printConsignesList, printFountainsList, printPac
 import { exportSheet, sheetConsignes } from '../excel/specs';
 
 const FORMATS = ['BIDON_5L', 'BIDON_10L', 'BIDON_25L', 'BONBONNE_19L'];
+
+function money(value: number): string {
+  return `${Number(value ?? 0).toLocaleString('fr-FR')} CDF`;
+}
 
 export default function ConsignesPage() {
   const { can } = usePermissions();
@@ -18,17 +22,36 @@ export default function ConsignesPage() {
   const [packForm, setPackForm] = useState({ barcode: '', productFormat: 'BONBONNE_19L', maxRotations: 40 });
   const [moveForm, setMoveForm] = useState({ clientId: '', productFormat: 'BONBONNE_19L', qtyIn: 0, qtyOut: 0 });
   const [fountainForm, setFountainForm] = useState({ serialNumber: '', model: '', contractType: 'LOCATION' });
+  const [debtors, setDebtors] = useState<ConsigneDebtor[]>([]);
+  const [returnForm, setReturnForm] = useState({ clientId: '', productFormat: 'BONBONNE_19L', quantity: 1 });
+  const [returnError, setReturnError] = useState('');
 
   const load = () => {
     api.getPackagingUnits().then(setPackaging);
     api.getFountains().then(setFountains);
     api.getConsigneMovements().then(setMovements).catch(() => setMovements([]));
+    api.getConsigneDebtors().then(setDebtors).catch(() => setDebtors([]));
   };
   useEffect(() => { load(); api.getClients().then(setClients); }, []);
 
   const addPack = async (e: FormEvent) => { e.preventDefault(); await api.createPackagingUnit(packForm); await load(); };
   const addMove = async (e: FormEvent) => { e.preventDefault(); await api.createConsigneMovement(moveForm); await load(); };
   const addFountain = async (e: FormEvent) => { e.preventDefault(); await api.createFountain(fountainForm); await load(); };
+
+  const recordReturn = async (e: FormEvent) => {
+    e.preventDefault();
+    setReturnError('');
+    try {
+      await api.recordConsigneReturn(returnForm);
+      setReturnForm({ ...returnForm, quantity: 1 });
+      await load();
+    } catch (err) {
+      setReturnError(err instanceof Error ? err.message : 'Retour impossible');
+    }
+  };
+
+  const totalDue = debtors.reduce((sum, d) => sum + d.totalQuantity, 0);
+  const totalDueAmount = debtors.reduce((sum, d) => sum + d.totalAmount, 0);
 
   return (
     <div className="erp-page">
@@ -79,6 +102,75 @@ export default function ConsignesPage() {
           </form>
         </ErpPanel>
       )}
+      <ErpPanel
+        title={`Clients débiteurs de vidange (${debtors.length}) — ${totalDue} contenant(s) · ${money(totalDueAmount)} immobilisés`}
+      >
+        {can('consignes', 'create') && (
+          <form className="form-row" style={{ padding: 12 }} onSubmit={recordReturn}>
+            <div className="form-group">
+              <label>Client</label>
+              <select
+                value={returnForm.clientId}
+                onChange={(e) => setReturnForm({ ...returnForm, clientId: e.target.value })}
+                required
+              >
+                <option value="">—</option>
+                {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Format</label>
+              <select
+                value={returnForm.productFormat}
+                onChange={(e) => setReturnForm({ ...returnForm, productFormat: e.target.value })}
+              >
+                {FORMATS.map((f) => <option key={f}>{f}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Vides rendus</label>
+              <input
+                type="number"
+                min={1}
+                value={returnForm.quantity}
+                onChange={(e) => setReturnForm({ ...returnForm, quantity: Number(e.target.value) })}
+              />
+            </div>
+            <div className="form-group" style={{ alignSelf: 'end' }}>
+              <button type="submit" className="erp-btn">Enregistrer le retour</button>
+            </div>
+          </form>
+        )}
+        {returnError && <p className="error-msg" style={{ padding: '0 12px' }}>{returnError}</p>}
+        <table className="erp-table">
+          <thead>
+            <tr><th>Client</th><th>Détail par format</th><th>Total dû</th><th>Valeur</th><th>Plafond</th></tr>
+          </thead>
+          <tbody>
+            {debtors.map((d) => (
+              <tr key={d.client.id}>
+                <td><strong>{d.client.name}</strong><br /><code>{d.client.code}</code></td>
+                <td>
+                  {d.formats
+                    .filter((f) => f.quantity !== 0)
+                    .map((f) => `${f.productFormat} : ${f.quantity}`)
+                    .join(' · ') || '—'}
+                </td>
+                <td>{d.totalQuantity}</td>
+                <td>{money(d.totalAmount)}</td>
+                <td>
+                  <StatusPill
+                    status={d.totalQuantity > d.client.consigneLimit ? 'ALERTE' : 'OK'}
+                    label={`${d.totalQuantity}/${d.client.consigneLimit}`}
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {!debtors.length && <p className="erp-table-empty">Aucun contenant en circulation.</p>}
+      </ErpPanel>
+
       <ErpPanel title={`Mouvements (${movements.length})`}>
         <table className="erp-table">
           <thead>

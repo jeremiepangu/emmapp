@@ -24,6 +24,13 @@ export class PosLineDto {
   @IsInt()
   @Min(1)
   quantity: number;
+
+  @ApiPropertyOptional({ description: 'Contenants vides rendus en echange par le client' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  emptiesReturned?: number;
 }
 
 export class PosQuoteDto {

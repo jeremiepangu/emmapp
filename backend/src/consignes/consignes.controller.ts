@@ -17,9 +17,33 @@ export class ConsignesController {
     return this.consignesService.listRecent();
   }
 
+  @Get('debtors')
+  debtors() {
+    return this.consignesService.debtors();
+  }
+
   @Get('client/:clientId')
   getClientHistory(@Param('clientId') clientId: string) {
     return this.consignesService.getClientHistory(clientId);
+  }
+
+  @Get('client/:clientId/balances')
+  balances(@Param('clientId') clientId: string) {
+    return this.consignesService.balancesFor(clientId);
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.MAGASINIER, UserRole.COMMERCIAL, UserRole.CAISSIER)
+  @Post('returns')
+  recordReturn(
+    @Body()
+    body: {
+      clientId: string;
+      productFormat: ProductFormat;
+      quantity: number;
+      notes?: string;
+    },
+  ) {
+    return this.consignesService.recordReturn(body);
   }
 
   @Roles(UserRole.ADMIN, UserRole.MAGASINIER, UserRole.COMMERCIAL)

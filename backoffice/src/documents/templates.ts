@@ -87,7 +87,11 @@ export function printClientSheet(c: Client): void {
       { label: 'Adresse', value: address },
       { label: 'Pièce d’identité', value: c.idDocumentType ? `${c.idDocumentType}${c.idDocumentNumber ? ` n° ${c.idDocumentNumber}` : ''}` : '—' },
       { label: 'Géolocalisation', value: c.latitude != null && c.longitude != null ? `${c.latitude}, ${c.longitude}` : '—' },
-      { label: 'Consignes', value: `${c.consigneBalance} / ${c.consigneLimit}` },
+      { label: 'Dette vidange', value: `${c.consigneBalance} / ${c.consigneLimit} contenant(s)` },
+      {
+        label: 'Dette argent',
+        value: `${formatMoney(c.creditBalance ?? 0)}${Number(c.creditLimit ?? 0) > 0 ? ` / ${formatMoney(c.creditLimit ?? 0)}` : ''}`,
+      },
     ],
     signatures: ['Pour EMMANUEL SERVICES SARLU', 'Pour le client'],
   });
@@ -144,9 +148,9 @@ export function printPricingRules(rules: PricingRule[]): void {
       r.product?.name ?? 'Tous',
       String(r.minQuantity),
       r.maxQuantity == null ? 'Illimite' : String(r.maxQuantity),
-      r.type === 'PERCENT' ? `tous les ${r.stepQuantity ?? 10}` : 'ligne',
-      r.type === 'PERCENT' ? 'Remise %' : 'Prix fixe',
-      r.type === 'PERCENT' ? `${Number(r.value)} %` : formatMoney(r.value),
+      r.type === 'ARTICLE_OFFERT' ? `tous les ${r.stepQuantity ?? 10}` : 'ligne',
+      r.type === 'ARTICLE_OFFERT' ? 'Article offert' : 'Prix fixe',
+      r.type === 'ARTICLE_OFFERT' ? `${Number(r.value)} offert(s)` : formatMoney(r.value),
     ]),
   );
 }
@@ -191,6 +195,17 @@ export function printActivityObjectiveSheet(row: ActivityObjective): void {
 
 export function printOrder(o: Order): void {
   const lines = o.lines ?? [];
+  const grossAmount = lines.reduce(
+    (sum, l) => sum + Number(l.unitPrice) * (l.quantity + Number(l.bonusQuantity ?? 0)),
+    0,
+  );
+  const bonusAmount = lines.reduce(
+    (sum, l) => sum + Number(l.unitPrice) * Number(l.bonusQuantity ?? 0),
+    0,
+  );
+  const consigneAmount = Number(o.consigneAmount ?? 0);
+  const paidAmount = Number(o.paidAmount ?? 0);
+  const remaining = Math.max(0, Number(o.totalAmount) - paidAmount);
   printDocument({
     kind: 'Bon de commande',
     reference: o.orderNumber,
@@ -201,22 +216,42 @@ export function printOrder(o: Order): void {
     ],
     tables: [{
       title: 'Lignes',
-      headers: ['Produit', 'Qté', 'Prix unitaire', 'Remise', 'Montant'],
+      headers: ['Produit', 'Qté livrée', 'Prix unitaire', 'Bonus déduit', 'Vides rendus', 'Consigne', 'Net à payer'],
       rows: lines.length
         ? lines.map((l) => {
             const qty = l.quantity;
             const unit = Number(l.unitPrice);
+            const offered = Number(l.bonusQuantity ?? 0);
+            const consigneQty = Number(l.consigneQuantity ?? 0);
+            const consigne = Number(l.consigneAmount ?? 0);
             return [
               l.product?.name ?? l.productId,
-              String(qty),
+              String(qty + offered),
               formatMoney(unit),
-              Number(l.discount ?? 0) > 0 ? formatMoney(l.discount) : '—',
-              formatMoney(qty * unit),
+              offered > 0 ? `-${formatMoney(offered * unit)} (${offered} offert(s))` : '—',
+              String(l.emptiesReturned ?? 0),
+              consigne > 0 ? `${formatMoney(consigne)} (${consigneQty})` : '—',
+              formatMoney(qty * unit + consigne),
             ];
           })
-        : [['—', '—', '—', '—', formatMoney(o.totalAmount)]],
+        : [['—', '—', '—', '—', '—', '—', formatMoney(o.totalAmount)]],
     }],
-    totals: [{ label: 'Total TTC', value: formatMoney(o.totalAmount) }],
+    totals: [
+      ...(bonusAmount > 0
+        ? [
+            { label: 'Sous-total livré', value: formatMoney(grossAmount) },
+            { label: 'Bonus déduit', value: `-${formatMoney(bonusAmount)}` },
+          ]
+        : []),
+      ...(consigneAmount > 0 ? [{ label: 'Consigne facturée', value: formatMoney(consigneAmount) }] : []),
+      { label: 'Total TTC', value: formatMoney(o.totalAmount) },
+      ...(paidAmount > 0 || remaining > 0
+        ? [
+            { label: 'Déjà réglé', value: formatMoney(paidAmount) },
+            { label: 'Reste à payer', value: formatMoney(remaining) },
+          ]
+        : []),
+    ],
     notes: 'Document généré depuis EMMAPP. Les consignes d\'emballages réutilisables restent dues jusqu\'au retour.',
     signatures: ['Pour EMMANUEL SERVICES SARLU', 'Pour le client'],
   });
@@ -251,8 +286,14 @@ export function printPaymentsList(payments: Payment[]): void {
   printDocument({
     kind: 'Registre des paiements',
     tables: [{
-      headers: ['Date', 'Client', 'Mode', 'Montant'],
-      rows: payments.map((p) => [formatDate(p.createdAt), p.client?.name ?? '—', p.method, formatMoney(p.amount)]),
+      headers: ['Date', 'Client', 'Commande', 'Mode', 'Montant'],
+      rows: payments.map((p) => [
+        formatDate(p.createdAt),
+        p.client?.name ?? '—',
+        p.order?.orderNumber ?? '—',
+        p.method,
+        formatMoney(p.amount),
+      ]),
     }],
     totals: [{ label: 'Total encaissé', value: formatMoney(total) }],
     signatures: ['Pour EMMANUEL SERVICES SARLU'],
@@ -1595,6 +1636,15 @@ const POS_METHOD: Record<string, string> = {
 
 export function printPosTicket(sale: PosSale): void {
   const lines = sale.lines ?? [];
+  const grossAmount = lines.reduce(
+    (sum, l) => sum + Number(l.unitPrice) * (l.quantity + Number(l.bonusQuantity ?? 0)),
+    0,
+  );
+  const bonusAmount = lines.reduce(
+    (sum, l) => sum + Number(l.unitPrice) * Number(l.bonusQuantity ?? 0),
+    0,
+  );
+  const consigneTotal = Number(sale.consigneAmount ?? 0);
   printDocument({
     kind: 'Ticket de caisse',
     reference: sale.saleNumber,
@@ -1608,18 +1658,27 @@ export function printPosTicket(sale: PosSale): void {
       { label: 'Paiement', value: sale.payment?.paymentNumber ?? '—' },
     ],
     tables: [{
-      headers: ['Produit', 'Qte', 'P.U.', 'Remise', 'Total'],
-      rows: lines.map((l) => [
-        l.product?.name ?? l.productId,
-        String(l.quantity),
-        formatMoney(l.unitPrice),
-        formatMoney(l.discount),
-        formatMoney(Number(l.unitPrice) * l.quantity),
-      ]),
+      headers: ['Produit', 'Qte remise', 'P.U.', 'Bonus deduit', 'Vides rendus', 'Consigne', 'Net'],
+      rows: lines.map((l) => {
+        const offered = Number(l.bonusQuantity ?? 0);
+        const unit = Number(l.unitPrice);
+        const consigneQty = Number(l.consigneQuantity ?? 0);
+        const consigne = Number(l.consigneAmount ?? 0);
+        return [
+          l.product?.name ?? l.productId,
+          String(l.quantity + offered),
+          formatMoney(unit),
+          offered > 0 ? `-${formatMoney(offered * unit)} (${offered})` : '—',
+          String(l.emptiesReturned ?? 0),
+          consigne > 0 ? `${formatMoney(consigne)} (${consigneQty})` : '—',
+          formatMoney(unit * l.quantity + consigne),
+        ];
+      }),
     }],
     totals: [
-      { label: 'Sous-total', value: formatMoney(sale.subtotal) },
-      { label: 'Remise', value: formatMoney(sale.discount) },
+      { label: 'Sous-total', value: formatMoney(bonusAmount > 0 ? grossAmount : sale.subtotal) },
+      ...(bonusAmount > 0 ? [{ label: 'Bonus deduit', value: `-${formatMoney(bonusAmount)}` }] : []),
+      ...(consigneTotal > 0 ? [{ label: 'Consigne facturee', value: formatMoney(consigneTotal) }] : []),
       { label: 'A payer', value: formatMoney(sale.totalAmount) },
       ...(sale.cashReceived != null ? [{ label: 'Recu', value: formatMoney(sale.cashReceived) }] : []),
       ...(sale.changeGiven != null ? [{ label: 'Monnaie', value: formatMoney(sale.changeGiven) }] : []),

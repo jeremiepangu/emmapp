@@ -68,7 +68,7 @@ export class PortalService {
         imageUrl: p.imageUrl,
         basePrice: Number(p.unitPrice),
         segmentPrice: Number(priced.unitPrice),
-        discountPct: priced.discountPct,
+        bonusPct: priced.bonusPct,
         tiers: this.pricing.tiersFor(rules, ctx, p.id),
       };
     });
@@ -91,7 +91,7 @@ export class PortalService {
     const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const orderNumber = `CMD-${date}-${String(count + 1).padStart(4, '0')}`;
     let total = new Prisma.Decimal(0);
-    const linesData: Array<{ productId: string; quantity: number; unitPrice: Prisma.Decimal; discount: Prisma.Decimal }> = [];
+    const linesData: Array<{ productId: string; quantity: number; unitPrice: Prisma.Decimal; bonusQuantity: number; bonus: Prisma.Decimal }> = [];
     for (const line of lines) {
       const product = await this.prisma.product.findUnique({ where: { id: line.productId } });
       if (!product) throw new NotFoundException(`Produit ${line.productId} introuvable`);
@@ -101,7 +101,8 @@ export class PortalService {
         productId: product.id,
         quantity: line.quantity,
         unitPrice: priced.unitPrice,
-        discount: priced.discount,
+        bonusQuantity: priced.bonusQuantity,
+        bonus: priced.bonus,
       });
     }
     const order = await this.prisma.order.create({
@@ -238,8 +239,8 @@ export class PortalService {
     if (!client) throw new NotFoundException();
     const tiers = [
       { name: 'BRONZE', min: 0, next: 'ARGENT', threshold: 100, benefits: ['Cumul de points à chaque livraison'] },
-      { name: 'ARGENT', min: 100, next: 'OR', threshold: 300, benefits: ['Remise boutique', 'Priorité de tournée'] },
-      { name: 'OR', min: 300, next: undefined, threshold: undefined, benefits: ['Remise entreprise', 'Échange de points', 'Volume bonus'] },
+      { name: 'ARGENT', min: 100, next: 'OR', threshold: 300, benefits: ['Bonus boutique', 'Priorité de tournée'] },
+      { name: 'OR', min: 300, next: undefined, threshold: undefined, benefits: ['Bonus entreprise', 'Échange de points', 'Volume bonus'] },
     ];
     const current = tiers.find((t) => t.name === client.loyaltyTier) ?? tiers[0];
     const pointsToNextTier = current.threshold ? Math.max(0, current.threshold - client.loyaltyPoints) : undefined;

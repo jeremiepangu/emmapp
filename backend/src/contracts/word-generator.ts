@@ -611,7 +611,7 @@ function clientArticles(vars: Record<string, string>): Article[] {
       num: '7',
       title: 'Prix',
       paragraphs: [
-        `Le montant de référence est de ${amount}. Les prix unitaires applicables sont ceux du tarif du segment du Client, éventuellement assortis des remises volume du catalogue. Toute remise exceptionnelle fait l'objet d'un avenant.`,
+        `Le montant de référence est de ${amount}. Les prix unitaires applicables sont ceux du tarif du segment du Client, éventuellement assortis des bonus volume du catalogue. Tout bonus exceptionnel fait l'objet d'un avenant.`,
         'Les prix peuvent être révisés avec un préavis de trente (30) jours en cas de hausse significative des intrants (énergie, emballages, traitement). Le Client peut alors dénoncer le contrat dans ce même délai.',
       ],
     },

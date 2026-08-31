@@ -15,6 +15,11 @@ export class CreatePaymentDto {
   @IsUUID()
   deliveryId?: string;
 
+  @ApiPropertyOptional({ description: 'Commande reglee par ce versement' })
+  @IsOptional()
+  @IsUUID()
+  orderId?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsUUID()

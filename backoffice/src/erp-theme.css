@@ -3402,6 +3402,48 @@ body {
   color: var(--erp-green);
 }
 
+.pos-cart-subtotal {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 16px;
+  font-size: 13px;
+  color: var(--erp-text-muted);
+}
+
+.pos-cart-empties {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--erp-text-muted);
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.pos-cart-empties input {
+  width: 64px;
+  padding: 4px 6px;
+  text-align: center;
+}
+
+.pos-cart-empties span {
+  text-transform: none;
+  font-weight: 500;
+}
+
+.pos-closing {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.pos-closing .form-group {
+  margin-bottom: 0;
+}
+
 .pos-actions {
   display: grid;
   grid-template-columns: 1fr 1fr 1.4fr;

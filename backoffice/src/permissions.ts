@@ -33,7 +33,8 @@ export type Resource =
     | 'contracts'
     | 'objectives'
     | 'pos'
-    | 'finance';
+  | 'finance'
+  | 'ecarts';
 
 export type Action = 'read' | 'create' | 'update' | 'delete' | 'validate';
 
@@ -53,13 +54,13 @@ export const PERMISSIONS: Record<string, Partial<Record<Resource, Action[]>>> = 
     stock: FULL, deliveries: FULL, payments: FULL, production: FULL, quality: FULL,
     loyalty: FULL, consignes: FULL, hr: FULL, payroll: FULL, observability: FULL, users: FULL, notifications: FULL,
     ai: FULL, assistant: FULL, iot: FULL, routing: FULL, esg: FULL, security: FULL,
-    portal: FULL, marketplace: FULL, integrations: FULL, pricing: FULL, activity: FULL, packaging: FULL, vehicles: FULL, authorizations: FULL, contracts: FULL, objectives: FULL, pos: FULL, finance: FULL,
+    portal: FULL, marketplace: FULL, integrations: FULL, pricing: FULL, activity: FULL, packaging: FULL, vehicles: FULL, authorizations: FULL, contracts: FULL, objectives: FULL, pos: FULL, finance: FULL, ecarts: FULL,
   },
   DG: {
     dashboard: R, clients: R, orders: R, products: R, tours: R, stock: R, deliveries: R,
     payments: R, production: R, quality: R, loyalty: R, consignes: R, hr: R, payroll: R,
     observability: R, users: R, notifications: R,
-    ai: R, assistant: RC, iot: R, routing: R, esg: R, security: R, portal: R, marketplace: R, pricing: R, packaging: R, vehicles: R, authorizations: R, contracts: RUV, objectives: R, pos: R, finance: RUV,
+    ai: R, assistant: RC, iot: R, routing: R, esg: R, security: R, portal: R, marketplace: R, pricing: R, packaging: R, vehicles: R, authorizations: R, contracts: RUV, objectives: R, pos: R, finance: RUV, ecarts: R,
     activity: RUV,
   },
   CHEF_PRODUCTION: {
@@ -69,7 +70,7 @@ export const PERMISSIONS: Record<string, Partial<Record<Resource, Action[]>>> = 
   },
   CHEF_EXPLOITATION: {
     dashboard: R, orders: FULL, tours: FULL, deliveries: RUV, stock: R, packaging: R, vehicles: FULL, clients: R, notifications: R,
-    ai: R, assistant: RC, routing: RCUV, iot: R, esg: R, hr: RUV, contracts: R, objectives: RCUV, pos: R, finance: R,
+    ai: R, assistant: RC, routing: RCUV, iot: R, esg: R, hr: RUV, contracts: R, objectives: RCUV, pos: R, finance: R, ecarts: RCUV,
     activity: RCUV,
   },
   CHARGE_EXPLOITATION: {
@@ -114,11 +115,11 @@ export const PERMISSIONS: Record<string, Partial<Record<Resource, Action[]>>> = 
   },
   CAISSIER: {
     dashboard: R, payments: FULL, clients: R, orders: R, notifications: R,
-    assistant: RC, hr: R, pos: FULL, finance: RCU,
+    assistant: RC, hr: R, pos: FULL, finance: RCU, ecarts: RC,
     activity: RC,
   },
   COMPTABLE: {
-    payments: RCU, finance: FULL, clients: R, orders: R, dashboard: R, notifications: R,
+    payments: RCU, finance: FULL, ecarts: FULL, clients: R, orders: R, dashboard: R, notifications: R,
     ai: R, assistant: RC, payroll: RCUV, hr: R, contracts: RCUV, pos: R,
     activity: RCUV,
   },
@@ -207,7 +208,7 @@ export const MENU_ITEMS: MenuItem[] = [
   { path: '/orders', label: 'Historique commandes', resource: 'orders', section: 'COMMANDES' },
   { path: '/pos', label: 'Point de vente', resource: 'pos', section: 'COMMANDES' },
   { path: '/products', label: 'Catalogue produits', resource: 'products', section: 'COMMANDES' },
-  { path: '/pricing', label: 'Tarifs et remises', resource: 'pricing', section: 'COMMANDES' },
+  { path: '/pricing', label: 'Tarifs et bonus', resource: 'pricing', section: 'COMMANDES' },
   { path: '/stock', label: 'Stocks & achats', resource: 'stock', section: 'ACHATS' },
   { path: '/packaging', label: 'Emballages', resource: 'packaging', section: 'ACHATS' },
   { path: '/production', label: 'Fabrication / OF', resource: 'production', section: 'FABRICATION' },
@@ -219,6 +220,7 @@ export const MENU_ITEMS: MenuItem[] = [
   { path: '/iot', label: 'Capteurs & télémétrie', resource: 'iot', section: 'OBJETS CONNECTÉS' },
   { path: '/payments', label: 'Factures & paiements', resource: 'payments', section: 'FACTURES' },
   { path: '/finance', label: 'Comptabilité', resource: 'finance', section: 'FACTURES' },
+  { path: '/ecarts', label: 'Écarts et clôtures', resource: 'ecarts', section: 'FACTURES' },
   { path: '/loyalty', label: 'Fidélité', resource: 'loyalty', section: 'COMMERCE' },
   { path: '/consignes', label: 'Consignes circulaires', resource: 'consignes', section: 'COMMERCE' },
   { path: '/marketplace', label: 'Marketplace B2B', resource: 'marketplace', section: 'COMMERCE' },
