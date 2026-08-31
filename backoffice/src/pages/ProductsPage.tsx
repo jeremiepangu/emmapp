@@ -17,7 +17,7 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
-  const [form, setForm] = useState({ code: '', name: '', format: 'BIDON_5L', unitPrice: 1500, isReusable: true, imageUrl: '' });
+  const [form, setForm] = useState({ code: '', name: '', format: 'BIDON_5L', unitPrice: 1500, consigneAmount: 0, isReusable: true, imageUrl: '' });
   const [preview, setPreview] = useState<Record<string, number>>({});
 
   const load = () => api.getProducts().then(setProducts);
@@ -25,7 +25,12 @@ export default function ProductsPage() {
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    const payload = { ...form, imageUrl: form.imageUrl || null };
+    const payload = {
+      ...form,
+      // Un produit a usage unique ne porte jamais de vidange.
+      consigneAmount: form.isReusable ? form.consigneAmount : 0,
+      imageUrl: form.imageUrl || null,
+    };
     if (editing) await api.updateProduct(editing.id, payload);
     else await api.createProduct(payload);
     setShowForm(false);
@@ -42,7 +47,7 @@ export default function ProductsPage() {
         actions={
           <>
             <DocButton label="Catalogue" onClick={() => printProductsCatalog(products)} />
-            {can('products', 'create') && <button type="button" className="erp-btn" onClick={() => { setEditing(null); setForm({ code: '', name: '', format: 'BIDON_5L', unitPrice: 1500, isReusable: true, imageUrl: '' }); setShowForm(true); }}>+ Nouveau produit</button>}
+            {can('products', 'create') && <button type="button" className="erp-btn" onClick={() => { setEditing(null); setForm({ code: '', name: '', format: 'BIDON_5L', unitPrice: 1500, consigneAmount: 0, isReusable: true, imageUrl: '' }); setShowForm(true); }}>+ Nouveau produit</button>}
           </>
         }
       />
@@ -60,8 +65,10 @@ export default function ProductsPage() {
               min={1}
               onQuantityChange={(q) => setPreview((prev) => ({ ...prev, [p.id]: q }))}
               badge={p.imageUrl ? undefined : 'Photo manquante'}
-              metaLabel="Consigne"
-              metaValue={p.isReusable ? 'Consigné · réutilisable' : 'Usage unique'}
+              metaLabel="Vidange"
+              metaValue={p.isReusable
+                ? `${Number(p.consigneAmount ?? 0).toLocaleString('fr-FR')} CDF`
+                : 'Usage unique'}
               onAdd={can('products', 'update') ? () => {
                 setEditing(p);
                 setForm({
@@ -69,6 +76,7 @@ export default function ProductsPage() {
                   name: p.name,
                   format: p.format,
                   unitPrice: Number(p.unitPrice),
+                  consigneAmount: Number(p.consigneAmount ?? 0),
                   isReusable: p.isReusable,
                   imageUrl: p.imageUrl ?? '',
                 });
@@ -83,7 +91,7 @@ export default function ProductsPage() {
       <ErpPanel title="Tableau des produits">
         <table className="erp-table">
           <thead>
-            <tr><th>Code</th><th>Nom</th><th>Format</th><th>Prix (CDF)</th><th>Réutilisable</th><th>Actions</th></tr>
+            <tr><th>Code</th><th>Nom</th><th>Format</th><th>Prix (CDF)</th><th>Vidange (CDF)</th><th>Réutilisable</th><th>Actions</th></tr>
           </thead>
           <tbody>
             {products.map((p) => (
@@ -92,13 +100,14 @@ export default function ProductsPage() {
                 <td>{p.name}</td>
                 <td><EmmaFormatBadge format={p.format} /></td>
                 <td>{Number(p.unitPrice).toLocaleString('fr-FR')}</td>
+                <td>{p.isReusable ? Number(p.consigneAmount ?? 0).toLocaleString('fr-FR') : '—'}</td>
                 <td>{p.isReusable ? 'Oui' : 'Non'}</td>
                 <td className="erp-row-actions">
                   <DocButton onClick={() => printProductSheet(p)} />
                   {can('products', 'update') && (
                     <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => {
                       setEditing(p);
-                      setForm({ code: p.code, name: p.name, format: p.format, unitPrice: Number(p.unitPrice), isReusable: p.isReusable, imageUrl: p.imageUrl ?? '' });
+                      setForm({ code: p.code, name: p.name, format: p.format, unitPrice: Number(p.unitPrice), consigneAmount: Number(p.consigneAmount ?? 0), isReusable: p.isReusable, imageUrl: p.imageUrl ?? '' });
                       setShowForm(true);
                     }}>Modifier</button>
                   )}
@@ -129,6 +138,22 @@ export default function ProductsPage() {
           </div>
           <div className="form-group"><label>Prix unitaire (CDF)</label><input type="number" min={0} value={form.unitPrice} onChange={(e) => setForm({ ...form, unitPrice: Number(e.target.value) })} /></div>
           <label className="form-group"><input type="checkbox" checked={form.isReusable} onChange={(e) => setForm({ ...form, isReusable: e.target.checked })} /> Réutilisable / consigné</label>
+          {form.isReusable && (
+            <div className="form-group">
+              <label>Prix de la vidange (CDF)</label>
+              <input
+                type="number"
+                min={0}
+                step={100}
+                value={form.consigneAmount}
+                onChange={(e) => setForm({ ...form, consigneAmount: Number(e.target.value) })}
+              />
+              <p className="erp-muted">
+                Facturé au client à la vente quand il ne rend pas de contenant vide en échange,
+                puis remboursé au retour du vide.
+              </p>
+            </div>
+          )}
           <button type="submit" className="erp-btn">{editing ? 'Mettre à jour' : 'Créer'}</button>
         </form>
       </Modal>

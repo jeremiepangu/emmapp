@@ -128,6 +128,7 @@ export function sheetProducts(rows: Product[], canWrite: boolean): ExcelSheet {
       { key: 'name', header: 'Nom' },
       { key: 'format', header: 'Format' },
       { key: 'unitPrice', header: 'Prix' },
+      { key: 'consigneAmount', header: 'Vidange' },
       { key: 'isReusable', header: 'Reutilisable' },
     ],
     rows: rows.map((row) => ({
@@ -135,6 +136,7 @@ export function sheetProducts(rows: Product[], canWrite: boolean): ExcelSheet {
       name: row.name,
       format: row.format,
       unitPrice: Number(row.unitPrice),
+      consigneAmount: Number(row.consigneAmount ?? 0),
       isReusable: row.isReusable ? 'Oui' : 'Non',
     })),
     importRows: canWrite
@@ -147,12 +149,14 @@ export function sheetProducts(rows: Product[], canWrite: boolean): ExcelSheet {
           name: cell(row, 'name'),
           format: cell(row, 'format') || 'BIDON_5L',
           unitPrice: num(row, 'prix', 'unitPrice'),
+          consigneAmount: num(row, 'vidange', 'consigneAmount'),
           isReusable: bool(row, 'reutilisable', 'isReusable') ?? true,
         }),
         update: (id, row) => api.updateProduct(id, {
           name: cell(row, 'name') || undefined,
           format: cell(row, 'format') || undefined,
           unitPrice: num(row, 'prix', 'unitPrice') || undefined,
+          consigneAmount: num(row, 'vidange', 'consigneAmount') || undefined,
           isReusable: bool(row, 'reutilisable', 'isReusable'),
         }),
       })
