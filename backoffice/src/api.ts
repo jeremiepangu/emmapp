@@ -765,6 +765,15 @@ export const api = {
       remaining: number;
       paymentStatus: OrderPaymentStatus;
     }>('/payments/apply-advance', { method: 'POST', body: JSON.stringify({ orderId }) }),
+  applyAdvanceForClient: (clientId: string) =>
+    request<{
+      clientId: string;
+      clientName: string;
+      totalApplied: number;
+      remainingAdvance: number;
+      remainingDebt: number;
+      orders: Array<{ orderId: string; orderNumber: string; applied: number }>;
+    }>('/payments/apply-advance', { method: 'POST', body: JSON.stringify({ clientId }) }),
   previewAllocation: (params: { amount: number; orderId?: string; clientId?: string }) => {
     const q = new URLSearchParams({ amount: String(params.amount) });
     if (params.orderId) q.set('orderId', params.orderId);
@@ -1988,7 +1997,7 @@ export interface Payment {
   /** Encaissement anticipe, garde au credit du client. */
   isAdvance?: boolean;
   client?: { name: string };
-  order?: { id: string; orderNumber: string; totalAmount?: string | number; paidAmount?: string | number } | null;
+  order?: { id: string; orderNumber: string; totalAmount?: string | number; paidAmount?: string | number; paymentStatus?: OrderPaymentStatus } | null;
 }
 
 /** Commande non soldee, avec son reste a payer. */
@@ -2084,8 +2093,10 @@ export interface ClientSituation {
     paymentNumber: string;
     amount: number;
     method: string;
+    isAdvance: boolean;
     createdAt: string;
     orderNumber: string | null;
+    orderPaymentStatus?: OrderPaymentStatus | null;
   }>;
   movements: Array<{
     id: string;

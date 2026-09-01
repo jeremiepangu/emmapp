@@ -40,7 +40,7 @@ export class PaymentsService {
       include: {
         client: { select: { name: true } },
         collector: { select: { firstName: true, lastName: true } },
-        order: { select: { id: true, orderNumber: true, totalAmount: true, paidAmount: true } },
+        order: { select: { id: true, orderNumber: true, totalAmount: true, paidAmount: true, paymentStatus: true } },
         allocations: {
           select: { orderId: true, amount: true, source: true },
         },
@@ -222,6 +222,63 @@ export class PaymentsService {
       ),
       paymentStatus: updated?.paymentStatus,
     };
+  }
+
+  /**
+   * Impute l'avance disponible sur toutes les commandes dues du client,
+   * de la plus ancienne a la plus recente, en une seule transaction.
+   */
+  async applyAdvanceForClient(clientId: string) {
+    const client = await this.prisma.client.findUnique({
+      where: { id: clientId },
+      select: { id: true, name: true, advanceBalance: true },
+    });
+    if (!client) throw new NotFoundException('Client introuvable');
+
+    return this.prisma.$transaction(async (tx) => {
+      const orders = await tx.order.findMany({
+        where: {
+          clientId,
+          status: { not: OrderStatus.ANNULEE },
+          paymentStatus: { in: [OrderPaymentStatus.IMPAYEE, OrderPaymentStatus.PARTIELLE] },
+        },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true, orderNumber: true },
+      });
+
+      let totalApplied = new Prisma.Decimal(0);
+      const lines: Array<{ orderId: string; orderNumber: string; applied: number }> = [];
+
+      for (const order of orders) {
+        const applied = await this.allocations.consumeAdvance(tx, order.id, clientId);
+        if (applied.gt(0)) {
+          lines.push({
+            orderId: order.id,
+            orderNumber: order.orderNumber,
+            applied: Number(applied),
+          });
+          totalApplied = totalApplied.add(applied);
+        }
+      }
+
+      if (totalApplied.lte(0)) {
+        throw new BadRequestException('Aucune avance disponible a imputer');
+      }
+
+      const refreshed = await tx.client.findUnique({
+        where: { id: clientId },
+        select: { advanceBalance: true, creditBalance: true },
+      });
+
+      return {
+        clientId,
+        clientName: client.name,
+        totalApplied: Number(totalApplied),
+        remainingAdvance: Number(refreshed?.advanceBalance ?? 0),
+        remainingDebt: Number(refreshed?.creditBalance ?? 0),
+        orders: lines,
+      };
+    });
   }
 
   /**

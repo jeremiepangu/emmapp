@@ -181,7 +181,9 @@ export default function PaymentsPage() {
                 <td>
                   {p.isAdvance
                     ? <StatusPill status="EN_COURS" label="Avance" />
-                    : p.order?.orderNumber ?? '—'}
+                    : p.order?.orderNumber
+                      ? <StatusPill status={p.order.paymentStatus === 'PARTIELLE' ? 'EN_COURS' : 'VALIDEE'} label={p.order.paymentStatus === 'PARTIELLE' ? 'Acompte' : p.order.orderNumber} />
+                      : '—'}
                 </td>
                 <td><strong>{Number(p.amount).toLocaleString('fr-FR')} CDF</strong></td>
                 <td><StatusPill status="VALIDEE" label={methodLabel[p.method] ?? p.method} /></td>
@@ -199,7 +201,7 @@ export default function PaymentsPage() {
                           amount: Number(p.amount),
                           method: p.method as PaymentMethod,
                           reference: p.reference ?? '',
-                          asAdvance: false,
+                          asAdvance: p.isAdvance ?? false,
                         });
                         setShowForm(true);
                       }}

@@ -1,5 +1,5 @@
 import { useEffect, useState, FormEvent } from 'react';
-import { api, Order, Client, Product, CreateOrderInput, PricePreview, User } from '../api';
+import { api, Order, Client, Product, CreateOrderInput, PricePreview, User, PaymentMethod } from '../api';
 import { usePermissions } from '../hooks/usePermissions';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
@@ -28,6 +28,9 @@ export default function OrdersPage() {
     notes: '',
   });
   const [preview, setPreview] = useState<PricePreview | null>(null);
+  const [payOrder, setPayOrder] = useState<Order | null>(null);
+  const [payForm, setPayForm] = useState({ amount: 0, method: 'ESPECES' as PaymentMethod, reference: '' });
+  const [payError, setPayError] = useState('');
   const selectedProduct = products.find((p) => p.id === form.productId);
 
   const load = () => api.getOrders().then(setOrders);
@@ -82,6 +85,41 @@ export default function OrdersPage() {
     }
   };
 
+  const openPayment = (order: Order) => {
+    const remaining = Math.max(0, Number(order.totalAmount) - Number(order.paidAmount ?? 0));
+    setPayForm({ amount: remaining, method: 'ESPECES', reference: '' });
+    setPayError('');
+    setPayOrder(order);
+  };
+
+  const submitPayment = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!payOrder?.clientId) return;
+    setPayError('');
+    try {
+      await api.createPayment({
+        clientId: payOrder.clientId,
+        orderId: payOrder.id,
+        amount: Number(payForm.amount),
+        method: payForm.method,
+        reference: payForm.reference || undefined,
+      });
+      setPayOrder(null);
+      await load();
+    } catch (err) {
+      setPayError(err instanceof Error ? err.message : 'Encaissement impossible');
+    }
+  };
+
+  const applyAdvanceOnOrder = async (order: Order) => {
+    try {
+      await api.applyAdvance(order.id);
+      await load();
+    } catch (err) {
+      setPayError(err instanceof Error ? err.message : 'Imputation impossible');
+    }
+  };
+
   return (
     <div className="erp-page">
       <ErpPageHeader
@@ -129,6 +167,16 @@ export default function OrdersPage() {
                 <td><StatusPill status={o.status} /></td>
                 <td className="erp-row-actions">
                   <DocButton onClick={() => printOrder(o)} />
+                  {can('payments', 'create') && remaining > 0 && o.status !== 'ANNULEE' && (
+                    <button type="button" className="erp-btn erp-btn--sm" onClick={() => openPayment(o)}>
+                      Acompte
+                    </button>
+                  )}
+                  {can('payments', 'create') && remaining > 0 && o.clientId && (
+                    <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => applyAdvanceOnOrder(o)}>
+                      Solder avance
+                    </button>
+                  )}
                   {can('orders', 'validate') && o.status === 'BROUILLON' && (
                     <button type="button" className="erp-btn erp-btn--sm" onClick={() => api.validateOrder(o.id).then(load)}>Valider</button>
                   )}
@@ -227,6 +275,40 @@ export default function OrdersPage() {
           <button type="submit" className="erp-btn" disabled={saving}>
             {saving ? 'Enregistrement...' : 'Créer la commande'}
           </button>
+        </form>
+      </Modal>
+
+      <Modal
+        title={`Acompte — ${payOrder?.orderNumber ?? ''}`}
+        open={Boolean(payOrder)}
+        onClose={() => setPayOrder(null)}
+      >
+        <ClientSituationPanel clientId={payOrder?.clientId} compact />
+        <form className="form-stack" onSubmit={submitPayment}>
+          <p className="erp-muted">
+            Versement partiel ou total sur cette commande. Le statut passera en « partielle » ou « soldée ».
+          </p>
+          <div className="form-group">
+            <label>Montant (CDF)</label>
+            <input
+              type="number"
+              min={0}
+              value={payForm.amount}
+              onChange={(e) => setPayForm({ ...payForm, amount: Number(e.target.value) })}
+              required
+            />
+          </div>
+          <div className="form-group">
+            <label>Mode</label>
+            <select value={payForm.method} onChange={(e) => setPayForm({ ...payForm, method: e.target.value as PaymentMethod })}>
+              <option value="ESPECES">Espèces</option>
+              <option value="MOBILE_MONEY">Mobile Money</option>
+              <option value="VIREMENT">Virement</option>
+              <option value="CHEQUE">Chèque</option>
+            </select>
+          </div>
+          {payError && <p className="error-msg">{payError}</p>}
+          <button type="submit" className="erp-btn">Enregistrer l’acompte</button>
         </form>
       </Modal>
     </div>

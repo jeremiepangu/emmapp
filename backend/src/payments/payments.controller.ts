@@ -9,6 +9,7 @@ import {
   Query,
   Request,
   UseGuards,
+  BadRequestException,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { PaymentMethod, UserRole } from '@prisma/client';
@@ -62,8 +63,10 @@ export class PaymentsController {
 
   @Roles(UserRole.LIVREUR, UserRole.CHARGE_LIVRAISON, UserRole.CAISSIER, UserRole.COMMERCIAL, UserRole.ADMIN, UserRole.COMPTABLE)
   @Post('apply-advance')
-  applyAdvance(@Body() body: { orderId: string }) {
-    return this.paymentsService.applyAdvance(body.orderId);
+  applyAdvance(@Body() body: { orderId?: string; clientId?: string }) {
+    if (body.clientId) return this.paymentsService.applyAdvanceForClient(body.clientId);
+    if (body.orderId) return this.paymentsService.applyAdvance(body.orderId);
+    throw new BadRequestException('orderId ou clientId requis');
   }
 
   @Roles(UserRole.ADMIN, UserRole.CAISSIER, UserRole.COMPTABLE)

@@ -6,6 +6,7 @@ import {
 import { NotificationCategory, NotificationType, OrderStatus, PaymentMethod, Prisma, UserRole } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { NotificationsService } from '../notifications/notifications.service';
+import { PaymentsService } from '../payments/payments.service';
 import { PricingService } from '../pricing/pricing.service';
 import { PrismaService } from '../prisma/prisma.module';
 import { ACCOUNT_SELECT } from './portal-auth.service';
@@ -20,6 +21,7 @@ export class PortalService {
     private prisma: PrismaService,
     private notifications: NotificationsService,
     private pricing: PricingService,
+    private payments: PaymentsService,
   ) {}
 
   async me(clientId: string, accountId: string) {
@@ -205,33 +207,20 @@ export class PortalService {
       const delivery = await this.prisma.delivery.findFirst({ where: { orderId: body.orderId, clientId } });
       deliveryId = delivery?.id;
     }
-    const count = await this.prisma.payment.count();
-    const paymentNumber = `PAY-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(count + 1).padStart(4, '0')}`;
     const collector = await this.prisma.user.findFirst({ where: { role: UserRole.CAISSIER, isActive: true } })
       ?? await this.prisma.user.findFirst({ where: { role: UserRole.ADMIN } });
     if (!collector) throw new BadRequestException('Aucun caissier pour rattacher l\'encaissement');
-    const payment = await this.prisma.payment.create({
-      data: {
-        paymentNumber,
+    return this.payments.create(
+      {
         clientId,
+        orderId: body.orderId,
         deliveryId,
         amount: body.amount,
         method: body.method,
         reference: body.reference || `PORTAL-${Date.now()}`,
-        collectedBy: collector.id,
       },
-    });
-    await this.notifications.notifyRoles(
-      [UserRole.CAISSIER, UserRole.COMPTABLE, UserRole.ADMIN],
-      {
-        title: 'Paiement portail',
-        message: `${body.amount} CDF via ${body.method}`,
-        type: NotificationType.SUCCESS,
-        category: NotificationCategory.PAIEMENT,
-        link: '/payments',
-      },
+      collector.id,
     );
-    return payment;
   }
 
   async loyalty(clientId: string) {

@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -81,7 +79,7 @@ class _RecouvrementScreenState extends State<RecouvrementScreen> {
             if (moneyDue > 0)
               ListTile(
                 leading: const Icon(Icons.payments),
-                title: const Text('Encaisser'),
+                title: const Text('Encaisser / acompte'),
                 onTap: () {
                   Navigator.pop(ctx);
                   _paymentDialog(row, asAdvance: false, defaultAmount: moneyDue);
@@ -101,7 +99,7 @@ class _RecouvrementScreenState extends State<RecouvrementScreen> {
                 title: const Text('Imputer l\'avance sur les commandes'),
                 onTap: () {
                   Navigator.pop(ctx);
-                  _applyAdvance(clientId, advance);
+                  _applyAdvance(clientId);
                 },
               ),
             if (emptiesDue > 0)
@@ -207,30 +205,21 @@ class _RecouvrementScreenState extends State<RecouvrementScreen> {
     }
   }
 
-  Future<void> _applyAdvance(String clientId, double advance) async {
+  Future<void> _applyAdvance(String clientId) async {
     try {
-      final auth = context.read<AuthProvider>();
-      final outstanding = await auth.offline.get('/payments/outstanding?clientId=$clientId');
-      final orders = asRecordList(outstanding.data);
-      var left = advance;
-      for (final order in orders) {
-        if (left <= 0) break;
-        final orderId = order['id'] as String?;
-        if (orderId == null) continue;
-        final result = await auth.offline.mutate(
-          method: 'POST',
-          path: '/payments/apply-advance',
-          body: {'orderId': orderId},
-          entityType: 'payment',
-        );
-        if (result.data is Map) {
-          final applied = (result.data as Map)['applied'];
-          left -= (applied as num?)?.toDouble() ?? 0;
-        }
-      }
+      final result = await context.read<AuthProvider>().offline.mutate(
+            method: 'POST',
+            path: '/payments/apply-advance',
+            body: {'clientId': clientId},
+            entityType: 'payment',
+          );
       if (!mounted) return;
+      final applied = result.data is Map ? (result.data as Map)['totalApplied'] : null;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Avance imputée'), backgroundColor: Colors.green),
+        SnackBar(
+          content: Text(applied != null ? 'Avance imputée : ${_money(applied as num)}' : 'Avance imputée'),
+          backgroundColor: Colors.green,
+        ),
       );
       await _load();
     } catch (e) {
@@ -318,14 +307,47 @@ class _RecouvrementScreenState extends State<RecouvrementScreen> {
       final result = await context.read<AuthProvider>().offline.get('/recouvrement/clients/$clientId');
       if (!mounted) return;
       final data = result.data is Map ? Map<String, dynamic>.from(result.data as Map) : <String, dynamic>{};
+      final money = data['money'] is Map ? Map<String, dynamic>.from(data['money'] as Map) : <String, dynamic>{};
+      final orders = data['orders'] is List ? data['orders'] as List : [];
+      final payments = data['payments'] is List ? data['payments'] as List : [];
+
       await showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(
           title: Text('Situation — $name'),
           content: SingleChildScrollView(
-            child: Text(
-              const JsonEncoder.withIndent('  ').convert(data),
-              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Dette : ${_money(money['due'] as num?)}'),
+                Text('Avance : ${_money(money['advance'] as num?)}'),
+                if (orders.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  const Text('Commandes non soldées', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ...orders.map((raw) {
+                    final o = raw is Map ? Map<String, dynamic>.from(raw as Map) : <String, dynamic>{};
+                    return Text(
+                      '${o['orderNumber']} : ${_money(o['paidAmount'] as num?)} payé / ${_money(o['remaining'] as num?)} reste',
+                      style: const TextStyle(fontSize: 13),
+                    );
+                  }),
+                ],
+                if (payments.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  const Text('Derniers encaissements', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ...payments.take(8).map((raw) {
+                    final p = raw is Map ? Map<String, dynamic>.from(raw as Map) : <String, dynamic>{};
+                    final nature = p['isAdvance'] == true
+                        ? 'Avance'
+                        : (p['orderPaymentStatus'] == 'PARTIELLE' ? 'Acompte' : 'Règlement');
+                    return Text(
+                      '${nature} · ${_money(p['amount'] as num?)} · ${p['method']}',
+                      style: const TextStyle(fontSize: 13),
+                    );
+                  }),
+                ],
+              ],
             ),
           ),
           actions: [

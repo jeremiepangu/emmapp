@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { api, PaymentMethod, RecouvrementFilter, RecouvrementRow } from '../api';
+import { AllocationPreview, api, PaymentMethod, RecouvrementFilter, RecouvrementRow } from '../api';
 import { usePermissions } from '../hooks/usePermissions';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
@@ -31,6 +31,9 @@ export default function RecouvrementPage() {
   const [payForm, setPayForm] = useState({ amount: 0, method: 'ESPECES' as PaymentMethod, reference: '', asAdvance: false });
   const [returnTarget, setReturnTarget] = useState<RecouvrementRow | null>(null);
   const [returnForm, setReturnForm] = useState({ productFormat: 'BONBONNE_19L', quantity: 1 });
+  const [remindTarget, setRemindTarget] = useState<RecouvrementRow | null>(null);
+  const [remindNotes, setRemindNotes] = useState('');
+  const [preview, setPreview] = useState<AllocationPreview | null>(null);
   const [error, setError] = useState('');
 
   const load = useCallback(() => {
@@ -59,6 +62,19 @@ export default function RecouvrementPage() {
     setPayTarget(row);
   };
 
+  useEffect(() => {
+    if (!payTarget || payForm.asAdvance || payForm.amount <= 0) {
+      setPreview(null);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      api.previewAllocation({ amount: payForm.amount, clientId: payTarget.clientId })
+        .then(setPreview)
+        .catch(() => setPreview(null));
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [payTarget, payForm.amount, payForm.asAdvance]);
+
   const submitPayment = async (e: FormEvent) => {
     e.preventDefault();
     if (!payTarget) return;
@@ -85,16 +101,23 @@ export default function RecouvrementPage() {
   const applyAdvance = async (row: RecouvrementRow) => {
     setError('');
     try {
-      const orders = await api.getOutstandingOrders(row.clientId);
-      let left = row.advance;
-      for (const order of orders) {
-        if (left <= 0) break;
-        const result = await api.applyAdvance(order.id);
-        left -= result.applied;
-      }
+      await api.applyAdvanceForClient(row.clientId);
       load();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Imputation impossible');
+    }
+  };
+
+  const submitRemind = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!remindTarget) return;
+    setError('');
+    try {
+      await api.remindClient(remindTarget.clientId, remindNotes || undefined);
+      setRemindTarget(null);
+      setRemindNotes('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Relance impossible');
     }
   };
 
@@ -215,7 +238,7 @@ export default function RecouvrementPage() {
                     </button>
                     {can('payments', 'create') && r.moneyDue > 0 && (
                       <button type="button" className="erp-btn erp-btn--sm" onClick={() => openPayment(r)}>
-                        Encaisser
+                        Encaisser / acompte
                       </button>
                     )}
                     {can('payments', 'create') && (
@@ -248,7 +271,7 @@ export default function RecouvrementPage() {
                       <button
                         type="button"
                         className="erp-btn erp-btn--sm erp-btn--ghost"
-                        onClick={() => api.remindClient(r.clientId).then(() => undefined).catch(() => undefined)}
+                        onClick={() => { setRemindNotes(''); setRemindTarget(r); }}
                       >
                         Relancer
                       </button>
@@ -285,11 +308,21 @@ export default function RecouvrementPage() {
               </>
             ) : (
               <>
-                Reste à recouvrer : {money(payTarget?.moneyDue ?? 0)}. Un versement partiel ou en
-                surplus est accepté ; le surplus est porté en avance sur compte.
+                Reste à recouvrer : {money(payTarget?.moneyDue ?? 0)}. Un versement partiel constitue un
+                <strong> acompte </strong>
+                sur les commandes ; le surplus est porté en avance.
               </>
             )}
           </p>
+          {preview && !payForm.asAdvance && (
+            <div className="erp-panel" style={{ padding: 12, marginBottom: 8 }}>
+              <p><strong>Prévision d’imputation</strong></p>
+              {preview.lines.map((l) => (
+                <div key={l.orderId}>{l.orderNumber} : {money(l.allocated)} / {money(l.due)}</div>
+              ))}
+              {preview.advance > 0 && <div>→ Avance résiduelle : {money(preview.advance)}</div>}
+            </div>
+          )}
           <div className="form-group">
             <label>Montant (CDF)</label>
             <input type="number" min={0} value={payForm.amount} onChange={(e) => setPayForm({ ...payForm, amount: Number(e.target.value) })} required />
@@ -310,6 +343,24 @@ export default function RecouvrementPage() {
           <button type="submit" className="erp-btn">
             {payForm.asAdvance ? 'Enregistrer l’avance' : 'Enregistrer l’encaissement'}
           </button>
+        </form>
+      </Modal>
+
+      <Modal
+        title={`Relance — ${remindTarget?.name ?? ''}`}
+        open={Boolean(remindTarget)}
+        onClose={() => setRemindTarget(null)}
+      >
+        <form className="form-stack" onSubmit={submitRemind}>
+          <p className="erp-muted">
+            Dette : {money(remindTarget?.moneyDue ?? 0)} · Vidanges dues : {remindTarget?.emptiesDue ?? 0}
+          </p>
+          <div className="form-group">
+            <label>Notes (optionnel)</label>
+            <textarea value={remindNotes} onChange={(e) => setRemindNotes(e.target.value)} rows={3} />
+          </div>
+          {error && <p className="error-msg">{error}</p>}
+          <button type="submit" className="erp-btn">Envoyer la relance</button>
         </form>
       </Modal>
 
