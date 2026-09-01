@@ -624,6 +624,7 @@ export const api = {
     }),
 
   getOrders: () => request<Order[]>('/orders'),
+  getOrder: (id: string) => request<Order>(`/orders/${id}`),
   createOrder: (data: CreateOrderInput) =>
     request<Order>('/orders', { method: 'POST', body: JSON.stringify(data) }),
   validateOrder: (id: string) =>
@@ -634,7 +635,11 @@ export const api = {
     request<Order>(`/orders/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteOrder: (id: string) => request<void>(`/orders/${id}`, { method: 'DELETE' }),
 
-  getStock: () => request<StockItem[]>('/stock'),
+  getStock: (params?: { locationId?: string }) => {
+    const q = params?.locationId ? `?locationId=${params.locationId}` : '';
+    return request<StockItem[]>(`/stock${q}`);
+  },
+  getVehicleStock: (vehicleId: string) => request<StockItem[]>(`/stock/vehicle/${vehicleId}`),
   getStockLocations: () => request<StockLocation[]>('/stock/locations'),
   createStockLocation: (data: CreateStockLocationInput) =>
     request<StockLocation>('/stock/locations', { method: 'POST', body: JSON.stringify(data) }),
@@ -674,6 +679,9 @@ export const api = {
     request<PackagingSku>(`/packaging/skus/${id}`, { method: 'DELETE' }),
 
   getDeliveries: () => request<Delivery[]>('/deliveries'),
+  getDelivery: (id: string) => request<Delivery>(`/deliveries/${id}`),
+  getDeliveryTourReconciliation: (tourId: string) =>
+    request<DeliveryTourReconciliation>(`/deliveries/tour/${tourId}/reconciliation`),
   createDelivery: (data: CreateDeliveryInput) =>
     request<Delivery>('/deliveries', { method: 'POST', body: JSON.stringify(data) }),
   updateDelivery: (id: string, data: { status: string; notes?: string }) =>
@@ -1956,7 +1964,17 @@ export interface Delivery {
   deliveryNumber: string;
   status: string;
   deliveredAt?: string;
+  tourId?: string;
+  signatureUrl?: string | null;
+  photoUrl?: string | null;
   client?: { id?: string; name: string };
+}
+
+export interface DeliveryTourReconciliation {
+  tour: Tour | null;
+  deliveries: number;
+  totals: { delivered: number; returned: number; refused: number; damaged: number };
+  loadSheets: LoadSheet[];
 }
 
 export interface Payment {

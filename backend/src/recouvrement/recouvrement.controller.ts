@@ -30,7 +30,7 @@ export class RecouvrementController {
     return this.recouvrement.situation(clientId);
   }
 
-  @Roles(UserRole.ADMIN, UserRole.COMMERCIAL, UserRole.COMPTABLE, UserRole.CAISSIER)
+  @Roles(UserRole.ADMIN, UserRole.COMMERCIAL, UserRole.COMPTABLE, UserRole.CAISSIER, UserRole.CHEF_EXPLOITATION)
   @Post('clients/:clientId/relance')
   remind(@Param('clientId') clientId: string, @Body() body: { notes?: string }) {
     return this.recouvrement.remind(clientId, body?.notes);

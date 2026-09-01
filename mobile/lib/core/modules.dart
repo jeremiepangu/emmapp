@@ -281,7 +281,7 @@ const appModules = <AppModule>[
     icon: Icons.recycling_outlined,
     kind: ModuleKind.catalog,
     listPath: '/consignes',
-    prefetchPaths: ['/consignes'],
+    prefetchPaths: ['/consignes/situation', '/consignes'],
   ),
   AppModule(
     id: 'marketplace',

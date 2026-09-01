@@ -173,7 +173,6 @@ export default function ToursPage() {
     }
   };
 
-  const latestSheet = loadSheetTour?.loadSheets?.[loadSheetTour.loadSheets.length - 1];
 
   return (
     <div className="erp-page">
@@ -334,7 +333,7 @@ export default function ToursPage() {
               </div>
             )}
 
-            {can('tours', 'create') && loadSheetTour.status === 'PLANIFIEE' && (
+            {can('tours', 'create') && loadSheetTour.status === 'PLANIFIEE' && !loadSheetTour.loadSheets?.length && (
               <>
                 <p className="erp-muted">
                   Quantités prévues à charger (éditables avant création). Le rapprochement à l&apos;écarts utilise ce bordereau.
@@ -366,7 +365,7 @@ export default function ToursPage() {
                   </table>
                 )}
                 <button type="button" className="erp-btn" disabled={loadSaving || loadItems.length === 0} onClick={handleCreateLoadSheet}>
-                  {loadSaving ? 'Enregistrement…' : latestSheet ? 'Nouveau bordereau' : 'Créer le bordereau'}
+                  {loadSaving ? 'Enregistrement…' : 'Créer le bordereau'}
                 </button>
               </>
             )}

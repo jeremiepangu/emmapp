@@ -41,14 +41,15 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> login(String email, String password) async {
+  /// Retourne `true` si un code MFA est requis pour terminer la connexion.
+  Future<bool> login(String email, String password, {String? mfaCode}) async {
     final online = await ConnectivityService.isOnline();
     if (!online) {
       throw ApiException('Connexion internet requise pour la première authentification.');
     }
-    final result = await _api.login(email, password);
+    final result = await _api.login(email, password, mfaCode: mfaCode);
     if (result['mfaRequired'] == true) {
-      throw ApiException('Code MFA requis — utilisez le back-office pour cette session.');
+      return true;
     }
     _token = result['accessToken'] as String?;
     if (_token == null || _token!.isEmpty) {
@@ -68,6 +69,7 @@ class AuthProvider extends ChangeNotifier {
     await prefs.setString('token', _token!);
     await prefs.setString('user', jsonEncode(_user!.toJson()));
     notifyListeners();
+    return false;
   }
 
   Future<void> logout() async {

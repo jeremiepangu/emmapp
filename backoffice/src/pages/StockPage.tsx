@@ -29,6 +29,8 @@ export default function StockPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [locations, setLocations] = useState<StockLocation[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [vehicleStockId, setVehicleStockId] = useState('');
+  const [vehicleStock, setVehicleStock] = useState<StockItem[]>([]);
   const [form, setForm] = useState({ productId: '', locationId: '', quantity: 0, lotNumber: '' });
   const [locForm, setLocForm] = useState(emptyLoc);
   const [editingLoc, setEditingLoc] = useState<StockLocation | null>(null);
@@ -42,6 +44,14 @@ export default function StockPage() {
     loadLocations();
     api.getVehicles().then(setVehicles).catch(() => setVehicles([]));
   }, []);
+
+  useEffect(() => {
+    if (!vehicleStockId) {
+      setVehicleStock([]);
+      return;
+    }
+    api.getVehicleStock(vehicleStockId).then(setVehicleStock).catch(() => setVehicleStock([]));
+  }, [vehicleStockId]);
 
   const adjust = async (e: FormEvent) => {
     e.preventDefault();
@@ -103,6 +113,36 @@ export default function StockPage() {
           </>
         }
       />
+      <ErpPanel title="Stock embarqué véhicule" padded>
+        <div className="form-group">
+          <label>Véhicule</label>
+          <select value={vehicleStockId} onChange={(e) => setVehicleStockId(e.target.value)}>
+            <option value="">— Choisir un véhicule —</option>
+            {vehicles.filter((v) => v.isActive !== false).map((v) => (
+              <option key={v.id} value={v.id}>{v.plate} — {v.name}</option>
+            ))}
+          </select>
+        </div>
+        {vehicleStockId && (
+          <table className="erp-table">
+            <thead>
+              <tr><th>Produit</th><th>Emplacement</th><th>Quantité</th><th>Lot</th></tr>
+            </thead>
+            <tbody>
+              {vehicleStock.length === 0 ? (
+                <tr><td colSpan={4}>Aucun stock sur ce véhicule.</td></tr>
+              ) : vehicleStock.map((item) => (
+                <tr key={item.id}>
+                  <td>{item.product.name}</td>
+                  <td>{item.location.name}</td>
+                  <td>{item.quantity}</td>
+                  <td>{item.lotNumber ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </ErpPanel>
       {can('stock', 'create') && (
         <ErpPanel title="Ajuster le stock" padded>
           <form id="stock-adjust" className="form-row" onSubmit={adjust}>

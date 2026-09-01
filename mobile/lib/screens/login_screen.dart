@@ -13,6 +13,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController(text: 'livreur@emmapp.cd');
   final _passwordController = TextEditingController(text: 'password123');
+  final _mfaController = TextEditingController();
+  bool _mfaNeeded = false;
   bool _isLoading = false;
   String? _error;
 
@@ -20,6 +22,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _mfaController.dispose();
     super.dispose();
   }
 
@@ -32,10 +35,17 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      await context.read<AuthProvider>().login(
+      final needMfa = await context.read<AuthProvider>().login(
             _emailController.text.trim(),
             _passwordController.text,
+            mfaCode: _mfaNeeded ? _mfaController.text.trim() : null,
           );
+      if (needMfa && mounted) {
+        setState(() {
+          _mfaNeeded = true;
+          _error = 'Saisissez le code de votre application d\'authentification.';
+        });
+      }
     } catch (e) {
       setState(() => _error = e.toString());
     } finally {
@@ -91,6 +101,18 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   validator: (v) => v == null || v.length < 6 ? 'Mot de passe requis' : null,
                 ),
+                if (_mfaNeeded) ...[
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _mfaController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: 'Code MFA',
+                      prefixIcon: Icon(Icons.security),
+                    ),
+                    validator: (v) => _mfaNeeded && (v == null || v.isEmpty) ? 'Code requis' : null,
+                  ),
+                ],
                 if (_error != null) ...[
                   const SizedBox(height: 16),
                   Text(_error!, style: const TextStyle(color: Colors.red)),

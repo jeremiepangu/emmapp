@@ -87,11 +87,15 @@ class ApiService {
     return _decode(response);
   }
 
-  Future<Map<String, dynamic>> login(String email, String password) async {
+  Future<Map<String, dynamic>> login(String email, String password, {String? mfaCode}) async {
     final response = await http.post(
       _uri('/auth/login'),
       headers: _headers,
-      body: jsonEncode({'email': email, 'password': password}),
+      body: jsonEncode({
+        'email': email,
+        'password': password,
+        if (mfaCode != null && mfaCode.isNotEmpty) 'mfaCode': mfaCode,
+      }),
     );
     _check(response);
     return jsonDecode(response.body) as Map<String, dynamic>;

@@ -63,6 +63,7 @@ class DeliveryProvider {
     double? longitude,
     String? notes,
     String? signatureUrl,
+    String? photoUrl,
   }) async {
     const uuid = Uuid();
     final localId = uuid.v4();
@@ -86,6 +87,7 @@ class DeliveryProvider {
       'longitude': longitude,
       'notes': notes,
       'signatureUrl': signatureUrl,
+      'photoUrl': photoUrl,
       'localId': localId,
       'lines': lines,
     };

@@ -1,9 +1,14 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
+import 'package:signature/signature.dart';
+
 import '../models/models.dart';
 import '../providers/auth_provider.dart';
 import '../providers/tour_provider.dart';
+import '../widgets/photo_picker.dart';
 
 class DeliveryScreen extends StatefulWidget {
   const DeliveryScreen({super.key, required this.tour, required this.order});
@@ -18,7 +23,13 @@ class DeliveryScreen extends StatefulWidget {
 class _DeliveryScreenState extends State<DeliveryScreen> {
   final _formData = DeliveryFormData();
   final _paymentController = TextEditingController();
+  final _signatureController = SignatureController(
+    penStrokeWidth: 2,
+    penColor: Colors.black,
+    exportBackgroundColor: Colors.white,
+  );
   String _paymentMethod = 'ESPECES';
+  String? _photoUrl;
   bool _isSubmitting = false;
 
   @override
@@ -42,7 +53,21 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
   @override
   void dispose() {
     _paymentController.dispose();
+    _signatureController.dispose();
     super.dispose();
+  }
+
+  Future<String?> _signatureDataUrl() async {
+    if (_signatureController.isEmpty) return null;
+    final bytes = await _signatureController.toPngBytes();
+    if (bytes == null) return null;
+    return 'data:image/png;base64,${base64Encode(bytes)}';
+  }
+
+  Future<void> _pickPhoto() async {
+    final dataUrl = await pickPhotoDataUrl(context, title: 'Photo de livraison', canRemove: _photoUrl != null);
+    if (dataUrl == null || !mounted) return;
+    setState(() => _photoUrl = dataUrl.isEmpty ? null : dataUrl);
   }
 
   Future<void> _submit() async {
@@ -54,6 +79,8 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
         position = await Geolocator.getCurrentPosition();
       } catch (_) {}
 
+      final signatureUrl = await _signatureDataUrl();
+
       final deliveryResult = await DeliveryProvider.submitDelivery(
         auth: context.read<AuthProvider>(),
         order: widget.order,
@@ -61,6 +88,8 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
         form: _formData,
         latitude: position?.latitude,
         longitude: position?.longitude,
+        signatureUrl: signatureUrl,
+        photoUrl: _photoUrl,
       );
 
       final amount = double.tryParse(_paymentController.text) ?? 0;
@@ -135,6 +164,45 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                   onChanged: () => setState(() {}),
                 )),
             const SizedBox(height: 24),
+            const Text('Preuves', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: _pickPhoto,
+              icon: const Icon(Icons.photo_camera_outlined),
+              label: Text(_photoUrl == null ? 'Ajouter une photo' : 'Photo ajoutée — modifier'),
+            ),
+            if (_photoUrl != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(_photoUrl!, height: 120, fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Image.memory(
+                            base64Decode(_photoUrl!.split(',').last),
+                            height: 120,
+                            fit: BoxFit.cover,
+                          )),
+                ),
+              ),
+            const SizedBox(height: 12),
+            const Text('Signature client', style: TextStyle(fontSize: 13)),
+            Container(
+              margin: const EdgeInsets.only(top: 8),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.shade400),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Signature(
+                controller: _signatureController,
+                height: 120,
+                backgroundColor: Colors.white,
+              ),
+            ),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(onPressed: () => _signatureController.clear(), child: const Text('Effacer signature')),
+            ),
+            const SizedBox(height: 16),
             const Text('Encaissement', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             const SizedBox(height: 8),
             TextField(
@@ -213,9 +281,15 @@ class _LineEditor extends StatelessWidget {
                 Expanded(child: _qtyField('Livrés', formData.delivered, line.productId, line.quantity)),
                 const SizedBox(width: 8),
                 Expanded(child: _qtyField('Refusés', formData.refused, line.productId, 0)),
-                const SizedBox(width: 8),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
                 if (line.isReusable)
                   Expanded(child: _qtyField('Vidanges', formData.returned, line.productId, 0)),
+                if (line.isReusable) const SizedBox(width: 8),
+                Expanded(child: _qtyField('Endommagés', formData.damaged, line.productId, 0)),
               ],
             ),
           ],

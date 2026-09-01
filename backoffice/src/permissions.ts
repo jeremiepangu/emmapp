@@ -74,6 +74,7 @@ export const PERMISSIONS: Record<string, Partial<Record<Resource, Action[]>>> = 
   CHEF_EXPLOITATION: {
     dashboard: R, orders: FULL, tours: FULL, deliveries: RUV, stock: R, packaging: R, vehicles: FULL, clients: R, notifications: R,
     ai: R, assistant: RC, routing: RCUV, iot: R, esg: R, hr: RUV, contracts: R, objectives: RCUV, pos: R, finance: R, ecarts: RCUV,
+    recouvrement: R, consignes: R,
     activity: RCUV,
   },
   CHARGE_EXPLOITATION: {

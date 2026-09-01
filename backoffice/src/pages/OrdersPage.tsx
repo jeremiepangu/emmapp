@@ -106,17 +106,25 @@ export default function OrdersPage() {
               <th>N° Commande</th>
               <th>Client</th>
               <th>Montant</th>
+              <th>Payé</th>
+              <th>Reste</th>
               <th>Paiement</th>
               <th>Statut</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {orders.map((o) => (
+            {orders.map((o) => {
+              const total = Number(o.totalAmount);
+              const paid = Number(o.paidAmount ?? 0);
+              const remaining = Math.max(0, total - paid);
+              return (
               <tr key={o.id}>
                 <td><strong>{o.orderNumber}</strong></td>
                 <td>{o.client?.name ?? '—'}</td>
-                <td>{Number(o.totalAmount).toLocaleString('fr-FR')} CDF</td>
+                <td>{total.toLocaleString('fr-FR')} CDF</td>
+                <td>{paid.toLocaleString('fr-FR')} CDF</td>
+                <td>{remaining > 0 ? `${remaining.toLocaleString('fr-FR')} CDF` : '—'}</td>
                 <td><StatusPill status={o.paymentStatus ?? 'IMPAYEE'} /></td>
                 <td><StatusPill status={o.status} /></td>
                 <td className="erp-row-actions">
@@ -132,7 +140,7 @@ export default function OrdersPage() {
                   )}
                 </td>
               </tr>
-            ))}
+            );})}
           </tbody>
         </table>
       </ErpPanel>

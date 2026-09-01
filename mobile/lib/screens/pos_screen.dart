@@ -28,15 +28,81 @@ class _PosScreenState extends State<PosScreen> {
   final Map<String, int> _draftQty = {};
   Map<String, dynamic>? _quote;
   String _method = 'ESPECES';
+  final _cashReceivedCtrl = TextEditingController();
+  final _countedCtrl = TextEditingController();
+  Map<String, dynamic>? _closing;
+  bool _loadingClosing = false;
   bool _loading = true;
   bool _quoting = false;
   bool _saving = false;
   String? _error;
 
   @override
+  void dispose() {
+    _cashReceivedCtrl.dispose();
+    _countedCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   void initState() {
     super.initState();
     _load();
+    _loadClosing();
+  }
+
+  Future<void> _loadClosing() async {
+    setState(() => _loadingClosing = true);
+    try {
+      final result = await context.read<AuthProvider>().offline.get('/ecarts/cash-closings/current');
+      if (!mounted) return;
+      setState(() {
+        _closing = result.data is Map ? Map<String, dynamic>.from(result.data as Map) : null;
+        _loadingClosing = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() {
+        _closing = null;
+        _loadingClosing = false;
+      });
+    }
+  }
+
+  Future<void> _openClosing() async {
+    try {
+      final result = await context.read<AuthProvider>().offline.mutate(
+            method: 'POST',
+            path: '/ecarts/cash-closings/open',
+            body: {},
+            entityType: 'cash_closing',
+          );
+      if (!mounted) return;
+      setState(() => _closing = result.data is Map ? Map<String, dynamic>.from(result.data as Map) : null);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Session de caisse ouverte')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e'), backgroundColor: Colors.red));
+    }
+  }
+
+  Future<void> _closeClosing() async {
+    if (_closing == null) return;
+    final counted = double.tryParse(_countedCtrl.text) ?? 0;
+    try {
+      await context.read<AuthProvider>().offline.mutate(
+            method: 'POST',
+            path: '/ecarts/cash-closings/${_closing!['id']}/close',
+            body: {'countedAmount': counted},
+            entityType: 'cash_closing',
+          );
+      if (!mounted) return;
+      setState(() => _closing = null);
+      _countedCtrl.clear();
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Caisse clôturée'), backgroundColor: Colors.green));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e'), backgroundColor: Colors.red));
+    }
   }
 
   Future<void> _load() async {
@@ -148,7 +214,8 @@ class _PosScreenState extends State<PosScreen> {
                       })
                   .toList(),
               'method': _method,
-              if (_method == 'ESPECES') 'cashReceived': _netToPay,
+              if (_method == 'ESPECES')
+                'cashReceived': double.tryParse(_cashReceivedCtrl.text) ?? _netToPay,
             },
           );
       if (!mounted) return;
@@ -185,6 +252,37 @@ class _PosScreenState extends State<PosScreen> {
 
     return Column(
       children: [
+        Material(
+          color: _closing != null ? Colors.green.shade50 : Colors.orange.shade50,
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: _loadingClosing
+                ? const LinearProgressIndicator(minHeight: 2)
+                : _closing == null
+                    ? Row(
+                        children: [
+                          const Expanded(child: Text('Aucune session de caisse ouverte')),
+                          TextButton(onPressed: _openClosing, child: const Text('Ouvrir')),
+                        ],
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text('Session ${_closing!['reference'] ?? ''} ouverte', style: const TextStyle(fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: _countedCtrl,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(labelText: 'Montant compté (CDF)', isDense: true),
+                          ),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton(onPressed: _closeClosing, child: const Text('Clôturer la caisse')),
+                          ),
+                        ],
+                      ),
+          ),
+        ),
         Padding(
           padding: const EdgeInsets.all(12),
           child: DropdownButtonFormField<String>(
@@ -355,9 +453,27 @@ class _PosScreenState extends State<PosScreen> {
                     DropdownMenuItem(value: 'ORANGE_MONEY', child: Text('Orange Money')),
                     DropdownMenuItem(value: 'AIRTEL_MONEY', child: Text('Airtel Money')),
                     DropdownMenuItem(value: 'MOBILE_MONEY', child: Text('Mobile Money')),
+                    DropdownMenuItem(value: 'CHEQUE', child: Text('Chèque')),
+                    DropdownMenuItem(value: 'VIREMENT', child: Text('Virement')),
+                    DropdownMenuItem(value: 'CREDIT', child: Text('Crédit')),
                   ],
                   onChanged: (v) => setState(() => _method = v!),
                 ),
+                if (_method == 'ESPECES' && _cart.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _cashReceivedCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Espèces reçues (CDF)',
+                      isDense: true,
+                      helperText: _cashReceivedCtrl.text.isNotEmpty
+                          ? 'Monnaie : ${((double.tryParse(_cashReceivedCtrl.text) ?? 0) - _netToPay).toStringAsFixed(0)} CDF'
+                          : null,
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ],
                 const SizedBox(height: 8),
                 ElevatedButton(
                   onPressed: _saving || _cart.isEmpty || _quoting ? null : _checkout,
