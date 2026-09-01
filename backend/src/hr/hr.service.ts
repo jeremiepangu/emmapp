@@ -873,6 +873,169 @@ export class HrService {
     };
   }
 
+  /**
+   * Vue manager : realisations et performances de tous les agents sur une periode.
+   */
+  async performanceDashboard(from: string, to: string, actor?: { id: string; role: UserRole }) {
+    const start = this.dayRange(from).start;
+    const end = this.dayRange(to).end;
+    const [users, deliveryGroups, tourGroups, paymentGroups, orderGroups, revenueGroups, unsoldGroups, declarationGroups, objectives] = await Promise.all([
+      this.prisma.user.findMany({
+        where: { isActive: true },
+        select: USER_SELECT,
+        orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+      }),
+      this.prisma.delivery.groupBy({
+        by: ['driverId', 'status'],
+        where: { createdAt: { gte: start, lt: end } },
+        _count: { _all: true },
+      }),
+      this.prisma.tour.groupBy({
+        by: ['driverId'],
+        where: { date: { gte: start, lt: end } },
+        _count: { _all: true },
+      }),
+      this.prisma.payment.groupBy({
+        by: ['collectedBy'],
+        where: { createdAt: { gte: start, lt: end } },
+        _count: { _all: true },
+        _sum: { amount: true },
+      }),
+      this.prisma.order.groupBy({
+        by: ['assignedDriverId'],
+        where: { assignedDriverId: { not: null }, createdAt: { gte: start, lt: end } },
+        _count: { _all: true },
+      }),
+      this.prisma.order.groupBy({
+        by: ['assignedDriverId'],
+        where: { assignedDriverId: { not: null }, createdAt: { gte: start, lt: end } },
+        _sum: { totalAmount: true },
+      }),
+      this.prisma.tourUnsoldLine.groupBy({
+        by: ['recordedById'],
+        where: { createdAt: { gte: start, lt: end } },
+        _sum: { quantity: true },
+      }),
+      this.prisma.activityDeclaration.groupBy({
+        by: ['userId'],
+        where: { status: LeaveStatus.VALIDEE, date: { gte: start, lt: end } },
+        _count: { _all: true },
+      }),
+      this.prisma.agentActivityObjective.findMany({
+        where: { isActive: true, year: start.getUTCFullYear() },
+        select: { userId: true, targetValue: true, unit: true, activityId: true, periodType: true, year: true, month: true, quarter: true },
+      }),
+    ]);
+
+    let scopedUsers = users;
+    if (actor && !isActivityAdmin(actor.role)) {
+      const profiles = await this.prisma.employeeProfile.findMany({
+        where: { userId: { in: users.map((u) => u.id) } },
+        include: { jobFunction: true },
+      });
+      const byUser = new Map(profiles.map((p) => [p.userId, p]));
+      scopedUsers = users.filter((user) => {
+        const profile = byUser.get(user.id);
+        return profileInActivityTeam(actor.role, actor.id, {
+          userId: user.id,
+          department: profile?.department,
+          managerId: profile?.managerId,
+          jobFunctionName: profile?.jobFunction?.name,
+        });
+      });
+    }
+
+    const deliveriesByUser = new Map<string, { total: number; delivered: number; refused: number }>();
+    for (const g of deliveryGroups) {
+      const current = deliveriesByUser.get(g.driverId) ?? { total: 0, delivered: 0, refused: 0 };
+      current.total += g._count._all;
+      if (g.status === DeliveryStatus.LIVREE) current.delivered += g._count._all;
+      if (g.status === DeliveryStatus.REFUSEE) current.refused += g._count._all;
+      deliveriesByUser.set(g.driverId, current);
+    }
+    const toursByUser = new Map(tourGroups.map((g) => [g.driverId, g._count._all]));
+    const paymentsByUser = new Map(
+      paymentGroups.map((g) => [g.collectedBy, { count: g._count._all, amount: Number(g._sum.amount ?? 0) }]),
+    );
+    const ordersByUser = new Map(
+      orderGroups.filter((g) => g.assignedDriverId).map((g) => [g.assignedDriverId as string, g._count._all]),
+    );
+    const revenueByUser = new Map(
+      revenueGroups.filter((g) => g.assignedDriverId).map((g) => [g.assignedDriverId as string, Number(g._sum.totalAmount ?? 0)]),
+    );
+    const unsoldByUser = new Map(unsoldGroups.map((g) => [g.recordedById, g._sum.quantity ?? 0]));
+    const declarationsByUser = new Map(declarationGroups.map((g) => [g.userId, g._count._all]));
+
+    const objectiveActuals = new Map<string, { sum: number; count: number }>();
+    const scopedIds = new Set(scopedUsers.map((u) => u.id));
+    for (const obj of objectives) {
+      if (!scopedIds.has(obj.userId)) continue;
+      const target = Number(obj.targetValue);
+      if (target <= 0) continue;
+      let actual = 0;
+      if (obj.unit === 'LIVRAISON') {
+        actual = deliveriesByUser.get(obj.userId)?.delivered ?? 0;
+      } else if (obj.unit === 'CA') {
+        actual = revenueByUser.get(obj.userId) ?? 0;
+      } else if (obj.unit === 'UNITE') {
+        actual = ordersByUser.get(obj.userId) ?? 0;
+      } else {
+        actual = declarationsByUser.get(obj.userId) ?? 0;
+      }
+      const pct = Math.min(150, Math.round((actual / target) * 1000) / 10);
+      const bucket = objectiveActuals.get(obj.userId) ?? { sum: 0, count: 0 };
+      bucket.sum += pct;
+      bucket.count += 1;
+      objectiveActuals.set(obj.userId, bucket);
+    }
+
+    const rows = scopedUsers.map((user) => {
+      const deliveries = deliveriesByUser.get(user.id) ?? { total: 0, delivered: 0, refused: 0 };
+      const payments = paymentsByUser.get(user.id) ?? { count: 0, amount: 0 };
+      const obj = objectiveActuals.get(user.id);
+      const objectiveProgress = obj && obj.count > 0 ? Math.round(obj.sum / obj.count) : null;
+      const deliveryRate = deliveries.total > 0
+        ? Math.round((deliveries.delivered / deliveries.total) * 1000) / 10
+        : null;
+      return {
+        user,
+        deliveries: deliveries.total,
+        delivered: deliveries.delivered,
+        refused: deliveries.refused,
+        deliveryRate,
+        tours: toursByUser.get(user.id) ?? 0,
+        ordersCreated: ordersByUser.get(user.id) ?? 0,
+        revenue: revenueByUser.get(user.id) ?? 0,
+        paymentsCount: payments.count,
+        paymentsAmount: payments.amount,
+        declarations: declarationsByUser.get(user.id) ?? 0,
+        unsoldUnits: unsoldByUser.get(user.id) ?? 0,
+        objectiveProgress,
+      };
+    });
+
+    return {
+      from,
+      to,
+      totals: {
+        agents: rows.length,
+        deliveries: rows.reduce((s, r) => s + r.deliveries, 0),
+        delivered: rows.reduce((s, r) => s + r.delivered, 0),
+        tours: rows.reduce((s, r) => s + r.tours, 0),
+        ordersCreated: rows.reduce((s, r) => s + r.ordersCreated, 0),
+        revenue: rows.reduce((s, r) => s + r.revenue, 0),
+        paymentsAmount: rows.reduce((s, r) => s + r.paymentsAmount, 0),
+        unsoldUnits: rows.reduce((s, r) => s + r.unsoldUnits, 0),
+        avgObjectiveProgress: (() => {
+          const withObj = rows.filter((r) => r.objectiveProgress != null);
+          if (!withObj.length) return null;
+          return Math.round(withObj.reduce((s, r) => s + (r.objectiveProgress ?? 0), 0) / withObj.length);
+        })(),
+      },
+      rows,
+    };
+  }
+
   async validateActivityReport(id: string, actor: { id: string; role: UserRole }) {
     const report = await this.prisma.dailyActivityReport.findUnique({ where: { id } });
     if (!report) throw new NotFoundException('Rapport introuvable');

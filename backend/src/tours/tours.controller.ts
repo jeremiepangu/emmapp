@@ -7,12 +7,13 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { TourStatus, UserRole } from '@prisma/client';
 import { ToursService } from './tours.service';
-import { CreateTourDto, UpdateTourDto } from './dto/tour.dto';
+import { CreateTourDto, FieldTourDto, RecordTourUnsoldDto, UpdateTourDto } from './dto/tour.dto';
 import { Roles } from '../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
@@ -41,6 +42,28 @@ export class ToursController {
   @Post()
   create(@Body() dto: CreateTourDto) {
     return this.toursService.create(dto);
+  }
+
+  @Roles(UserRole.LIVREUR, UserRole.CHARGE_LIVRAISON, UserRole.ADMIN, UserRole.CHEF_EXPLOITATION)
+  @Post('field-start')
+  fieldStart(@Body() dto: FieldTourDto, @Req() req: { user: { id: string } }) {
+    return this.toursService.startFieldTour(req.user.id, dto);
+  }
+
+  @Roles(UserRole.LIVREUR, UserRole.CHARGE_LIVRAISON, UserRole.ADMIN, UserRole.CHEF_EXPLOITATION, UserRole.MAGASINIER, UserRole.SUPERVISEUR)
+  @Get(':id/unsold')
+  listUnsold(@Param('id') id: string) {
+    return this.toursService.listUnsold(id);
+  }
+
+  @Roles(UserRole.LIVREUR, UserRole.CHARGE_LIVRAISON, UserRole.ADMIN, UserRole.CHEF_EXPLOITATION)
+  @Post(':id/unsold')
+  recordUnsold(
+    @Param('id') id: string,
+    @Body() dto: RecordTourUnsoldDto,
+    @Req() req: { user: { id: string } },
+  ) {
+    return this.toursService.recordUnsold(id, dto, req.user.id);
   }
 
   @Roles(UserRole.ADMIN, UserRole.MAGASINIER)

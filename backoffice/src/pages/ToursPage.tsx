@@ -1,5 +1,5 @@
 import { useEffect, useState, FormEvent } from 'react';
-import { api, Tour, User, Vehicle, Order, LoadSheet } from '../api';
+import { api, Tour, User, Vehicle, Order, LoadSheet, Product, TourUnsoldLine } from '../api';
 import { usePermissions } from '../hooks/usePermissions';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
@@ -64,6 +64,12 @@ export default function ToursPage() {
   const [loadItems, setLoadItems] = useState<LoadItem[]>([]);
   const [loadSaving, setLoadSaving] = useState(false);
   const [loadError, setLoadError] = useState('');
+  const [unsoldTour, setUnsoldTour] = useState<Tour | null>(null);
+  const [unsoldLines, setUnsoldLines] = useState<TourUnsoldLine[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [unsoldForm, setUnsoldForm] = useState({ productId: '', quantity: 1, notes: '' });
+  const [unsoldSaving, setUnsoldSaving] = useState(false);
+  const [unsoldError, setUnsoldError] = useState('');
 
   const load = () => api.getTours().then(setTours);
 
@@ -72,6 +78,7 @@ export default function ToursPage() {
     api.getUsersByRole('LIVREUR').then(setDrivers);
     api.getVehicles().then(setVehicles);
     api.getOrders().then((list) => setOrders(list.filter((o) => o.status === 'VALIDEE')));
+    api.getProducts().then(setProducts).catch(() => setProducts([]));
   }, []);
 
   const openCreate = () => {
@@ -174,6 +181,36 @@ export default function ToursPage() {
   };
 
 
+  const openUnsold = async (t: Tour) => {
+    setUnsoldTour(t);
+    setUnsoldError('');
+    setUnsoldForm({ productId: products[0]?.id ?? '', quantity: 1, notes: '' });
+    try {
+      setUnsoldLines(await api.getTourUnsold(t.id));
+    } catch {
+      setUnsoldLines([]);
+    }
+  };
+
+  const submitUnsold = async () => {
+    if (!unsoldTour || !unsoldForm.productId || unsoldForm.quantity < 1) return;
+    setUnsoldSaving(true);
+    setUnsoldError('');
+    try {
+      await api.recordTourUnsold(unsoldTour.id, [{
+        productId: unsoldForm.productId,
+        quantity: unsoldForm.quantity,
+        notes: unsoldForm.notes || undefined,
+      }]);
+      setUnsoldLines(await api.getTourUnsold(unsoldTour.id));
+      setUnsoldForm((f) => ({ ...f, quantity: 1, notes: '' }));
+    } catch {
+      setUnsoldError('Enregistrement impossible');
+    } finally {
+      setUnsoldSaving(false);
+    }
+  };
+
   return (
     <div className="erp-page">
       <ErpPageHeader
@@ -226,6 +263,11 @@ export default function ToursPage() {
                   {can('tours', 'validate') && t.status === 'PLANIFIEE' && (
                     <button type="button" className="erp-btn erp-btn--sm" onClick={() => api.startTour(t.id).then(load)}>Démarrer</button>
                   )}
+                  {t.status === 'EN_COURS' && (
+                    <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => openUnsold(t)}>
+                      Invendus
+                    </button>
+                  )}
                   {can('tours', 'update') && t.status === 'EN_COURS' && (
                     <button type="button" className="erp-btn erp-btn--sm" onClick={() => api.completeTour(t.id).then(load)}>Clôturer</button>
                   )}
@@ -270,7 +312,7 @@ export default function ToursPage() {
           </div>
           {orders.length > 0 && (
             <div className="form-group">
-              <label>Commandes à inclure</label>
+              <label>Commandes à inclure (optionnel — tournée terrain possible sans commande)</label>
               <div className="checkbox-list">
                 {orders.map((o) => (
                   <label key={o.id} className="checkbox-item">
@@ -371,6 +413,51 @@ export default function ToursPage() {
             )}
 
             {loadError && <p className="error-msg">{loadError}</p>}
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        title={unsoldTour ? `Invendus — ${unsoldTour.tourNumber}` : 'Invendus'}
+        open={unsoldTour !== null}
+        onClose={() => setUnsoldTour(null)}
+      >
+        {unsoldTour && (
+          <div className="form-stack">
+            <p className="erp-muted">Produits chargés non vendus, ramenes au depot. Pris en compte au rapprochement de tournée.</p>
+            {unsoldLines.length > 0 && (
+              <table className="erp-table erp-table--compact">
+                <thead><tr><th>Produit</th><th>Qté</th><th>Note</th></tr></thead>
+                <tbody>
+                  {unsoldLines.map((line) => (
+                    <tr key={line.id}>
+                      <td>{line.product?.name ?? line.productId}</td>
+                      <td>{line.quantity}</td>
+                      <td>{line.notes ?? '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <div className="form-group">
+              <label>Produit</label>
+              <select value={unsoldForm.productId} onChange={(e) => setUnsoldForm({ ...unsoldForm, productId: e.target.value })}>
+                <option value="">— Choisir —</option>
+                {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label>Quantité invendue</label>
+              <input type="number" min={1} value={unsoldForm.quantity} onChange={(e) => setUnsoldForm({ ...unsoldForm, quantity: Number(e.target.value) })} />
+            </div>
+            <div className="form-group">
+              <label>Note</label>
+              <input value={unsoldForm.notes} onChange={(e) => setUnsoldForm({ ...unsoldForm, notes: e.target.value })} />
+            </div>
+            {unsoldError && <p className="error-msg">{unsoldError}</p>}
+            <button type="button" className="erp-btn" disabled={unsoldSaving || !unsoldForm.productId} onClick={submitUnsold}>
+              {unsoldSaving ? 'Enregistrement…' : 'Enregistrer l’invendu'}
+            </button>
           </div>
         )}
       </Modal>

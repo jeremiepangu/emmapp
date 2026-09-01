@@ -196,7 +196,10 @@ export class ObjectivesService {
       const agg = await this.prisma.orderLine.aggregate({
         _sum: { quantity: true },
         where: {
-          order: { tour: { driverId: row.userId, date: { gte: start, lt: end } } },
+          OR: [
+            { order: { tour: { driverId: row.userId, date: { gte: start, lt: end } } } },
+            { order: { assignedDriverId: row.userId, createdAt: { gte: start, lt: end } } },
+          ],
         },
       });
       return agg._sum.quantity ?? 0;
@@ -204,7 +207,12 @@ export class ObjectivesService {
     if (row.unit === 'CA') {
       const agg = await this.prisma.order.aggregate({
         _sum: { totalAmount: true },
-        where: { tour: { driverId: row.userId, date: { gte: start, lt: end } } },
+        where: {
+          OR: [
+            { tour: { driverId: row.userId, date: { gte: start, lt: end } } },
+            { assignedDriverId: row.userId, createdAt: { gte: start, lt: end } },
+          ],
+        },
       });
       return Number(agg._sum.totalAmount ?? 0);
     }

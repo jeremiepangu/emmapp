@@ -44,6 +44,7 @@ export class TourReconciliationService {
       where: { id: tourId },
       include: {
         loadSheets: true,
+        unsoldLines: { include: { product: true } },
         driver: { select: { firstName: true, lastName: true } },
         deliveries: { include: { lines: { include: { product: true } } } },
       },
@@ -63,6 +64,7 @@ export class TourReconciliationService {
       returned: number;
       refused: number;
       damaged: number;
+      unsold: number;
     }>();
     for (const delivery of tour.deliveries) {
       for (const line of delivery.lines) {
@@ -72,6 +74,7 @@ export class TourReconciliationService {
           returned: 0,
           refused: 0,
           damaged: 0,
+          unsold: 0,
         };
         entry.delivered += line.qtyDelivered;
         entry.returned += line.qtyReturned;
@@ -79,6 +82,18 @@ export class TourReconciliationService {
         entry.damaged += line.qtyDamaged;
         accounted.set(line.productId, entry);
       }
+    }
+    for (const line of tour.unsoldLines) {
+      const entry = accounted.get(line.productId) ?? {
+        name: line.product.name,
+        delivered: 0,
+        returned: 0,
+        refused: 0,
+        damaged: 0,
+        unsold: 0,
+      };
+      entry.unsold += line.quantity;
+      accounted.set(line.productId, entry);
     }
 
     const productIds = new Set([...loaded.keys(), ...accounted.keys()]);
@@ -91,8 +106,11 @@ export class TourReconciliationService {
     const lines = [...productIds].map((productId) => {
       const loadedQty = loaded.get(productId) ?? 0;
       const entry = accounted.get(productId);
-      // Ce qui est reparti chez les clients ou revenu au depot.
-      const accountedQty = (entry?.delivered ?? 0) + (entry?.refused ?? 0) + (entry?.damaged ?? 0);
+      // Livre, refuse, endommage ou ramene invendu au depot.
+      const accountedQty = (entry?.delivered ?? 0)
+        + (entry?.refused ?? 0)
+        + (entry?.damaged ?? 0)
+        + (entry?.unsold ?? 0);
       return {
         productId,
         productName: nameById.get(productId) ?? entry?.name ?? productId,
@@ -101,6 +119,7 @@ export class TourReconciliationService {
         returned: entry?.returned ?? 0,
         refused: entry?.refused ?? 0,
         damaged: entry?.damaged ?? 0,
+        unsold: entry?.unsold ?? 0,
         accounted: accountedQty,
         variance: accountedQty - loadedQty,
       };

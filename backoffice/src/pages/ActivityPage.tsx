@@ -7,6 +7,7 @@ import {
   ActivityReportDetail,
   JobFunction,
   JobFunctionActivity,
+  PerformanceDashboard,
 } from '../api';
 import { useAuth } from '../AuthContext';
 import { usePermissions } from '../hooks/usePermissions';
@@ -24,7 +25,7 @@ import {
 } from '../documents/templates';
 import { exportSheet } from '../excel/specs';
 
-type Tab = 'overview' | 'mine';
+type Tab = 'overview' | 'performance' | 'mine';
 
 function activityOf(d: ActivityDeclaration): string | undefined {
   return d.activityId ?? d.activity?.id ?? undefined;
@@ -43,6 +44,12 @@ export default function ActivityPage() {
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [mine, setMine] = useState<ActivityReportDetail | null>(null);
   const [overview, setOverview] = useState<ActivityOverview | null>(null);
+  const [performance, setPerformance] = useState<PerformanceDashboard | null>(null);
+  const [perfFrom, setPerfFrom] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+  });
+  const [perfTo, setPerfTo] = useState(new Date().toISOString().slice(0, 10));
   const [summary, setSummary] = useState('');
   const [incidents, setIncidents] = useState('');
   const [saving, setSaving] = useState(false);
@@ -78,10 +85,16 @@ export default function ActivityPage() {
     api.getActivityOverview(date).then(setOverview).catch(() => setOverview(null));
   };
 
+  const loadPerformance = () => {
+    if (!isManager) return;
+    api.getPerformanceDashboard(perfFrom, perfTo).then(setPerformance).catch(() => setPerformance(null));
+  };
+
   useEffect(() => {
     loadMine();
     loadOverview();
-  }, [date, isManager]);
+    if (tab === 'performance') loadPerformance();
+  }, [date, isManager, tab, perfFrom, perfTo]);
 
   useEffect(() => {
     api.getJobFunctions().then(setFunctions).catch(() => setFunctions([]));
@@ -209,8 +222,71 @@ export default function ActivityPage() {
       {isManager && (
         <div className="erp-tabs">
           <button type="button" className={`erp-tab ${tab === 'overview' ? 'active' : ''}`} onClick={() => setTab('overview')}>Vue générale</button>
+          <button type="button" className={`erp-tab ${tab === 'performance' ? 'active' : ''}`} onClick={() => setTab('performance')}>Performances</button>
           <button type="button" className={`erp-tab ${tab === 'mine' ? 'active' : ''}`} onClick={() => setTab('mine')}>Mon rapport</button>
         </div>
+      )}
+
+      {tab === 'performance' && isManager && performance && (
+        <>
+          <div className="form-row" style={{ marginBottom: 16 }}>
+            <div className="form-group">
+              <label>Du</label>
+              <input type="date" value={perfFrom} onChange={(e) => setPerfFrom(e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label>Au</label>
+              <input type="date" value={perfTo} onChange={(e) => setPerfTo(e.target.value)} />
+            </div>
+          </div>
+          <div className="erp-kpi-row">
+            <div className="erp-kpi"><div className="erp-kpi-label">Agents</div><div className="erp-kpi-value">{performance.totals.agents}</div></div>
+            <div className="erp-kpi erp-kpi--blue"><div className="erp-kpi-label">Livraisons</div><div className="erp-kpi-value">{performance.totals.deliveries}</div></div>
+            <div className="erp-kpi erp-kpi--green"><div className="erp-kpi-label">Commandes terrain</div><div className="erp-kpi-value">{performance.totals.ordersCreated}</div></div>
+            <div className="erp-kpi erp-kpi--orange"><div className="erp-kpi-label">CA terrain</div><div className="erp-kpi-value">{money(performance.totals.revenue)}</div></div>
+            <div className="erp-kpi"><div className="erp-kpi-label">Encaissements</div><div className="erp-kpi-value">{money(performance.totals.paymentsAmount)}</div></div>
+            <div className="erp-kpi"><div className="erp-kpi-label">Invendus</div><div className="erp-kpi-value">{performance.totals.unsoldUnits}</div></div>
+            {performance.totals.avgObjectiveProgress != null && (
+              <div className="erp-kpi erp-kpi--green"><div className="erp-kpi-label">Objectifs (moy.)</div><div className="erp-kpi-value">{performance.totals.avgObjectiveProgress} %</div></div>
+            )}
+          </div>
+          <ErpPanel title={`Performances agents (${perfFrom} → ${perfTo})`}>
+            <table className="erp-table">
+              <thead>
+                <tr>
+                  <th>Agent</th>
+                  <th>Profil</th>
+                  <th>Livraisons</th>
+                  <th>Taux livr.</th>
+                  <th>Tournées</th>
+                  <th>Cmd. terrain</th>
+                  <th>CA terrain</th>
+                  <th>Encaissements</th>
+                  <th>Déclarations</th>
+                  <th>Invendus</th>
+                  <th>Objectifs</th>
+                </tr>
+              </thead>
+              <tbody>
+                {performance.rows.map((row) => (
+                  <tr key={row.user.id}>
+                    <td><strong>{row.user.firstName} {row.user.lastName}</strong></td>
+                    <td>{ROLE_LABELS[row.user.role] ?? row.user.role}</td>
+                    <td>{row.deliveries} ({row.delivered})</td>
+                    <td>{row.deliveryRate != null ? `${row.deliveryRate} %` : '—'}</td>
+                    <td>{row.tours}</td>
+                    <td>{row.ordersCreated}</td>
+                    <td>{money(row.revenue)}</td>
+                    <td>{money(row.paymentsAmount)}</td>
+                    <td>{row.declarations}</td>
+                    <td>{row.unsoldUnits}</td>
+                    <td>{row.objectiveProgress != null ? `${row.objectiveProgress} %` : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </ErpPanel>
+        </>
       )}
 
       {tab === 'overview' && isManager && overview && (

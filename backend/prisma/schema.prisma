@@ -223,6 +223,8 @@ model User {
   resolvedDiscrepancies Discrepancy[]        @relation("DiscrepancyResolver")
   contractArchives     ContractDocument[]    @relation("ContractArchiver")
   posSales             PosSale[]             @relation("PosCashier")
+  ordersAssigned       Order[]               @relation("OrderAssignedDriver")
+  tourUnsoldRecorded   TourUnsoldLine[]      @relation("TourUnsoldRecorder")
   financeAccountsCreated     FinanceAccount[]    @relation("FinanceAccountCreator")
   financeMovementsCreated    FinanceMovement[]   @relation("FinanceMovementCreator")
   financeMovementsValidated  FinanceMovement[]   @relation("FinanceMovementValidator")
@@ -305,6 +307,7 @@ model Product {
   pricingRules PricingRule[]
   posSaleLines PosSaleLine[]
   financeInventoryLines FinanceInventoryLine[]
+  tourUnsoldLines TourUnsoldLine[]
 
   @@map("products")
 }
@@ -399,11 +402,14 @@ model Order {
   paymentStatus OrderPaymentStatus @default(IMPAYEE) @map("payment_status")
   notes       String?
   tourId      String?     @map("tour_id")
+  /// Livreur ou commercial ayant pris la commande (vente terrain).
+  assignedDriverId String? @map("assigned_driver_id")
   createdAt   DateTime    @default(now()) @map("created_at")
   updatedAt   DateTime    @updatedAt @map("updated_at")
 
   client     Client      @relation(fields: [clientId], references: [id])
   tour       Tour?       @relation(fields: [tourId], references: [id])
+  assignedDriver User?   @relation("OrderAssignedDriver", fields: [assignedDriverId], references: [id])
   lines      OrderLine[]
   deliveries Delivery[]
   payments   Payment[]
@@ -453,6 +459,7 @@ model Tour {
   orders     Order[]
   deliveries Delivery[]
   loadSheets LoadSheet[]
+  unsoldLines TourUnsoldLine[]
 
   optimizedRoutes OptimizedRoute[]
   esgIndicators   EsgIndicator[]
@@ -472,6 +479,23 @@ model LoadSheet {
   tour Tour @relation(fields: [tourId], references: [id])
 
   @@map("load_sheets")
+}
+
+/// Produits non vendus ramenes au depot en fin de tournee.
+model TourUnsoldLine {
+  id           String   @id @default(uuid())
+  tourId       String   @map("tour_id")
+  productId    String   @map("product_id")
+  quantity     Int
+  notes        String?
+  recordedById String   @map("recorded_by_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  tour       Tour    @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  product    Product @relation(fields: [productId], references: [id])
+  recordedBy User    @relation("TourUnsoldRecorder", fields: [recordedById], references: [id])
+
+  @@map("tour_unsold_lines")
 }
 
 model Delivery {

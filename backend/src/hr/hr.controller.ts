@@ -470,6 +470,19 @@ export class HrController {
     return this.hr.activityOverview(date || new Date().toISOString().slice(0, 10), req?.user);
   }
 
+  @Roles(...ACTIVITY_MANAGERS)
+  @Get('performance/dashboard')
+  performanceDashboard(
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Req() req?: { user: { id: string; role: UserRole } },
+  ) {
+    const today = new Date().toISOString().slice(0, 10);
+    const start = from || today;
+    const end = to || start;
+    return this.hr.performanceDashboard(start, end, req?.user);
+  }
+
   @Roles(UserRole.ADMIN)
   @Get('activity-reports/:userId')
   agentActivity(

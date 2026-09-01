@@ -6,7 +6,7 @@ import {
 import { NotificationCategory, NotificationType, TourStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.module';
 import { NotificationsService } from '../notifications/notifications.service';
-import { CreateTourDto, UpdateTourDto } from './dto/tour.dto';
+import { CreateTourDto, FieldTourDto, RecordTourUnsoldDto, UpdateTourDto } from './dto/tour.dto';
 
 /** Champs du livreur exposables par l'API : exclut l'empreinte du mot de passe. */
 const DRIVER_SELECT = {
@@ -63,6 +63,7 @@ export class ToursService {
           include: { client: true, lines: { include: { product: true } } },
         },
         loadSheets: true,
+        unsoldLines: { include: { product: { select: { id: true, code: true, name: true } } } },
       },
     });
     if (!tour) throw new NotFoundException('Tournée introuvable');
@@ -89,6 +90,65 @@ export class ToursService {
       },
     });
     await this.notifyTour(created, 'Tournee planifiee', NotificationType.INFO);
+    return created;
+  }
+
+  /** Demarrage autonome par le livreur sans commandes pre-planifiees. */
+  async startFieldTour(driverId: string, dto: FieldTourDto) {
+    const vehicle = await this.prisma.vehicle.findUnique({ where: { id: dto.vehicleId } });
+    if (!vehicle) throw new NotFoundException('Vehicule introuvable');
+    const today = dto.date ? new Date(dto.date) : new Date();
+    const zone = dto.zone?.trim() || vehicle.plate || vehicle.name || 'Terrain';
+    const created = await this.prisma.tour.create({
+      data: {
+        tourNumber: await this.generateTourNumber(),
+        zone,
+        date: today,
+        driverId,
+        vehicleId: dto.vehicleId,
+        status: TourStatus.EN_COURS,
+        startedAt: new Date(),
+      },
+      include: {
+        driver: { select: DRIVER_SELECT },
+        vehicle: true,
+        orders: true,
+      },
+    });
+    await this.notifyTour(created, 'Tournee terrain demarree', NotificationType.INFO);
+    return created;
+  }
+
+  async listUnsold(tourId: string) {
+    await this.findOne(tourId);
+    return this.prisma.tourUnsoldLine.findMany({
+      where: { tourId },
+      include: { product: { select: { id: true, code: true, name: true, format: true } } },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async recordUnsold(tourId: string, dto: RecordTourUnsoldDto, recordedById: string) {
+    const tour = await this.findOne(tourId);
+    if (tour.status === TourStatus.TERMINEE || tour.status === TourStatus.ANNULEE) {
+      throw new BadRequestException('Tournée clôturée ou annulée');
+    }
+    if (!dto.lines.length) {
+      throw new BadRequestException('Aucune ligne invendue');
+    }
+    const created = await this.prisma.$transaction(
+      dto.lines.map((line) => this.prisma.tourUnsoldLine.create({
+        data: {
+          tourId,
+          productId: line.productId,
+          quantity: line.quantity,
+          notes: line.notes?.trim() || null,
+          recordedById,
+        },
+        include: { product: { select: { id: true, code: true, name: true } } },
+      })),
+    );
+    await this.notifyTour(tour, 'Invendus enregistres', NotificationType.WARNING);
     return created;
   }
 

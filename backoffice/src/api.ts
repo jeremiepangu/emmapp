@@ -622,6 +622,12 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ role }),
     }),
+  getTourUnsold: (tourId: string) =>
+    request<TourUnsoldLine[]>(`/tours/${tourId}/unsold`),
+  recordTourUnsold: (tourId: string, lines: Array<{ productId: string; quantity: number; notes?: string }>) =>
+    request<TourUnsoldLine[]>(`/tours/${tourId}/unsold`, { method: 'POST', body: JSON.stringify({ lines }) }),
+  startFieldTour: (data: { vehicleId: string; zone?: string; date?: string }) =>
+    request<Tour>('/tours/field-start', { method: 'POST', body: JSON.stringify(data) }),
 
   getOrders: () => request<Order[]>('/orders'),
   getOrder: (id: string) => request<Order>(`/orders/${id}`),
@@ -985,6 +991,11 @@ export const api = {
     request<DailyActivityReport>('/hr/activity-reports/me', { method: 'POST', body: JSON.stringify(data) }),
   getActivityOverview: (date: string) =>
     request<ActivityOverview>(`/hr/activity-reports/overview?date=${date}`),
+  getPerformanceDashboard: (from: string, to?: string) => {
+    const q = new URLSearchParams({ from });
+    if (to) q.set('to', to);
+    return request<PerformanceDashboard>(`/hr/performance/dashboard?${q}`);
+  },
   getAgentActivityReport: (userId: string, date: string) =>
     request<ActivityReportDetail>(`/hr/activity-reports/${userId}?date=${date}`),
   validateActivityReport: (id: string) =>
@@ -1723,6 +1734,48 @@ export interface ActivityOverview {
     paymentsAmount: number;
   };
   rows: ActivityOverviewRow[];
+}
+
+export interface PerformanceDashboardRow {
+  user: User;
+  deliveries: number;
+  delivered: number;
+  refused: number;
+  deliveryRate: number | null;
+  tours: number;
+  ordersCreated: number;
+  revenue: number;
+  paymentsCount: number;
+  paymentsAmount: number;
+  declarations: number;
+  unsoldUnits: number;
+  objectiveProgress: number | null;
+}
+
+export interface PerformanceDashboard {
+  from: string;
+  to: string;
+  totals: {
+    agents: number;
+    deliveries: number;
+    delivered: number;
+    tours: number;
+    ordersCreated: number;
+    revenue: number;
+    paymentsAmount: number;
+    unsoldUnits: number;
+    avgObjectiveProgress: number | null;
+  };
+  rows: PerformanceDashboardRow[];
+}
+
+export interface TourUnsoldLine {
+  id: string;
+  tourId: string;
+  productId: string;
+  quantity: number;
+  notes?: string | null;
+  product?: { id: string; code: string; name: string; format?: string };
 }
 
 export interface CreateLeaveInput {

@@ -29,11 +29,12 @@ export class OrdersService {
     return `CMD-${date}-${String(count + 1).padStart(4, '0')}`;
   }
 
-  findAll(params?: { status?: OrderStatus; clientId?: string; tourId?: string }) {
+  findAll(params?: { status?: OrderStatus; clientId?: string; tourId?: string; assignedDriverId?: string }) {
     const where: Prisma.OrderWhereInput = {};
     if (params?.status) where.status = params.status;
     if (params?.clientId) where.clientId = params.clientId;
     if (params?.tourId) where.tourId = params.tourId;
+    if (params?.assignedDriverId) where.assignedDriverId = params.assignedDriverId;
 
     return this.prisma.order.findMany({
       where,
@@ -41,6 +42,7 @@ export class OrdersService {
         client: true,
         lines: { include: { product: true } },
         tour: true,
+        assignedDriver: { select: { id: true, firstName: true, lastName: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -139,6 +141,7 @@ export class OrdersService {
           orderNumber: await this.generateOrderNumber(),
           clientId: dto.clientId,
           tourId: dto.tourId,
+          assignedDriverId: driverId ?? undefined,
           notes: dto.notes,
           totalAmount,
           consigneAmount: consigneTotal,

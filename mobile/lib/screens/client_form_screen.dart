@@ -106,7 +106,10 @@ class _ClientFormScreenState extends State<ClientFormScreen> {
 }
 
 class OrderFormScreen extends StatefulWidget {
-  const OrderFormScreen({super.key});
+  const OrderFormScreen({super.key, this.tourId, this.tourNumber});
+
+  final String? tourId;
+  final String? tourNumber;
 
   @override
   State<OrderFormScreen> createState() => _OrderFormScreenState();
@@ -152,7 +155,11 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
       final result = await context.read<AuthProvider>().offline.mutate(
             method: 'POST',
             path: '/orders',
-            body: {'clientId': _clientId, 'lines': lines},
+            body: {
+              'clientId': _clientId,
+              if (widget.tourId != null) 'tourId': widget.tourId,
+              'lines': lines,
+            },
           );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -174,7 +181,7 @@ class _OrderFormScreenState extends State<OrderFormScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Nouvelle commande')),
+      appBar: AppBar(title: Text(widget.tourNumber != null ? 'Vente ${widget.tourNumber}' : 'Nouvelle commande')),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
