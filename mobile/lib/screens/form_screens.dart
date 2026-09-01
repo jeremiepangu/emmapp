@@ -21,6 +21,7 @@ class _CreateFormScreenState extends State<CreateFormScreen> {
   final Map<String, TextEditingController> _fields = {};
   String? _segment = 'BOUTIQUE';
   String? _method = 'ESPECES';
+  bool _asAdvance = false;
   String? _clientId;
   String? _productId;
   String? _locationId;
@@ -121,6 +122,7 @@ class _CreateFormScreenState extends State<CreateFormScreen> {
             'clientId': _clientId,
             'amount': double.tryParse(_fields['amount']!.text) ?? 0,
             'method': _method,
+            if (_asAdvance) 'asAdvance': true,
           },
           'payment',
         );
@@ -206,6 +208,12 @@ class _CreateFormScreenState extends State<CreateFormScreen> {
         return [
           _dropdown('Client', _clientId, _clients, (v) => setState(() => _clientId = v)),
           _text('amount', 'Montant CDF', number: true, required: true),
+          SwitchListTile(
+            title: const Text('Encaisser comme avance'),
+            subtitle: const Text('Le montant reste au crédit du client'),
+            value: _asAdvance,
+            onChanged: (v) => setState(() => _asAdvance = v),
+          ),
           DropdownButtonFormField<String>(
             value: _method,
             decoration: const InputDecoration(labelText: 'Mode'),

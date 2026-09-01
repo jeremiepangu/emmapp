@@ -23,10 +23,12 @@ export default function OrdersPage() {
     clientId: '',
     productId: '',
     quantity: 1,
+    emptiesReturned: 0,
     driverId: '',
     notes: '',
   });
   const [preview, setPreview] = useState<PricePreview | null>(null);
+  const selectedProduct = products.find((p) => p.id === form.productId);
 
   const load = () => api.getOrders().then(setOrders);
 
@@ -62,12 +64,16 @@ export default function OrdersPage() {
       clientId: form.clientId,
       driverId: form.driverId || undefined,
       notes: form.notes || undefined,
-      lines: [{ productId: form.productId, quantity: form.quantity }],
+      lines: [{
+        productId: form.productId,
+        quantity: form.quantity,
+        ...(selectedProduct?.isReusable ? { emptiesReturned: form.emptiesReturned } : {}),
+      }],
     };
     try {
       await api.createOrder(payload);
       setShowForm(false);
-      setForm({ clientId: '', productId: '', quantity: 1, driverId: '', notes: '' });
+      setForm({ clientId: '', productId: '', quantity: 1, emptiesReturned: 0, driverId: '', notes: '' });
       await load();
     } catch {
       setError('Impossible de créer la commande');
@@ -100,6 +106,7 @@ export default function OrdersPage() {
               <th>N° Commande</th>
               <th>Client</th>
               <th>Montant</th>
+              <th>Paiement</th>
               <th>Statut</th>
               <th>Actions</th>
             </tr>
@@ -110,6 +117,7 @@ export default function OrdersPage() {
                 <td><strong>{o.orderNumber}</strong></td>
                 <td>{o.client?.name ?? '—'}</td>
                 <td>{Number(o.totalAmount).toLocaleString('fr-FR')} CDF</td>
+                <td><StatusPill status={o.paymentStatus ?? 'IMPAYEE'} /></td>
                 <td><StatusPill status={o.status} /></td>
                 <td className="erp-row-actions">
                   <DocButton onClick={() => printOrder(o)} />
@@ -187,6 +195,21 @@ export default function OrdersPage() {
               Ligne {preview.lineTotal.toLocaleString('fr-FR')} CDF
               {preview.ruleName ? ` (${preview.ruleName})` : ''}
             </p>
+          )}
+          {selectedProduct?.isReusable && (
+            <div className="form-group">
+              <label>Vidanges rendues</label>
+              <input
+                type="number"
+                min={0}
+                value={form.emptiesReturned}
+                onChange={(e) => setForm({ ...form, emptiesReturned: Math.max(0, Number(e.target.value) || 0) })}
+              />
+              <p className="erp-muted">
+                Un retour en surplus crée un avoir en contenants. Livraison prévue :{' '}
+                {(form.quantity + (preview?.bonusQuantity ?? 0))} contenant(s).
+              </p>
+            </div>
           )}
           <div className="form-group">
             <label>Notes</label>

@@ -30,10 +30,12 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
       _formData.damaged[line.productId] = 0;
       _formData.refused[line.productId] = 0;
     }
-    final total = widget.order.lines.fold<double>(
-      0,
-      (sum, l) => sum + l.unitPrice * l.quantity,
-    );
+    final total = widget.order.totalAmount > 0
+        ? widget.order.totalAmount - widget.order.paidAmount
+        : widget.order.lines.fold<double>(
+            0,
+            (sum, l) => sum + l.unitPrice * l.quantity,
+          );
     _paymentController.text = total.toStringAsFixed(0);
   }
 
@@ -52,7 +54,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
         position = await Geolocator.getCurrentPosition();
       } catch (_) {}
 
-      final queuedDelivery = await DeliveryProvider.submitDelivery(
+      final deliveryResult = await DeliveryProvider.submitDelivery(
         auth: context.read<AuthProvider>(),
         order: widget.order,
         tourId: widget.tour.id,
@@ -66,7 +68,8 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
       if (amount > 0) {
         queuedPayment = await DeliveryProvider.submitPayment(
           auth: context.read<AuthProvider>(),
-          deliveryId: null,
+          deliveryId: deliveryResult.deliveryId,
+          orderId: widget.order.id,
           clientId: widget.order.clientId,
           amount: amount,
           method: _paymentMethod,
@@ -74,7 +77,7 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
       }
 
       if (mounted) {
-        final queued = queuedDelivery || queuedPayment;
+        final queued = deliveryResult.queued || queuedPayment;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(queued
@@ -114,6 +117,11 @@ class _DeliveryScreenState extends State<DeliveryScreen> {
                   children: [
                     Text(widget.order.clientName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
                     Text(widget.order.orderNumber),
+                    if (widget.order.paymentStatus != 'SOLDEE')
+                      Text(
+                        'Reste à payer : ${(widget.order.totalAmount - widget.order.paidAmount).toStringAsFixed(0)} CDF',
+                        style: TextStyle(color: Colors.orange.shade900),
+                      ),
                   ],
                 ),
               ),
@@ -195,7 +203,7 @@ class _LineEditor extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
-                  'Consigne: retours vides requis',
+                  'Consigne: vidanges à rendre (bonus inclus)',
                   style: TextStyle(color: Colors.orange.shade800, fontSize: 12),
                 ),
               ),
@@ -207,7 +215,7 @@ class _LineEditor extends StatelessWidget {
                 Expanded(child: _qtyField('Refusés', formData.refused, line.productId, 0)),
                 const SizedBox(width: 8),
                 if (line.isReusable)
-                  Expanded(child: _qtyField('Retours', formData.returned, line.productId, 0)),
+                  Expanded(child: _qtyField('Vidanges', formData.returned, line.productId, 0)),
               ],
             ),
           ],

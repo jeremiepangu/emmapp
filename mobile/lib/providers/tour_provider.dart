@@ -54,7 +54,7 @@ class DeliveryFormData {
 }
 
 class DeliveryProvider {
-  static Future<bool> submitDelivery({
+  static Future<({bool queued, String? deliveryId})> submitDelivery({
     required AuthProvider auth,
     required Order order,
     required String tourId,
@@ -97,7 +97,12 @@ class DeliveryProvider {
       entityType: 'delivery',
       localId: localId,
     );
-    return result.queued;
+    String? deliveryId;
+    if (result.data is Map) {
+      final map = Map<String, dynamic>.from(result.data as Map);
+      deliveryId = map['id'] as String?;
+    }
+    return (queued: result.queued, deliveryId: deliveryId);
   }
 
   static Future<bool> submitPayment({
@@ -106,15 +111,19 @@ class DeliveryProvider {
     required String? clientId,
     required double amount,
     required String method,
+    String? orderId,
+    bool asAdvance = false,
   }) async {
     if (amount <= 0) return false;
     const uuid = Uuid();
     final localId = uuid.v4();
     final payload = {
-      'deliveryId': deliveryId,
-      'clientId': clientId,
+      if (deliveryId != null) 'deliveryId': deliveryId,
+      if (clientId != null) 'clientId': clientId,
+      if (orderId != null) 'orderId': orderId,
       'amount': amount,
       'method': method,
+      if (asAdvance) 'asAdvance': true,
       'localId': localId,
     };
     final result = await auth.offline.mutate(

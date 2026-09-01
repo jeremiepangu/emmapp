@@ -1,5 +1,5 @@
 import { useEffect, useState, FormEvent } from 'react';
-import { api, Tour, User, Vehicle, Order } from '../api';
+import { api, Tour, User, Vehicle, Order, LoadSheet } from '../api';
 import { usePermissions } from '../hooks/usePermissions';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
@@ -16,6 +16,39 @@ const emptyForm = {
   orderIds: [] as string[],
 };
 
+type LoadItem = { productId: string; quantity: number; name: string };
+
+/** Agrège les quantités commandées (bonus inclus) par produit pour le bordereau. */
+function aggregateLoadItems(tour: Tour): LoadItem[] {
+  const map = new Map<string, LoadItem>();
+  for (const order of tour.orders ?? []) {
+    for (const line of order.lines ?? []) {
+      const productId = line.productId;
+      const bonus = Number(line.bonusQuantity ?? line.bonus ?? 0);
+      const qty = line.quantity + bonus;
+      const name = line.product?.name ?? productId;
+      const prev = map.get(productId);
+      if (prev) prev.quantity += qty;
+      else map.set(productId, { productId, quantity: qty, name });
+    }
+  }
+  return Array.from(map.values());
+}
+
+function parseSheetItems(items: LoadSheet['items']): LoadItem[] {
+  if (!Array.isArray(items)) return [];
+  return items
+    .map((raw) => {
+      const row = raw as Record<string, unknown>;
+      const productId = String(row.productId ?? row.product_id ?? '');
+      const quantity = Number(row.quantity ?? row.qty ?? 0);
+      const name = String(row.name ?? productId);
+      if (!productId || !Number.isFinite(quantity)) return null;
+      return { productId, quantity, name };
+    })
+    .filter((x): x is LoadItem => x !== null);
+}
+
 export default function ToursPage() {
   const { can } = usePermissions();
   const [tours, setTours] = useState<Tour[]>([]);
@@ -27,6 +60,10 @@ export default function ToursPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [form, setForm] = useState(emptyForm);
+  const [loadSheetTour, setLoadSheetTour] = useState<Tour | null>(null);
+  const [loadItems, setLoadItems] = useState<LoadItem[]>([]);
+  const [loadSaving, setLoadSaving] = useState(false);
+  const [loadError, setLoadError] = useState('');
 
   const load = () => api.getTours().then(setTours);
 
@@ -90,6 +127,54 @@ export default function ToursPage() {
 
   const activeVehicles = vehicles.filter((v) => v.isActive !== false);
 
+  const openLoadSheet = (t: Tour) => {
+    setLoadSheetTour(t);
+    setLoadItems(aggregateLoadItems(t));
+    setLoadError('');
+  };
+
+  const refreshLoadSheetTour = async () => {
+    const list = await api.getTours();
+    setTours(list);
+    if (loadSheetTour) {
+      const updated = list.find((t) => t.id === loadSheetTour.id);
+      if (updated) setLoadSheetTour(updated);
+    }
+  };
+
+  const handleCreateLoadSheet = async () => {
+    if (!loadSheetTour || loadItems.length === 0) return;
+    setLoadSaving(true);
+    setLoadError('');
+    try {
+      await api.createLoadSheet(
+        loadSheetTour.id,
+        loadItems.map(({ productId, quantity }) => ({ productId, quantity })),
+      );
+      await refreshLoadSheetTour();
+    } catch {
+      setLoadError('Impossible de créer le bordereau de chargement');
+    } finally {
+      setLoadSaving(false);
+    }
+  };
+
+  const handleValidateLoadSheet = async (sheetId: string, role: 'store' | 'driver') => {
+    if (!loadSheetTour) return;
+    setLoadSaving(true);
+    setLoadError('');
+    try {
+      await api.validateLoadSheet(loadSheetTour.id, sheetId, role);
+      await refreshLoadSheetTour();
+    } catch {
+      setLoadError('Validation impossible');
+    } finally {
+      setLoadSaving(false);
+    }
+  };
+
+  const latestSheet = loadSheetTour?.loadSheets?.[loadSheetTour.loadSheets.length - 1];
+
   return (
     <div className="erp-page">
       <ErpPageHeader
@@ -131,6 +216,11 @@ export default function ToursPage() {
                 <td><StatusPill status={t.status} /></td>
                 <td className="erp-row-actions">
                   <DocButton onClick={() => printTourSheet(t)} />
+                  {t.status !== 'TERMINEE' && t.status !== 'ANNULEE' && (can('tours', 'create') || can('tours', 'validate')) && (
+                    <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => openLoadSheet(t)}>
+                      Bordereau{t.loadSheets?.length ? ` (${t.loadSheets.length})` : ''}
+                    </button>
+                  )}
                   {can('tours', 'update') && t.status === 'PLANIFIEE' && (
                     <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => openEdit(t)}>Modifier</button>
                   )}
@@ -197,6 +287,93 @@ export default function ToursPage() {
             {saving ? 'Enregistrement...' : editing ? 'Mettre à jour' : 'Créer la tournée'}
           </button>
         </form>
+      </Modal>
+
+      <Modal
+        title={loadSheetTour ? `Bordereau — ${loadSheetTour.tourNumber}` : 'Bordereau de chargement'}
+        open={loadSheetTour !== null}
+        onClose={() => setLoadSheetTour(null)}
+      >
+        {loadSheetTour && (
+          <div className="form-stack">
+            {loadSheetTour.loadSheets && loadSheetTour.loadSheets.length > 0 && (
+              <div className="form-group">
+                <label>Bordereaux existants</label>
+                {loadSheetTour.loadSheets.map((sheet) => (
+                  <div key={sheet.id} className="erp-panel" style={{ marginBottom: 8, padding: 12 }}>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+                      <StatusPill status={sheet.validatedByStore ? 'VALIDEE' : 'PLANIFIEE'} label={sheet.validatedByStore ? 'Magasin OK' : 'Magasin en attente'} />
+                      <StatusPill status={sheet.validatedByDriver ? 'VALIDEE' : 'PLANIFIEE'} label={sheet.validatedByDriver ? 'Chauffeur OK' : 'Chauffeur en attente'} />
+                      <span className="erp-muted">{new Date(sheet.createdAt).toLocaleString('fr-FR')}</span>
+                    </div>
+                    <table className="erp-table erp-table--compact">
+                      <thead><tr><th>Produit</th><th>Qté chargée</th></tr></thead>
+                      <tbody>
+                        {parseSheetItems(sheet.items).map((item) => (
+                          <tr key={`${sheet.id}-${item.productId}`}>
+                            <td>{item.name}</td>
+                            <td>{item.quantity}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <div className="erp-row-actions" style={{ marginTop: 8 }}>
+                      {can('tours', 'create') && !sheet.validatedByStore && (
+                        <button type="button" className="erp-btn erp-btn--sm" disabled={loadSaving} onClick={() => handleValidateLoadSheet(sheet.id, 'store')}>
+                          Valider magasin
+                        </button>
+                      )}
+                      {can('tours', 'validate') && !sheet.validatedByDriver && (
+                        <button type="button" className="erp-btn erp-btn--sm" disabled={loadSaving} onClick={() => handleValidateLoadSheet(sheet.id, 'driver')}>
+                          Valider chauffeur
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {can('tours', 'create') && loadSheetTour.status === 'PLANIFIEE' && (
+              <>
+                <p className="erp-muted">
+                  Quantités prévues à charger (éditables avant création). Le rapprochement à l&apos;écarts utilise ce bordereau.
+                </p>
+                {loadItems.length === 0 ? (
+                  <p>Aucune ligne commandée sur cette tournée.</p>
+                ) : (
+                  <table className="erp-table">
+                    <thead><tr><th>Produit</th><th>Qté à charger</th></tr></thead>
+                    <tbody>
+                      {loadItems.map((item, idx) => (
+                        <tr key={item.productId}>
+                          <td>{item.name}</td>
+                          <td>
+                            <input
+                              type="number"
+                              min={0}
+                              value={item.quantity}
+                              onChange={(e) => {
+                                const qty = Math.max(0, Number(e.target.value) || 0);
+                                setLoadItems((rows) => rows.map((r, i) => (i === idx ? { ...r, quantity: qty } : r)));
+                              }}
+                              style={{ width: 80 }}
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+                <button type="button" className="erp-btn" disabled={loadSaving || loadItems.length === 0} onClick={handleCreateLoadSheet}>
+                  {loadSaving ? 'Enregistrement…' : latestSheet ? 'Nouveau bordereau' : 'Créer le bordereau'}
+                </button>
+              </>
+            )}
+
+            {loadError && <p className="error-msg">{loadError}</p>}
+          </div>
+        )}
       </Modal>
     </div>
   );

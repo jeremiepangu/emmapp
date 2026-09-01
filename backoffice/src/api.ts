@@ -615,6 +615,13 @@ export const api = {
   startTour: (id: string) => request<Tour>(`/tours/${id}/start`, { method: 'PATCH' }),
   completeTour: (id: string) => request<Tour>(`/tours/${id}/complete`, { method: 'PATCH' }),
   cancelTour: (id: string) => request<Tour>(`/tours/${id}/cancel`, { method: 'PATCH' }),
+  createLoadSheet: (tourId: string, items: Array<{ productId: string; quantity: number }>) =>
+    request<LoadSheet>(`/tours/${tourId}/load-sheet`, { method: 'POST', body: JSON.stringify({ items }) }),
+  validateLoadSheet: (tourId: string, sheetId: string, role: 'store' | 'driver') =>
+    request<LoadSheet>(`/tours/${tourId}/load-sheet/${sheetId}/validate`, {
+      method: 'PATCH',
+      body: JSON.stringify({ role }),
+    }),
 
   getOrders: () => request<Order[]>('/orders'),
   createOrder: (data: CreateOrderInput) =>
@@ -1815,6 +1822,16 @@ export interface Tour {
   driver?: { id: string; firstName: string; lastName: string };
   vehicle?: { id: string; plate: string; name: string };
   orders?: Order[];
+  loadSheets?: LoadSheet[];
+}
+
+export interface LoadSheet {
+  id: string;
+  tourId: string;
+  validatedByStore: boolean;
+  validatedByDriver: boolean;
+  items: Array<{ productId: string; quantity: number; name?: string }>;
+  createdAt: string;
 }
 
 export interface Order {

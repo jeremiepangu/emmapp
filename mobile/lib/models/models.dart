@@ -62,6 +62,8 @@ class Client {
     this.longitude,
     this.consigneBalance = 0,
     this.consigneLimit = 50,
+    this.advanceBalance = 0,
+    this.creditBalance = 0,
   });
 
   final String id;
@@ -75,6 +77,8 @@ class Client {
   final double? longitude;
   final int consigneBalance;
   final int consigneLimit;
+  final double advanceBalance;
+  final double creditBalance;
 
   factory Client.fromJson(Map<String, dynamic> json) => Client(
         id: json['id'] as String,
@@ -88,6 +92,8 @@ class Client {
         longitude: (json['longitude'] as num?)?.toDouble(),
         consigneBalance: json['consigneBalance'] as int? ?? 0,
         consigneLimit: json['consigneLimit'] as int? ?? 50,
+        advanceBalance: double.tryParse((json['advanceBalance'] ?? 0).toString()) ?? 0,
+        creditBalance: double.tryParse((json['creditBalance'] ?? 0).toString()) ?? 0,
       );
 }
 
@@ -130,6 +136,7 @@ class OrderLine {
     required this.productName,
     required this.quantity,
     required this.unitPrice,
+    this.bonusQuantity = 0,
     this.isReusable = false,
   });
 
@@ -137,6 +144,7 @@ class OrderLine {
   final String productName;
   final int quantity;
   final double unitPrice;
+  final int bonusQuantity;
   final bool isReusable;
 
   factory OrderLine.fromJson(Map<String, dynamic> json) => OrderLine(
@@ -144,6 +152,7 @@ class OrderLine {
         productName: json['product']?['name'] as String? ?? json['productName'] as String? ?? '',
         quantity: json['quantity'] as int? ?? 0,
         unitPrice: double.tryParse(json['unitPrice']?.toString() ?? '') ?? 0,
+        bonusQuantity: json['bonusQuantity'] as int? ?? 0,
         isReusable: json['product']?['isReusable'] as bool? ?? false,
       );
 }
@@ -156,6 +165,9 @@ class Order {
     required this.clientName,
     required this.status,
     required this.lines,
+    this.totalAmount = 0,
+    this.paidAmount = 0,
+    this.paymentStatus = 'IMPAYEE',
   });
 
   final String id;
@@ -164,6 +176,9 @@ class Order {
   final String clientName;
   final String status;
   final List<OrderLine> lines;
+  final double totalAmount;
+  final double paidAmount;
+  final String paymentStatus;
 
   factory Order.fromJson(Map<String, dynamic> json) => Order(
         id: json['id'] as String,
@@ -171,6 +186,9 @@ class Order {
         clientId: json['clientId'] as String? ?? json['client']?['id'] as String? ?? '',
         clientName: json['client']?['name'] as String? ?? json['clientName'] as String? ?? '',
         status: json['status'] as String? ?? '',
+        totalAmount: double.tryParse((json['totalAmount'] ?? 0).toString()) ?? 0,
+        paidAmount: double.tryParse((json['paidAmount'] ?? 0).toString()) ?? 0,
+        paymentStatus: json['paymentStatus'] as String? ?? 'IMPAYEE',
         lines: (json['lines'] as List? ?? [])
             .whereType<Map>()
             .map((e) => OrderLine.fromJson(Map<String, dynamic>.from(e)))

@@ -46,21 +46,24 @@ const Map<String, Map<String, List<String>>> defaultPermissions = {
     'marketplace': _full, 'integrations': _full, 'pricing': _full,
     'activity': _full, 'packaging': _full, 'vehicles': _full,
     'authorizations': _full, 'contracts': _full, 'objectives': _full,
-    'pos': _full, 'finance': _full,
+    'pos': _full, 'finance': _full, 'recouvrement': _full, 'ecarts': _full,
   },
   'LIVREUR': {
     'dashboard': _r, 'deliveries': _rcuv, 'payments': _rc, 'orders': _r,
     'clients': _r, 'notifications': _r, 'assistant': _rc, 'routing': _r,
     'hr': _r, 'objectives': _r, 'tours': _r, 'activity': _rc,
+    'recouvrement': _r, 'consignes': _r,
   },
   'CHARGE_LIVRAISON': {
     'dashboard': _r, 'deliveries': _rcuv, 'payments': _rc, 'orders': _r,
     'clients': _r, 'notifications': _r, 'assistant': _rc, 'routing': _r,
     'hr': _r, 'objectives': _r, 'tours': _r, 'activity': _rcuv,
+    'recouvrement': _r, 'consignes': _r,
   },
   'CAISSIER': {
     'dashboard': _r, 'payments': _full, 'clients': _r, 'orders': _r,
     'notifications': _r, 'assistant': _rc, 'hr': _r, 'pos': _full, 'finance': _rcu,
+    'recouvrement': _rc, 'ecarts': _rc,
     'activity': _rc,
   },
   'COMMERCIAL': {
@@ -68,6 +71,7 @@ const Map<String, Map<String, List<String>>> defaultPermissions = {
     'products': _r, 'payments': _rcu, 'notifications': _r, 'ai': _r,
     'assistant': _rc, 'portal': _rcu, 'marketplace': _rcuv, 'pricing': _full,
     'hr': _r, 'contracts': _rcuv, 'objectives': _rcu, 'pos': _full, 'finance': _r,
+    'consignes': _rcu, 'recouvrement': _rcu,
     'activity': _rc,
   },
   'MAGASINIER': {
@@ -84,6 +88,7 @@ const Map<String, Map<String, List<String>>> defaultPermissions = {
     'routing': _r, 'esg': _r, 'security': _r, 'portal': _r, 'marketplace': _r,
     'pricing': _r, 'packaging': _r, 'vehicles': _r, 'authorizations': _r,
     'contracts': _ruv, 'objectives': _r, 'pos': _r, 'finance': _ruv,
+    'recouvrement': _r, 'ecarts': _r,
     'activity': _ruv,
   },
   'CHEF_PRODUCTION': {
@@ -97,6 +102,7 @@ const Map<String, Map<String, List<String>>> defaultPermissions = {
     'packaging': _r, 'vehicles': _full, 'clients': _r, 'notifications': _r,
     'ai': _r, 'assistant': _rc, 'routing': _rcuv, 'iot': _r, 'esg': _r, 'hr': _ruv,
     'contracts': _r, 'objectives': _rcuv, 'pos': _r, 'finance': _r,
+    'recouvrement': _r, 'ecarts': _r,
     'activity': _rcuv,
   },
   'RESP_QUALITE': {
@@ -110,7 +116,8 @@ const Map<String, Map<String, List<String>>> defaultPermissions = {
     'activity': _full,
   },
   'COMPTABLE': {
-    'payments': _rcu, 'finance': _full, 'clients': _r, 'orders': _r, 'dashboard': _r,
+    'payments': _rcu, 'finance': _full, 'ecarts': _full, 'recouvrement': _rcuv,
+    'clients': _r, 'orders': _r, 'dashboard': _r,
     'notifications': _r, 'ai': _r, 'assistant': _rc, 'payroll': _rcuv, 'hr': _r,
     'contracts': _rcuv, 'pos': _r, 'activity': _rcuv,
   },

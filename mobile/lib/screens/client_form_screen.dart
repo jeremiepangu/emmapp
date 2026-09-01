@@ -227,6 +227,7 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
   String? _clientId;
   final _amount = TextEditingController();
   String _method = 'ESPECES';
+  bool _asAdvance = false;
   bool _saving = false;
 
   @override
@@ -256,6 +257,7 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
               if (_clientId != null) 'clientId': _clientId,
               'amount': amount,
               'method': _method,
+              if (_asAdvance) 'asAdvance': true,
             },
             entityType: 'payment',
           );
@@ -313,6 +315,12 @@ class _PaymentFormScreenState extends State<PaymentFormScreen> {
               DropdownMenuItem(value: 'CREDIT', child: Text('Crédit')),
             ],
             onChanged: (v) => setState(() => _method = v!),
+          ),
+          SwitchListTile(
+            title: const Text('Paiement en avance'),
+            subtitle: const Text('Créditer le compte client sans imputer une commande'),
+            value: _asAdvance,
+            onChanged: (v) => setState(() => _asAdvance = v),
           ),
           const SizedBox(height: 24),
           ElevatedButton(onPressed: _saving ? null : _save, child: const Text('Enregistrer')),

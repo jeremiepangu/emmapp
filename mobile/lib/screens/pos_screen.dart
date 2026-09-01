@@ -6,6 +6,13 @@ import '../models/models.dart';
 import '../providers/auth_provider.dart';
 import '../widgets/product_sale_card.dart';
 
+class _CartLine {
+  _CartLine({required this.productId, required this.quantity, this.emptiesReturned = 0});
+  final String productId;
+  int quantity;
+  int emptiesReturned;
+}
+
 class PosScreen extends StatefulWidget {
   const PosScreen({super.key});
 
@@ -17,10 +24,12 @@ class _PosScreenState extends State<PosScreen> {
   List<Product> _products = [];
   List<Client> _clients = [];
   String? _clientId;
-  final Map<String, int> _cart = {};
+  final List<_CartLine> _cart = [];
   final Map<String, int> _draftQty = {};
+  Map<String, dynamic>? _quote;
   String _method = 'ESPECES';
   bool _loading = true;
+  bool _quoting = false;
   bool _saving = false;
   String? _error;
 
@@ -45,6 +54,7 @@ class _PosScreenState extends State<PosScreen> {
         _clients = asRecordList(clients.data).map(Client.fromJson).toList();
         _loading = false;
       });
+      await _refreshQuote();
     } catch (e) {
       setState(() {
         _error = e.toString();
@@ -53,25 +63,76 @@ class _PosScreenState extends State<PosScreen> {
     }
   }
 
-  double get _total {
-    var sum = 0.0;
-    for (final e in _cart.entries) {
-      for (final p in _products) {
-        if (p.id == e.key) {
-          sum += p.unitPrice * e.value;
-          break;
-        }
+  Future<void> _refreshQuote() async {
+    if (_cart.isEmpty) {
+      setState(() => _quote = null);
+      return;
+    }
+    setState(() => _quoting = true);
+    try {
+      final result = await context.read<AuthProvider>().offline.mutate(
+            method: 'POST',
+            path: '/pos/quote',
+            body: {
+              'clientId': _clientId,
+              'lines': _cart
+                  .map((l) => {
+                        'productId': l.productId,
+                        'quantity': l.quantity,
+                        'emptiesReturned': l.emptiesReturned,
+                      })
+                  .toList(),
+            },
+          );
+      if (!mounted) return;
+      setState(() {
+        _quote = result.data is Map ? Map<String, dynamic>.from(result.data as Map) : null;
+        _quoting = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _quoting = false);
+    }
+  }
+
+  void _addToCart(String productId, int qty) {
+    final existing = _cart.where((l) => l.productId == productId).toList();
+    if (existing.isEmpty) {
+      _cart.add(_CartLine(productId: productId, quantity: qty));
+    } else {
+      existing.first.quantity += qty;
+    }
+    setState(() {});
+    _refreshQuote();
+  }
+
+  void _setEmpties(String productId, int value) {
+    for (final line in _cart) {
+      if (line.productId == productId) {
+        line.emptiesReturned = value < 0 ? 0 : value;
+        break;
       }
     }
-    return sum;
+    setState(() {});
+    _refreshQuote();
+  }
+
+  double get _total => (_quote?['total'] as num?)?.toDouble() ?? 0;
+  double get _advanceApplied => (_quote?['advanceApplied'] as num?)?.toDouble() ?? 0;
+  double get _netToPay => (_quote?['netToPay'] as num?)?.toDouble() ?? _total;
+
+  Map<String, dynamic>? _quotedLine(String productId) {
+    final lines = _quote?['lines'];
+    if (lines is! List) return null;
+    for (final raw in lines) {
+      if (raw is Map && raw['productId'] == productId) {
+        return Map<String, dynamic>.from(raw);
+      }
+    }
+    return null;
   }
 
   Future<void> _checkout() async {
-    final lines = _cart.entries
-        .where((e) => e.value > 0)
-        .map((e) => {'productId': e.key, 'quantity': e.value})
-        .toList();
-    if (lines.isEmpty) return;
+    if (_cart.isEmpty) return;
     setState(() => _saving = true);
     try {
       final result = await context.read<AuthProvider>().offline.mutate(
@@ -79,20 +140,30 @@ class _PosScreenState extends State<PosScreen> {
             path: '/pos/checkout',
             body: {
               if (_clientId != null) 'clientId': _clientId,
-              'lines': lines,
+              'lines': _cart
+                  .map((l) => {
+                        'productId': l.productId,
+                        'quantity': l.quantity,
+                        'emptiesReturned': l.emptiesReturned,
+                      })
+                  .toList(),
               'method': _method,
+              if (_method == 'ESPECES') 'cashReceived': _netToPay,
             },
           );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(result.queued ? 'Vente en file hors ligne' : 'Vente enregistrée (${_total.toStringAsFixed(0)} CDF)'),
+          content: Text(result.queued
+              ? 'Vente en file hors ligne'
+              : 'Vente enregistrée (${_netToPay.toStringAsFixed(0)} CDF encaissés)'),
           backgroundColor: Colors.green,
         ),
       );
       setState(() {
         _cart.clear();
         _draftQty.clear();
+        _quote = null;
       });
     } catch (e) {
       if (mounted) {
@@ -110,27 +181,40 @@ class _PosScreenState extends State<PosScreen> {
       return Center(child: Text(_error!));
     }
 
+    final selectedClient = _clients.where((c) => c.id == _clientId).toList();
+
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  value: _clientId ?? '',
-                  isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Client (comptoir si vide)', isDense: true),
-                  items: [
-                    const DropdownMenuItem(value: '', child: Text('Comptoir / passage')),
-                    ..._clients.map((c) => DropdownMenuItem(value: c.id, child: Text(c.name, overflow: TextOverflow.ellipsis))),
-                  ],
-                  onChanged: (v) => setState(() => _clientId = (v == null || v.isEmpty) ? null : v),
-                ),
-              ),
+          child: DropdownButtonFormField<String>(
+            value: _clientId ?? '',
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: 'Client (comptoir si vide)', isDense: true),
+            items: [
+              const DropdownMenuItem(value: '', child: Text('Comptoir / passage')),
+              ..._clients.map((c) {
+                final advance = c.advanceBalance > 0 ? ' · avance ${c.advanceBalance.toStringAsFixed(0)}' : '';
+                return DropdownMenuItem(
+                  value: c.id,
+                  child: Text('${c.name}$advance', overflow: TextOverflow.ellipsis),
+                );
+              }),
             ],
+            onChanged: (v) {
+              setState(() => _clientId = (v == null || v.isEmpty) ? null : v);
+              _refreshQuote();
+            },
           ),
         ),
+        if (selectedClient.isNotEmpty && selectedClient.first.advanceBalance > 0)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(
+              'Avance disponible : ${selectedClient.first.advanceBalance.toStringAsFixed(0)} CDF',
+              style: TextStyle(color: Colors.blue.shade800, fontSize: 13),
+            ),
+          ),
         Expanded(
           child: GridView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -143,7 +227,7 @@ class _PosScreenState extends State<PosScreen> {
             itemCount: _products.length,
             itemBuilder: (context, i) {
               final p = _products[i];
-              final inCart = _cart[p.id] ?? 0;
+              final inCart = _cart.where((l) => l.productId == p.id).fold(0, (s, l) => s + l.quantity);
               final draft = _draftQty[p.id] ?? 1;
               return ProductSaleCard(
                 name: p.name,
@@ -158,11 +242,50 @@ class _PosScreenState extends State<PosScreen> {
                 metaLabel: 'Retrait',
                 metaValue: 'Immédiat en caisse',
                 onQuantityChanged: (q) => setState(() => _draftQty[p.id] = q),
-                onAdd: () => setState(() => _cart[p.id] = inCart + draft),
+                onAdd: () => _addToCart(p.id, draft),
               );
             },
           ),
         ),
+        if (_cart.isNotEmpty)
+          Expanded(
+            flex: 0,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: _cart.map((line) {
+                  final product = _products.firstWhere((p) => p.id == line.productId);
+                  final quoted = _quotedLine(line.productId);
+                  final bonus = quoted?['bonusQuantity'] as int? ?? 0;
+                  final delivered = line.quantity + bonus;
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: Padding(
+                      padding: const EdgeInsets.all(10),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(product.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                          if (bonus > 0) Text('Bonus : $bonus offert(s)', style: TextStyle(color: Colors.green.shade700, fontSize: 12)),
+                          if (product.isReusable)
+                            TextField(
+                              keyboardType: TextInputType.number,
+                              decoration: InputDecoration(
+                                labelText: 'Vidanges rendues (sur $delivered sortis)',
+                                isDense: true,
+                              ),
+                              controller: TextEditingController(text: '${line.emptiesReturned}'),
+                              onChanged: (v) => _setEmpties(line.productId, int.tryParse(v) ?? 0),
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
         Material(
           elevation: 8,
           child: Padding(
@@ -175,20 +298,54 @@ class _PosScreenState extends State<PosScreen> {
                       child: Text(
                         _cart.isEmpty
                             ? 'Panier vide'
-                            : 'Panier : ${_cart.values.fold(0, (a, b) => a + b)} article(s)',
+                            : 'Panier : ${_cart.fold(0, (s, l) => s + l.quantity)} article(s)',
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ),
                     if (_cart.isNotEmpty)
                       TextButton(
-                        onPressed: () => setState(() {
-                          _cart.clear();
-                          _draftQty.clear();
-                        }),
+                        onPressed: () {
+                          setState(() {
+                            _cart.clear();
+                            _draftQty.clear();
+                            _quote = null;
+                          });
+                        },
                         child: const Text('Vider'),
                       ),
                   ],
                 ),
+                if (_quote != null) ...[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Total'),
+                      Text('${_total.toStringAsFixed(0)} CDF', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  if (_advanceApplied > 0)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Avance déduite'),
+                        Text('-${_advanceApplied.toStringAsFixed(0)} CDF', style: TextStyle(color: Colors.blue.shade800)),
+                      ],
+                    ),
+                  if (_advanceApplied > 0)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Net à encaisser'),
+                        Text('${_netToPay.toStringAsFixed(0)} CDF', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  if ((_quote?['bonusQuantity'] as int? ?? 0) > 0)
+                    Text(
+                      'Bonus : ${_quote!['bonusQuantity']} article(s) offert(s)',
+                      style: TextStyle(color: Colors.green.shade700, fontSize: 12),
+                    ),
+                ],
+                if (_quoting) const LinearProgressIndicator(minHeight: 2),
                 DropdownButtonFormField<String>(
                   value: _method,
                   decoration: const InputDecoration(labelText: 'Paiement', isDense: true),
@@ -203,8 +360,10 @@ class _PosScreenState extends State<PosScreen> {
                 ),
                 const SizedBox(height: 8),
                 ElevatedButton(
-                  onPressed: _saving || _cart.isEmpty ? null : _checkout,
-                  child: Text(_saving ? 'Encaissement…' : 'Encaisser ${_total.toStringAsFixed(0)} CDF'),
+                  onPressed: _saving || _cart.isEmpty || _quoting ? null : _checkout,
+                  child: Text(_saving
+                      ? 'Encaissement…'
+                      : 'Encaisser ${_netToPay.toStringAsFixed(0)} CDF'),
                 ),
               ],
             ),

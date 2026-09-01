@@ -11,6 +11,7 @@ import 'assistant_screen.dart';
 import 'catalog_list_screen.dart';
 import 'dashboard_screen.dart';
 import 'pos_screen.dart';
+import 'recouvrement_screen.dart';
 import 'tour_list_screen.dart';
 
 class ShellScreen extends StatefulWidget {
@@ -76,6 +77,9 @@ class _ShellScreenState extends State<ShellScreen> {
       case ModuleKind.sync:
         return const SyncScreen();
       case ModuleKind.catalog:
+        if (module.id == 'recouvrement') {
+          return const RecouvrementScreen();
+        }
         return CatalogListScreen(key: ValueKey(module.id), module: module);
     }
   }
