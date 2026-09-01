@@ -749,6 +749,10 @@ export const api = {
     request<PosQuote>('/pos/quote', { method: 'POST', body: JSON.stringify(data) }),
   checkoutPos: (data: PosCheckoutInput) =>
     request<PosSale>('/pos/checkout', { method: 'POST', body: JSON.stringify(data) }),
+  posAdvance: (data: PosAdvanceInput) =>
+    request<Payment>('/pos/advance', { method: 'POST', body: JSON.stringify(data) }),
+  posAcompte: (data: PosAcompteInput) =>
+    request<Payment>('/pos/acompte', { method: 'POST', body: JSON.stringify(data) }),
   cancelPosSale: (id: string) =>
     request<PosSale>(`/pos/sales/${id}/cancel`, { method: 'POST' }),
   updatePayment: (id: string, data: Partial<CreatePaymentInput>) =>
@@ -2258,6 +2262,24 @@ export interface PosCheckoutInput {
   cashReceived?: number;
   reference?: string;
   notes?: string;
+  /** Montant encaisse ; inferieur au net = acompte sur la vente en cours. */
+  amountPaid?: number;
+}
+
+export interface PosAdvanceInput {
+  clientId: string;
+  amount: number;
+  method: PaymentMethod;
+  reference?: string;
+  notes?: string;
+}
+
+export interface PosAcompteInput {
+  orderId: string;
+  amount: number;
+  method: PaymentMethod;
+  cashReceived?: number;
+  reference?: string;
 }
 
 export interface ProductionOrder {

@@ -20,7 +20,8 @@ import { ConsignesService } from '../consignes/consignes.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { FinanceService } from '../finance/finance.service';
 import { PaymentAllocationService } from '../payments/payment-allocation.service';
-import { PosCheckoutDto, PosLineDto } from './dto/pos.dto';
+import { PaymentsService } from '../payments/payments.service';
+import { PosAdvanceDto, PosAcompteDto, PosCheckoutDto, PosLineDto } from './dto/pos.dto';
 
 const WALK_IN_CODE = 'CLI-POS';
 
@@ -41,6 +42,7 @@ export class PosService {
     private notifications: NotificationsService,
     private finance: FinanceService,
     private allocations: PaymentAllocationService,
+    private payments: PaymentsService,
   ) {}
 
   async catalog() {
@@ -199,12 +201,6 @@ export class PosService {
   async checkout(dto: PosCheckoutDto, cashierId: string) {
     const quoted = await this.quote(dto.clientId, dto.lines);
     await this.consignes.assertWithinLimit(quoted.client.id, quoted.consigneQuantity);
-    if (dto.method === PaymentMethod.ESPECES) {
-      const received = dto.cashReceived ?? quoted.netToPay;
-      if (received + 0.001 < quoted.netToPay) {
-        throw new BadRequestException('Le montant recu est inferieur au net a payer');
-      }
-    }
 
     return this.prisma.$transaction(async (tx) => {
       const saleNumber = await this.nextNumber(tx, 'POS');
@@ -241,20 +237,35 @@ export class PosService {
         quoted.client.id,
       );
       const netToPay = new Prisma.Decimal(quoted.total).sub(advanceApplied);
+      const requested = dto.amountPaid != null
+        ? new Prisma.Decimal(dto.amountPaid)
+        : netToPay;
+      if (netToPay.gt(0) && requested.lte(0)) {
+        throw new BadRequestException('Le montant a encaisser doit etre positif');
+      }
+      const toCollect = netToPay.lte(0) ? new Prisma.Decimal(0) : Prisma.Decimal.min(requested, netToPay);
+
+      if (toCollect.gt(0) && dto.method === PaymentMethod.ESPECES) {
+        const received = new Prisma.Decimal(dto.cashReceived ?? Number(toCollect));
+        if (received.add(0.001).lt(toCollect)) {
+          throw new BadRequestException('Le montant recu est inferieur au versement');
+        }
+      }
+
       const cashReceived = dto.method === PaymentMethod.ESPECES
-        ? new Prisma.Decimal(dto.cashReceived ?? Number(netToPay))
+        ? new Prisma.Decimal(dto.cashReceived ?? Number(toCollect))
         : null;
       const changeGiven = cashReceived
-        ? cashReceived.sub(netToPay).toDecimalPlaces(2)
+        ? cashReceived.sub(toCollect).toDecimalPlaces(2)
         : null;
 
-      const payment = netToPay.gt(0)
+      const payment = toCollect.gt(0)
         ? await tx.payment.create({
           data: {
             paymentNumber: await this.nextNumber(tx, 'PAY'),
             orderId: order.id,
             clientId: quoted.client.id,
-            amount: netToPay,
+            amount: toCollect,
             method: dto.method,
             reference: dto.reference?.trim() || saleNumber,
             collectedBy: cashierId,
@@ -347,6 +358,50 @@ export class PosService {
       }
       return sale;
     });
+  }
+
+  async recordAdvance(dto: PosAdvanceDto, cashierId: string) {
+    const client = await this.prisma.client.findUnique({ where: { id: dto.clientId } });
+    if (!client || !client.isActive) throw new NotFoundException('Client introuvable');
+    if (client.code === WALK_IN_CODE) {
+      throw new BadRequestException('Une avance necessite un client identifie');
+    }
+    return this.payments.create({
+      clientId: dto.clientId,
+      amount: dto.amount,
+      method: dto.method,
+      reference: dto.reference?.trim() || 'POS-AVANCE',
+      asAdvance: true,
+    }, cashierId);
+  }
+
+  async recordAcompte(dto: PosAcompteDto, cashierId: string) {
+    const order = await this.prisma.order.findUnique({ where: { id: dto.orderId } });
+    if (!order) throw new NotFoundException('Commande introuvable');
+    if (order.status === OrderStatus.ANNULEE) {
+      throw new BadRequestException('Cette commande est annulee');
+    }
+    const remaining = new Prisma.Decimal(order.totalAmount).sub(order.paidAmount ?? 0);
+    const amount = new Prisma.Decimal(dto.amount);
+    if (amount.lte(0)) {
+      throw new BadRequestException('Le montant doit etre positif');
+    }
+    if (amount.gt(remaining)) {
+      throw new BadRequestException(`Le montant depasse le reste a payer (${remaining})`);
+    }
+    if (dto.method === PaymentMethod.ESPECES) {
+      const received = new Prisma.Decimal(dto.cashReceived ?? dto.amount);
+      if (received.add(0.001).lt(amount)) {
+        throw new BadRequestException('Le montant recu est inferieur au versement');
+      }
+    }
+    return this.payments.create({
+      orderId: dto.orderId,
+      clientId: order.clientId,
+      amount: dto.amount,
+      method: dto.method,
+      reference: dto.reference?.trim() || `POS-ACOMPTE-${order.orderNumber}`,
+    }, cashierId);
   }
 
   async cancel(id: string) {

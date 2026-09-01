@@ -28,8 +28,14 @@ class _PosScreenState extends State<PosScreen> {
   final Map<String, int> _draftQty = {};
   Map<String, dynamic>? _quote;
   String _method = 'ESPECES';
+  String _mode = 'sale';
   final _cashReceivedCtrl = TextEditingController();
   final _countedCtrl = TextEditingController();
+  final _amountToCollectCtrl = TextEditingController();
+  final _advanceAmountCtrl = TextEditingController();
+  final _acompteAmountCtrl = TextEditingController();
+  List<Map<String, dynamic>> _outstanding = [];
+  String? _acompteOrderId;
   Map<String, dynamic>? _closing;
   bool _loadingClosing = false;
   bool _loading = true;
@@ -41,6 +47,9 @@ class _PosScreenState extends State<PosScreen> {
   void dispose() {
     _cashReceivedCtrl.dispose();
     _countedCtrl.dispose();
+    _amountToCollectCtrl.dispose();
+    _advanceAmountCtrl.dispose();
+    _acompteAmountCtrl.dispose();
     super.dispose();
   }
 
@@ -185,6 +194,53 @@ class _PosScreenState extends State<PosScreen> {
   double get _total => (_quote?['total'] as num?)?.toDouble() ?? 0;
   double get _advanceApplied => (_quote?['advanceApplied'] as num?)?.toDouble() ?? 0;
   double get _netToPay => (_quote?['netToPay'] as num?)?.toDouble() ?? _total;
+  double get _collectAmount {
+    final custom = double.tryParse(_amountToCollectCtrl.text);
+    if (custom != null && custom > 0) return custom;
+    return _netToPay;
+  }
+
+  Map<String, dynamic>? _selectedOutstanding() {
+    if (_acompteOrderId == null) return null;
+    for (final o in _outstanding) {
+      if (o['id'] == _acompteOrderId) return o;
+    }
+    return null;
+  }
+
+  Future<void> _loadOutstanding() async {
+    if (_clientId == null || _mode != 'acompte') {
+      setState(() {
+        _outstanding = [];
+        _acompteOrderId = null;
+      });
+      return;
+    }
+    try {
+      final result = await context.read<AuthProvider>().offline.get(
+            '/payments/outstanding?clientId=$_clientId',
+          );
+      final list = asRecordList(result.data);
+      if (!mounted) return;
+      setState(() {
+        _outstanding = list;
+        _acompteOrderId = list.isNotEmpty ? list.first['id'] as String? : null;
+        if (list.isNotEmpty) {
+          _acompteAmountCtrl.text = ((list.first['remaining'] as num?) ?? 0).toStringAsFixed(0);
+        }
+      });
+    } catch (_) {
+      if (mounted) setState(() {
+        _outstanding = [];
+        _acompteOrderId = null;
+      });
+    }
+  }
+
+  void _setMode(String mode) {
+    setState(() => _mode = mode);
+    _loadOutstanding();
+  }
 
   Map<String, dynamic>? _quotedLine(String productId) {
     final lines = _quote?['lines'];
@@ -200,6 +256,7 @@ class _PosScreenState extends State<PosScreen> {
   Future<void> _checkout() async {
     if (_cart.isEmpty) return;
     setState(() => _saving = true);
+    final partial = _collectAmount < _netToPay - 0.001;
     try {
       final result = await context.read<AuthProvider>().offline.mutate(
             method: 'POST',
@@ -215,7 +272,8 @@ class _PosScreenState extends State<PosScreen> {
                   .toList(),
               'method': _method,
               if (_method == 'ESPECES')
-                'cashReceived': double.tryParse(_cashReceivedCtrl.text) ?? _netToPay,
+                'cashReceived': double.tryParse(_cashReceivedCtrl.text) ?? _collectAmount,
+              if (partial) 'amountPaid': _collectAmount,
             },
           );
       if (!mounted) return;
@@ -223,7 +281,9 @@ class _PosScreenState extends State<PosScreen> {
         SnackBar(
           content: Text(result.queued
               ? 'Vente en file hors ligne'
-              : 'Vente enregistrée (${_netToPay.toStringAsFixed(0)} CDF encaissés)'),
+              : partial
+                  ? 'Acompte de ${_collectAmount.toStringAsFixed(0)} CDF enregistré'
+                  : 'Vente enregistrée (${_collectAmount.toStringAsFixed(0)} CDF)'),
           backgroundColor: Colors.green,
         ),
       );
@@ -231,7 +291,70 @@ class _PosScreenState extends State<PosScreen> {
         _cart.clear();
         _draftQty.clear();
         _quote = null;
+        _amountToCollectCtrl.clear();
       });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e'), backgroundColor: Colors.red));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _submitAdvance() async {
+    if (_clientId == null) return;
+    final amount = double.tryParse(_advanceAmountCtrl.text) ?? 0;
+    if (amount <= 0) return;
+    setState(() => _saving = true);
+    try {
+      await context.read<AuthProvider>().offline.mutate(
+            method: 'POST',
+            path: '/pos/advance',
+            body: {
+              'clientId': _clientId,
+              'amount': amount,
+              'method': _method,
+            },
+          );
+      if (!mounted) return;
+      _advanceAmountCtrl.clear();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Avance de ${amount.toStringAsFixed(0)} CDF enregistrée'), backgroundColor: Colors.green),
+      );
+      await _load();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e'), backgroundColor: Colors.red));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _submitAcompte() async {
+    if (_acompteOrderId == null) return;
+    final amount = double.tryParse(_acompteAmountCtrl.text) ?? 0;
+    if (amount <= 0) return;
+    setState(() => _saving = true);
+    try {
+      await context.read<AuthProvider>().offline.mutate(
+            method: 'POST',
+            path: '/pos/acompte',
+            body: {
+              'orderId': _acompteOrderId,
+              'amount': amount,
+              'method': _method,
+              if (_method == 'ESPECES')
+                'cashReceived': double.tryParse(_cashReceivedCtrl.text) ?? amount,
+            },
+          );
+      if (!mounted) return;
+      _acompteAmountCtrl.clear();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Acompte de ${amount.toStringAsFixed(0)} CDF enregistré'), backgroundColor: Colors.green),
+      );
+      await _loadOutstanding();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e'), backgroundColor: Colors.red));
@@ -284,6 +407,18 @@ class _PosScreenState extends State<PosScreen> {
           ),
         ),
         Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(value: 'sale', label: Text('Vente')),
+              ButtonSegment(value: 'advance', label: Text('Avance')),
+              ButtonSegment(value: 'acompte', label: Text('Acompte')),
+            ],
+            selected: {_mode},
+            onSelectionChanged: (s) => _setMode(s.first),
+          ),
+        ),
+        Padding(
           padding: const EdgeInsets.all(12),
           child: DropdownButtonFormField<String>(
             value: _clientId ?? '',
@@ -302,6 +437,7 @@ class _PosScreenState extends State<PosScreen> {
             onChanged: (v) {
               setState(() => _clientId = (v == null || v.isEmpty) ? null : v);
               _refreshQuote();
+              _loadOutstanding();
             },
           ),
         ),
@@ -314,7 +450,8 @@ class _PosScreenState extends State<PosScreen> {
             ),
           ),
         Expanded(
-          child: GridView.builder(
+          child: _mode == 'sale'
+              ? GridView.builder(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
               maxCrossAxisExtent: 240,
@@ -343,9 +480,71 @@ class _PosScreenState extends State<PosScreen> {
                 onAdd: () => _addToCart(p.id, draft),
               );
             },
-          ),
+          )
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.all(12),
+                  child: _mode == 'advance'
+                      ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              _clientId == null
+                                  ? 'Sélectionnez un client pour enregistrer une avance.'
+                                  : 'Le montant reste au crédit du client.',
+                              style: TextStyle(color: Colors.grey.shade700),
+                            ),
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: _advanceAmountCtrl,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(labelText: 'Montant avance (CDF)'),
+                            ),
+                          ],
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (_outstanding.isEmpty)
+                              Text(
+                                _clientId == null
+                                    ? 'Sélectionnez un client.'
+                                    : 'Aucune commande impayée.',
+                                style: TextStyle(color: Colors.grey.shade700),
+                              )
+                            else ...[
+                              DropdownButtonFormField<String>(
+                                value: _acompteOrderId,
+                                decoration: const InputDecoration(labelText: 'Commande'),
+                                items: _outstanding.map((o) {
+                                  final remaining = (o['remaining'] as num?)?.toDouble() ?? 0;
+                                  return DropdownMenuItem(
+                                    value: o['id'] as String,
+                                    child: Text('${o['orderNumber']} — reste ${remaining.toStringAsFixed(0)}'),
+                                  );
+                                }).toList(),
+                                onChanged: (v) {
+                                  setState(() {
+                                    _acompteOrderId = v;
+                                    final order = _selectedOutstanding();
+                                    if (order != null) {
+                                      _acompteAmountCtrl.text =
+                                          ((order['remaining'] as num?) ?? 0).toStringAsFixed(0);
+                                    }
+                                  });
+                                },
+                              ),
+                              const SizedBox(height: 8),
+                              TextField(
+                                controller: _acompteAmountCtrl,
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(labelText: 'Montant acompte (CDF)'),
+                              ),
+                            ],
+                          ],
+                        ),
+                ),
         ),
-        if (_cart.isNotEmpty)
+        if (_mode == 'sale' && _cart.isNotEmpty)
           Expanded(
             flex: 0,
             child: SingleChildScrollView(
@@ -394,13 +593,17 @@ class _PosScreenState extends State<PosScreen> {
                   children: [
                     Expanded(
                       child: Text(
-                        _cart.isEmpty
-                            ? 'Panier vide'
-                            : 'Panier : ${_cart.fold(0, (s, l) => s + l.quantity)} article(s)',
+                        _mode == 'sale'
+                            ? (_cart.isEmpty
+                                ? 'Panier vide'
+                                : 'Panier : ${_cart.fold(0, (s, l) => s + l.quantity)} article(s)')
+                            : _mode == 'advance'
+                                ? 'Avance client'
+                                : 'Acompte commande',
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ),
-                    if (_cart.isNotEmpty)
+                    if (_mode == 'sale' && _cart.isNotEmpty)
                       TextButton(
                         onPressed: () {
                           setState(() {
@@ -459,7 +662,7 @@ class _PosScreenState extends State<PosScreen> {
                   ],
                   onChanged: (v) => setState(() => _method = v!),
                 ),
-                if (_method == 'ESPECES' && _cart.isNotEmpty) ...[
+                if (_method == 'ESPECES' && (_mode == 'sale' ? _cart.isNotEmpty : _mode == 'acompte')) ...[
                   const SizedBox(height: 8),
                   TextField(
                     controller: _cashReceivedCtrl,
@@ -468,7 +671,23 @@ class _PosScreenState extends State<PosScreen> {
                       labelText: 'Espèces reçues (CDF)',
                       isDense: true,
                       helperText: _cashReceivedCtrl.text.isNotEmpty
-                          ? 'Monnaie : ${((double.tryParse(_cashReceivedCtrl.text) ?? 0) - _netToPay).toStringAsFixed(0)} CDF'
+                          ? 'Monnaie : ${((_mode == 'sale' ? (double.tryParse(_cashReceivedCtrl.text) ?? 0) - _collectAmount : (double.tryParse(_cashReceivedCtrl.text) ?? 0) - (double.tryParse(_acompteAmountCtrl.text) ?? 0))).toStringAsFixed(0)} CDF'
+                          : null,
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ],
+                if (_mode == 'sale' && _cart.isNotEmpty && _netToPay > 0) ...[
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _amountToCollectCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: 'Montant à encaisser (CDF)',
+                      isDense: true,
+                      hintText: _netToPay.toStringAsFixed(0),
+                      helperText: _collectAmount < _netToPay - 0.001
+                          ? 'Acompte partiel — reste ${(_netToPay - _collectAmount).toStringAsFixed(0)} CDF'
                           : null,
                     ),
                     onChanged: (_) => setState(() {}),
@@ -476,10 +695,22 @@ class _PosScreenState extends State<PosScreen> {
                 ],
                 const SizedBox(height: 8),
                 ElevatedButton(
-                  onPressed: _saving || _cart.isEmpty || _quoting ? null : _checkout,
+                  onPressed: _saving || _quoting
+                      ? null
+                      : _mode == 'sale'
+                          ? (_cart.isEmpty ? null : _checkout)
+                          : _mode == 'advance'
+                              ? (_clientId == null ? null : _submitAdvance)
+                              : (_acompteOrderId == null ? null : _submitAcompte),
                   child: Text(_saving
-                      ? 'Encaissement…'
-                      : 'Encaisser ${_netToPay.toStringAsFixed(0)} CDF'),
+                      ? 'Enregistrement…'
+                      : _mode == 'sale'
+                          ? (_collectAmount < _netToPay - 0.001
+                              ? 'Acompte ${_collectAmount.toStringAsFixed(0)} CDF'
+                              : 'Encaisser ${_collectAmount.toStringAsFixed(0)} CDF')
+                          : _mode == 'advance'
+                              ? 'Enregistrer l’avance'
+                              : 'Enregistrer l’acompte'),
                 ),
               ],
             ),

@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { Roles } from '../common/decorators/roles.decorator';
-import { PosCheckoutDto, PosQuoteDto } from './dto/pos.dto';
+import { PosAdvanceDto, PosAcompteDto, PosCheckoutDto, PosQuoteDto } from './dto/pos.dto';
 import { PosService } from './pos.service';
 
 const READ = [
@@ -51,6 +51,18 @@ export class PosController {
   @Post('checkout')
   checkout(@Body() dto: PosCheckoutDto, @Req() req: { user: { id: string } }) {
     return this.pos.checkout(dto, req.user.id);
+  }
+
+  @Roles(...WRITE)
+  @Post('advance')
+  advance(@Body() dto: PosAdvanceDto, @Req() req: { user: { id: string } }) {
+    return this.pos.recordAdvance(dto, req.user.id);
+  }
+
+  @Roles(...WRITE)
+  @Post('acompte')
+  acompte(@Body() dto: PosAcompteDto, @Req() req: { user: { id: string } }) {
+    return this.pos.recordAcompte(dto, req.user.id);
   }
 
   @Roles(...READ)

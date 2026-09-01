@@ -76,8 +76,69 @@ export class PosCheckoutDto {
   @IsString()
   reference?: string;
 
+  @ApiPropertyOptional({ description: 'Montant encaisse (acompte possible si inferieur au net)' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  amountPaid?: number;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   notes?: string;
+}
+
+export class PosAdvanceDto {
+  @ApiProperty()
+  @IsUUID()
+  clientId: string;
+
+  @ApiProperty()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  amount: number;
+
+  @ApiProperty({ enum: PaymentMethod })
+  @IsEnum(PaymentMethod)
+  method: PaymentMethod;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  reference?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
+export class PosAcompteDto {
+  @ApiProperty()
+  @IsUUID()
+  orderId: string;
+
+  @ApiProperty()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  amount: number;
+
+  @ApiProperty({ enum: PaymentMethod })
+  @IsEnum(PaymentMethod)
+  method: PaymentMethod;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  cashReceived?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  reference?: string;
 }

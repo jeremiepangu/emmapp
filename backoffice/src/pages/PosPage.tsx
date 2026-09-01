@@ -3,6 +3,7 @@ import {
   api,
   CashClosing,
   ConsigneBalances,
+  OutstandingOrder,
   PaymentMethod,
   PosCatalog,
   PosCheckoutInput,
@@ -45,6 +46,7 @@ function todayBounds() {
 }
 
 type CartLine = { productId: string; quantity: number; emptiesReturned: number };
+type PosMode = 'sale' | 'advance' | 'acompte';
 
 export default function PosPage() {
   const { can } = usePermissions();
@@ -68,6 +70,13 @@ export default function PosPage() {
   const [error, setError] = useState('');
   const [lastSale, setLastSale] = useState<PosSale | null>(null);
   const [held, setHeld] = useState(false);
+  const [mode, setMode] = useState<PosMode>('sale');
+  const [amountToCollect, setAmountToCollect] = useState('');
+  const [advanceAmount, setAdvanceAmount] = useState('');
+  const [acompteOrderId, setAcompteOrderId] = useState('');
+  const [acompteAmount, setAcompteAmount] = useState('');
+  const [outstanding, setOutstanding] = useState<OutstandingOrder[]>([]);
+  const [successMsg, setSuccessMsg] = useState('');
 
   const loadSales = () => {
     const { from, to } = todayBounds();
@@ -96,6 +105,24 @@ export default function PosPage() {
       .then(setConsigneBalance)
       .catch(() => setConsigneBalance(null));
   }, [clientId, sales.length]);
+
+  useEffect(() => {
+    if (!clientId || mode !== 'acompte') {
+      setOutstanding([]);
+      setAcompteOrderId('');
+      return;
+    }
+    api.getOutstandingOrders(clientId)
+      .then((orders) => {
+        setOutstanding(orders);
+        setAcompteOrderId(orders[0]?.id ?? '');
+        setAcompteAmount(orders[0] ? String(Math.round(orders[0].remaining)) : '');
+      })
+      .catch(() => {
+        setOutstanding([]);
+        setAcompteOrderId('');
+      });
+  }, [clientId, mode, sales.length]);
 
   useEffect(() => {
     if (!cart.length) {
@@ -196,8 +223,24 @@ export default function PosPage() {
   // L'avance deja versee par le client vient en deduction de l'espece a encaisser.
   const advanceApplied = quote?.advanceApplied ?? 0;
   const netToPay = quote?.netToPay ?? total;
+  const collectAmount = amountToCollect !== '' ? Number(amountToCollect) : netToPay;
   const received = Number(cashReceived || 0);
-  const change = method === 'ESPECES' && received > 0 ? Math.max(0, received - netToPay) : 0;
+  const change = method === 'ESPECES' && received > 0 ? Math.max(0, received - collectAmount) : 0;
+  const selectedOrder = outstanding.find((o) => o.id === acompteOrderId);
+  const walkInId = catalog?.walkInClient.id;
+  const isWalkIn = Boolean(walkInId && clientId === walkInId);
+
+  const switchMode = (next: PosMode) => {
+    setMode(next);
+    setError('');
+    setSuccessMsg('');
+  };
+
+  const selectAcompteOrder = (orderId: string) => {
+    setAcompteOrderId(orderId);
+    const order = outstanding.find((o) => o.id === orderId);
+    if (order) setAcompteAmount(String(Math.round(order.remaining)));
+  };
 
   const openClosing = async () => {
     setClosingError('');
@@ -231,22 +274,82 @@ export default function PosPage() {
     if (!cart.length) return;
     setSaving(true);
     setError('');
+    setSuccessMsg('');
+    const partial = collectAmount < netToPay - 0.001;
     const payload: PosCheckoutInput = {
       clientId: clientId || null,
       lines: cart,
       method,
-      cashReceived: method === 'ESPECES' ? (received || netToPay) : undefined,
+      cashReceived: method === 'ESPECES' ? (received || collectAmount) : undefined,
       reference: reference.trim() || undefined,
       notes: notes.trim() || undefined,
+      amountPaid: partial ? collectAmount : undefined,
     };
     try {
       const sale = await api.checkoutPos(payload);
       setLastSale(sale);
       printPosTicket(sale);
       clearCart();
+      setAmountToCollect('');
+      setSuccessMsg(partial ? `Vente enregistrée — acompte de ${money(collectAmount)}` : 'Vente enregistrée');
       await loadSales();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Encaissement impossible');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const submitAdvance = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!clientId || isWalkIn) return;
+    const amount = Number(advanceAmount);
+    if (amount <= 0) return;
+    setSaving(true);
+    setError('');
+    setSuccessMsg('');
+    try {
+      await api.posAdvance({
+        clientId,
+        amount,
+        method,
+        reference: reference.trim() || undefined,
+        notes: notes.trim() || undefined,
+      });
+      setAdvanceAmount('');
+      setReference('');
+      setNotes('');
+      setSuccessMsg(`Avance de ${money(amount)} enregistrée`);
+      await loadSales();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Avance impossible');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const submitAcompte = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!acompteOrderId) return;
+    const amount = Number(acompteAmount);
+    if (amount <= 0) return;
+    setSaving(true);
+    setError('');
+    setSuccessMsg('');
+    try {
+      await api.posAcompte({
+        orderId: acompteOrderId,
+        amount,
+        method,
+        cashReceived: method === 'ESPECES' ? (received || amount) : undefined,
+        reference: reference.trim() || undefined,
+      });
+      setAcompteAmount('');
+      setReference('');
+      setSuccessMsg(`Acompte de ${money(amount)} sur ${selectedOrder?.orderNumber ?? 'la commande'}`);
+      await loadSales();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Acompte impossible');
     } finally {
       setSaving(false);
     }
@@ -281,7 +384,8 @@ export default function PosPage() {
         <div className="erp-kpi erp-kpi--orange"><div className="erp-kpi-label">Ticket moyen</div><div className="erp-kpi-value">{money(summary.averageTicket)}</div></div>
       </div>
 
-      <form className="pos-tablet" onSubmit={checkout}>
+      <form className="pos-tablet" onSubmit={mode === 'sale' ? checkout : mode === 'advance' ? submitAdvance : submitAcompte}>
+        {mode === 'sale' && (
         <section className="pos-tablet-catalog">
           <input
             className="pos-search"
@@ -328,9 +432,24 @@ export default function PosPage() {
             {!products.length && <p className="erp-table-empty">Aucun produit.</p>}
           </div>
         </section>
+        )}
 
         <aside className="pos-tablet-cart">
-          <div className="pos-cart-title">Vente en cours</div>
+          <div className="pos-mode-tabs" style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+            {(['sale', 'advance', 'acompte'] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                className={`erp-btn erp-btn--sm${mode === m ? '' : ' erp-btn--ghost'}`}
+                onClick={() => switchMode(m)}
+              >
+                {m === 'sale' ? 'Vente' : m === 'advance' ? 'Avance' : 'Acompte'}
+              </button>
+            ))}
+          </div>
+          <div className="pos-cart-title">
+            {mode === 'sale' ? 'Vente en cours' : mode === 'advance' ? 'Avance client' : 'Acompte commande'}
+          </div>
           <div className="form-group" style={{ marginBottom: 12 }}>
             <label>Client</label>
             <select value={clientId} onChange={(e) => setClientId(e.target.value)}>
@@ -340,6 +459,7 @@ export default function PosPage() {
             </select>
           </div>
           <ClientSituationPanel clientId={clientId} compact refreshKey={sales.length} />
+          {mode === 'sale' && (
           <div className="pos-cart-lines">
             {cart.map((line) => {
               const priced = quote?.lines.find((l) => l.productId === line.productId);
@@ -387,7 +507,8 @@ export default function PosPage() {
               </p>
             )}
           </div>
-          {quote && quote.consigneAmount > 0 && (
+          )}
+          {mode === 'sale' && quote && quote.consigneAmount > 0 && (
             <>
               <div className="pos-cart-subtotal">
                 <span>Marchandise</span>
@@ -399,11 +520,13 @@ export default function PosPage() {
               </div>
             </>
           )}
+          {mode === 'sale' && (
           <div className="pos-cart-total">
             <span>Total</span>
             <strong>{money(total)}</strong>
           </div>
-          {advanceApplied > 0 && (
+          )}
+          {mode === 'sale' && advanceApplied > 0 && (
             <>
               <div className="pos-cart-total">
                 <span>Avance du client</span>
@@ -415,15 +538,70 @@ export default function PosPage() {
               </div>
             </>
           )}
-          {consigneBalance && consigneBalance.totalQuantity > 0 && (
+          {mode === 'sale' && consigneBalance && consigneBalance.totalQuantity > 0 && (
             <p className="erp-muted" style={{ marginBottom: 8 }}>
               Vidange due par ce client : {consigneBalance.totalQuantity} contenant(s) · {money(consigneBalance.totalAmount)}
             </p>
           )}
-          {quote && quote.bonusQuantity > 0 && (
+          {mode === 'sale' && quote && quote.bonusQuantity > 0 && (
             <p className="erp-muted" style={{ marginBottom: 8 }}>
               Bonus : {quote.bonusQuantity} article{quote.bonusQuantity > 1 ? 's' : ''} offert{quote.bonusQuantity > 1 ? 's' : ''} ({money(quote.bonus)})
             </p>
+          )}
+          {mode === 'advance' && (
+            <p className="erp-muted" style={{ marginBottom: 12 }}>
+              {isWalkIn
+                ? 'Sélectionnez un client identifié pour enregistrer une avance.'
+                : 'Le montant reste au crédit du client et sera déduit des prochaines ventes.'}
+            </p>
+          )}
+          {mode === 'acompte' && (
+            <>
+              {!outstanding.length ? (
+                <p className="erp-muted" style={{ marginBottom: 12 }}>
+                  Aucune commande impayée pour ce client.
+                </p>
+              ) : (
+                <>
+                  <div className="form-group">
+                    <label>Commande</label>
+                    <select value={acompteOrderId} onChange={(e) => selectAcompteOrder(e.target.value)}>
+                      {outstanding.map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.orderNumber} — reste {money(o.remaining)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Montant acompte (CDF)</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={selectedOrder?.remaining}
+                      step={100}
+                      value={acompteAmount}
+                      onChange={(e) => setAcompteAmount(e.target.value)}
+                      required
+                    />
+                  </div>
+                </>
+              )}
+            </>
+          )}
+          {mode === 'advance' && (
+            <div className="form-group">
+              <label>Montant avance (CDF)</label>
+              <input
+                type="number"
+                min={1}
+                step={100}
+                value={advanceAmount}
+                onChange={(e) => setAdvanceAmount(e.target.value)}
+                required
+                disabled={isWalkIn}
+              />
+            </div>
           )}
           <div className="form-group">
             <label>Mode de paiement</label>
@@ -433,11 +611,47 @@ export default function PosPage() {
               ))}
             </select>
           </div>
-          {method === 'ESPECES' && (
+          {mode === 'sale' && cart.length > 0 && netToPay > 0 && (
+            <div className="form-group">
+              <label>Montant à encaisser</label>
+              <input
+                type="number"
+                min={1}
+                max={netToPay}
+                step={100}
+                value={amountToCollect}
+                onChange={(e) => setAmountToCollect(e.target.value)}
+                placeholder={String(netToPay)}
+              />
+              {collectAmount < netToPay - 0.001 && (
+                <p className="erp-muted">Acompte partiel — reste {money(netToPay - collectAmount)}</p>
+              )}
+            </div>
+          )}
+          {(mode === 'sale' || mode === 'acompte') && method === 'ESPECES' && (
             <div className="form-group">
               <label>Montant reçu</label>
-              <input type="number" min={0} step={100} value={cashReceived} onChange={(e) => setCashReceived(e.target.value)} placeholder={netToPay ? String(netToPay) : ''} />
-              {received > 0 && <p className="erp-muted">Monnaie : {money(change)}</p>}
+              <input
+                type="number"
+                min={0}
+                step={100}
+                value={cashReceived}
+                onChange={(e) => setCashReceived(e.target.value)}
+                placeholder={
+                  mode === 'sale'
+                    ? (collectAmount ? String(collectAmount) : netToPay ? String(netToPay) : '')
+                    : acompteAmount || undefined
+                }
+              />
+              {received > 0 && (
+                <p className="erp-muted">
+                  Monnaie : {money(
+                    mode === 'sale'
+                      ? change
+                      : Math.max(0, received - Number(acompteAmount || 0)),
+                  )}
+                </p>
+              )}
             </div>
           )}
           {method !== 'ESPECES' && method !== 'CREDIT' && (
@@ -451,17 +665,38 @@ export default function PosPage() {
             <input value={notes} onChange={(e) => setNotes(e.target.value)} />
           </div>
           {error && <p className="error-msg">{error}</p>}
-          {held && !cart.length && (
+          {successMsg && <p className="erp-muted" style={{ color: 'var(--erp-success, #15803d)' }}>{successMsg}</p>}
+          {mode === 'sale' && held && !cart.length && (
             <button type="button" className="erp-btn" style={{ width: '100%', marginBottom: 8 }} onClick={restoreHeld}>
               Restaurer la vente en attente
             </button>
           )}
           <div className="pos-actions">
-            <button type="button" className="pos-btn pos-btn--cancel" onClick={clearCart} disabled={!cart.length}>Annuler</button>
-            <button type="button" className="pos-btn pos-btn--hold" onClick={holdSale} disabled={!cart.length}>Attente</button>
+            {mode === 'sale' && (
+              <>
+                <button type="button" className="pos-btn pos-btn--cancel" onClick={clearCart} disabled={!cart.length}>Annuler</button>
+                <button type="button" className="pos-btn pos-btn--hold" onClick={holdSale} disabled={!cart.length}>Attente</button>
+              </>
+            )}
             {can('pos', 'create') && (
-              <button type="submit" className="pos-btn pos-btn--pay" disabled={!cart.length || saving}>
-                {saving ? 'Paiement...' : 'Paiement'}
+              <button
+                type="submit"
+                className="pos-btn pos-btn--pay"
+                disabled={
+                  saving
+                  || (mode === 'sale' && !cart.length)
+                  || (mode === 'advance' && (isWalkIn || !advanceAmount))
+                  || (mode === 'acompte' && (!acompteOrderId || !acompteAmount))
+                }
+                style={mode !== 'sale' ? { flex: 1 } : undefined}
+              >
+                {saving
+                  ? 'Enregistrement...'
+                  : mode === 'sale'
+                    ? (collectAmount < netToPay - 0.001 ? `Acompte ${money(collectAmount)}` : 'Paiement')
+                    : mode === 'advance'
+                      ? 'Enregistrer l’avance'
+                      : 'Enregistrer l’acompte'}
               </button>
             )}
           </div>
