@@ -336,7 +336,7 @@ export class AttendanceService {
     }
 
     const overtimeMinutes = Math.max(0, workedMinutes - plannedMinutes);
-    let status = PresenceStatus.INCOMPLET;
+    let status: PresenceStatus = PresenceStatus.INCOMPLET;
     if (!punches.length) {
       status = PresenceStatus.ABSENT;
     } else if (lastOutAt) {
