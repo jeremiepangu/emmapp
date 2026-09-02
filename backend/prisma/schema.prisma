@@ -191,6 +191,8 @@ model User {
   auditLogs        AuditLog[]
   syncEvents       SyncEvent[]
   shiftAssignments ShiftAssignment[]
+  attendancePunches AttendancePunch[]
+  attendanceDays    AttendanceDay[]
   dailyReports     DailyActivityReport[]
   notifications    Notification[]
   employeeProfile  EmployeeProfile?
@@ -777,8 +779,82 @@ model ShiftAssignment {
   createdAt DateTime @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id])
+  punches AttendancePunch[]
+  attendanceDays AttendanceDay[]
 
   @@map("shift_assignments")
+}
+
+enum AttendancePunchType {
+  ENTREE
+  SORTIE
+  PAUSE_DEBUT
+  PAUSE_FIN
+}
+
+enum AttendanceSource {
+  MOBILE
+  WEB
+  KIOSK
+  MANUEL
+}
+
+enum PresenceStatus {
+  PRESENT
+  RETARD
+  ABSENT
+  CONGE
+  MISSION
+  INCOMPLET
+  REPOS
+}
+
+model AttendancePunch {
+  id          String              @id @default(uuid())
+  userId      String              @map("user_id")
+  punchedAt   DateTime            @map("punched_at")
+  type        AttendancePunchType
+  source      AttendanceSource    @default(MOBILE)
+  shiftId     String?             @map("shift_id")
+  latitude    Float?
+  longitude   Float?
+  notes       String?
+  cancelledAt DateTime?           @map("cancelled_at")
+  createdAt   DateTime            @default(now()) @map("created_at")
+
+  user  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shift ShiftAssignment? @relation(fields: [shiftId], references: [id])
+
+  @@index([userId, punchedAt])
+  @@map("attendance_punches")
+}
+
+model AttendanceDay {
+  id                String         @id @default(uuid())
+  userId            String         @map("user_id")
+  date              DateTime       @db.Date
+  status            PresenceStatus @default(INCOMPLET)
+  shiftId           String?        @map("shift_id")
+  plannedMinutes    Int            @default(0) @map("planned_minutes")
+  workedMinutes     Int            @default(0) @map("worked_minutes")
+  breakMinutes      Int            @default(0) @map("break_minutes")
+  overtimeMinutes   Int            @default(0) @map("overtime_minutes")
+  lateMinutes       Int            @default(0) @map("late_minutes")
+  earlyLeaveMinutes Int            @default(0) @map("early_leave_minutes")
+  firstInAt         DateTime?      @map("first_in_at")
+  lastOutAt         DateTime?      @map("last_out_at")
+  notes             String?
+  adjustedById      String?        @map("adjusted_by_id")
+  adjustmentReason  String?        @map("adjustment_reason")
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+
+  user  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shift ShiftAssignment? @relation(fields: [shiftId], references: [id])
+
+  @@unique([userId, date])
+  @@index([date, status])
+  @@map("attendance_days")
 }
 
 model DailyActivityReport {
@@ -1570,6 +1646,10 @@ model EmployeeProfile {
   managerId   String?        @map("manager_id")
   jobFunctionId String?      @map("job_function_id")
   annualLeaveDays Int        @default(24) @map("annual_leave_days")
+  /// Duree journaliere contractuelle en minutes (defaut 8 h).
+  dailyMinutes    Int        @default(480) @map("daily_minutes")
+  /// Minutes de tolerance avant retard.
+  graceLateMinutes Int       @default(15) @map("grace_late_minutes")
   createdAt   DateTime       @default(now()) @map("created_at")
   updatedAt   DateTime       @updatedAt @map("updated_at")
 

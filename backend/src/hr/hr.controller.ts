@@ -7,6 +7,8 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { activityManagerRoles, canDeclareActivity } from '../authorizations/acl.catalog';
 import { HrService } from './hr.service';
 import { SirhService } from './sirh.service';
+import { AttendanceService } from './attendance.service';
+import { AdjustAttendanceDayDto, AttendancePunchDto, ManualPunchDto } from './dto/attendance.dto';
 
 const HR_READ = [
   UserRole.ADMIN,
@@ -39,7 +41,11 @@ class UpsertActivityReportDto {
 @UseGuards(JwtAuthGuard)
 @Controller('hr')
 export class HrController {
-  constructor(private hr: HrService, private sirh: SirhService) {}
+  constructor(
+    private hr: HrService,
+    private sirh: SirhService,
+    private attendance: AttendanceService,
+  ) {}
 
   @Roles(...HR_READ)
   @Get('employees')
@@ -497,5 +503,60 @@ export class HrController {
   @Patch('activity-reports/:id/validate')
   validateActivity(@Param('id') id: string, @Req() req: { user: { id: string; role: UserRole } }) {
     return this.hr.validateActivityReport(id, req.user);
+  }
+
+  @Post('attendance/punch')
+  punch(@Req() req: { user: { id: string } }, @Body() dto: AttendancePunchDto) {
+    return this.attendance.punch(req.user.id, dto);
+  }
+
+  @Get('attendance/me')
+  myAttendance(@Req() req: { user: { id: string } }, @Query('date') date?: string) {
+    return this.attendance.myStatus(req.user.id, date);
+  }
+
+  @Roles(...HR_READ)
+  @Get('attendance/overview')
+  attendanceOverview(@Query('date') date?: string, @Query('department') department?: string) {
+    return this.attendance.overview(date || new Date().toISOString().slice(0, 10), department);
+  }
+
+  @Roles(...HR_READ)
+  @Get('attendance/timesheet')
+  attendanceTimesheet(
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('userId') userId?: string,
+  ) {
+    const today = new Date().toISOString().slice(0, 10);
+    const start = from || today;
+    const end = to || start;
+    return this.attendance.timesheet(start, end, userId);
+  }
+
+  @Roles(...HR_WRITE)
+  @Post('attendance/manual')
+  manualPunch(@Req() req: { user: { id: string } }, @Body() dto: ManualPunchDto) {
+    return this.attendance.manualPunch(req.user.id, dto);
+  }
+
+  @Roles(...HR_WRITE)
+  @Patch('attendance/days/:id')
+  adjustAttendanceDay(
+    @Param('id') id: string,
+    @Req() req: { user: { id: string } },
+    @Body() dto: AdjustAttendanceDayDto,
+  ) {
+    return this.attendance.adjustDay(id, req.user.id, dto);
+  }
+
+  @Roles(...HR_WRITE)
+  @Post('attendance/recompute')
+  recomputeAttendance(
+    @Query('userId') userId: string,
+    @Query('date') date: string,
+    @Req() req: { user: { id: string } },
+  ) {
+    return this.attendance.recomputeDay(userId, date, req.user.id);
   }
 }

@@ -887,6 +887,25 @@ export const api = {
     const qs = q.toString();
     return request<HrDashboard>(`/hr/dashboard${qs ? `?${qs}` : ''}`);
   },
+  punchAttendance: (data: { type: AttendancePunchType; notes?: string }) =>
+    request<AttendancePunchResult>('/hr/attendance/punch', { method: 'POST', body: JSON.stringify(data) }),
+  getMyAttendance: (date?: string) =>
+    request<AttendanceMyStatus>(`/hr/attendance/me${date ? `?date=${date}` : ''}`),
+  getAttendanceOverview: (date: string, department?: string) => {
+    const q = new URLSearchParams({ date });
+    if (department) q.set('department', department);
+    return request<AttendanceOverview>(`/hr/attendance/overview?${q}`);
+  },
+  getAttendanceTimesheet: (from: string, to?: string, userId?: string) => {
+    const q = new URLSearchParams({ from });
+    if (to) q.set('to', to);
+    if (userId) q.set('userId', userId);
+    return request<AttendanceTimesheet>(`/hr/attendance/timesheet?${q}`);
+  },
+  manualAttendancePunch: (data: ManualAttendancePunchInput) =>
+    request<AttendancePunchResult>('/hr/attendance/manual', { method: 'POST', body: JSON.stringify(data) }),
+  adjustAttendanceDay: (id: string, data: { workedMinutes?: number; overtimeMinutes?: number; notes?: string; adjustmentReason?: string }) =>
+    request<AttendanceDay>(`/hr/attendance/days/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   getLeaveBalance: (userId?: string, year?: number) => {
     const q = new URLSearchParams();
     if (userId) q.set('userId', userId);
@@ -1659,6 +1678,91 @@ export interface LeaveBalance {
   rights: number;
   consumed: number;
   remaining: number;
+}
+
+export type AttendancePunchType = 'ENTREE' | 'SORTIE' | 'PAUSE_DEBUT' | 'PAUSE_FIN';
+export type PresenceStatus = 'PRESENT' | 'RETARD' | 'ABSENT' | 'CONGE' | 'MISSION' | 'INCOMPLET' | 'REPOS';
+
+export interface AttendancePunch {
+  id: string;
+  userId: string;
+  punchedAt: string;
+  type: AttendancePunchType;
+  notes?: string | null;
+}
+
+export interface AttendanceDay {
+  id: string;
+  userId: string;
+  date: string;
+  status: PresenceStatus;
+  plannedMinutes: number;
+  workedMinutes: number;
+  breakMinutes: number;
+  overtimeMinutes: number;
+  lateMinutes: number;
+  earlyLeaveMinutes: number;
+  firstInAt?: string | null;
+  lastOutAt?: string | null;
+  notes?: string | null;
+  user?: User;
+}
+
+export interface AttendanceMyStatus {
+  date: string;
+  punches: AttendancePunch[];
+  day: AttendanceDay | null;
+  shift?: ShiftAssignment | null;
+  onLeave: boolean;
+  canPunchIn: boolean;
+  canPunchOut: boolean;
+}
+
+export interface AttendanceOverviewRow {
+  user: User;
+  department: string;
+  jobTitle: string;
+  status: PresenceStatus;
+  plannedMinutes: number;
+  workedMinutes: number;
+  overtimeMinutes: number;
+  lateMinutes: number;
+  firstInAt?: string | null;
+  lastOutAt?: string | null;
+  dayId?: string | null;
+}
+
+export interface AttendanceOverview {
+  date: string;
+  totals: {
+    agents: number;
+    present: number;
+    late: number;
+    absent: number;
+    onLeave: number;
+    workedMinutes: number;
+    overtimeMinutes: number;
+  };
+  rows: AttendanceOverviewRow[];
+}
+
+export interface AttendanceTimesheet {
+  from: string;
+  to: string;
+  totals: { workedMinutes: number; overtimeMinutes: number; plannedMinutes: number };
+  rows: AttendanceDay[];
+}
+
+export interface AttendancePunchResult {
+  punch: AttendancePunch;
+  summary: AttendanceDay;
+}
+
+export interface ManualAttendancePunchInput {
+  userId: string;
+  type: AttendancePunchType;
+  punchedAt?: string;
+  notes?: string;
 }
 
 export interface HrDashboard {

@@ -15,6 +15,10 @@ import {
   TrainingCourse,
   TrainingEnrollment,
   User,
+  AttendanceOverview,
+  AttendanceMyStatus,
+  AttendanceTimesheet,
+  AttendancePunchType,
 } from '../api';
 import { useAuth } from '../AuthContext';
 import { usePermissions } from '../hooks/usePermissions';
@@ -79,7 +83,23 @@ const DOC_TYPES = [
   { id: 'AUTRE', label: 'Autre' },
 ];
 
-type Tab = 'dashboard' | 'personnel' | 'conges' | 'activites' | 'performance' | 'formations' | 'documents' | 'shifts';
+type Tab = 'dashboard' | 'personnel' | 'conges' | 'pointage' | 'activites' | 'performance' | 'formations' | 'documents' | 'shifts';
+
+function fmtMin(m: number) {
+  const h = Math.floor(m / 60);
+  const min = m % 60;
+  return `${h}h${String(min).padStart(2, '0')}`;
+}
+
+const PRESENCE_LABEL: Record<string, string> = {
+  PRESENT: 'Présent',
+  RETARD: 'Retard',
+  ABSENT: 'Absent',
+  CONGE: 'Congé',
+  MISSION: 'Mission',
+  INCOMPLET: 'Incomplet',
+  REPOS: 'Repos',
+};
 
 function csv(name: string, headers: string[], rows: string[][]) {
   const body = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(';')).join('\n');
@@ -109,6 +129,18 @@ export default function HrPage() {
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
   const [shifts, setShifts] = useState<ShiftAssignment[]>([]);
   const [shiftDate, setShiftDate] = useState(new Date().toISOString().slice(0, 10));
+  const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().slice(0, 10));
+  const [attendanceOverview, setAttendanceOverview] = useState<AttendanceOverview | null>(null);
+  const [myAttendance, setMyAttendance] = useState<AttendanceMyStatus | null>(null);
+  const [timesheetMonth, setTimesheetMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [timesheet, setTimesheet] = useState<AttendanceTimesheet | null>(null);
+  const [punchBusy, setPunchBusy] = useState(false);
+  const [manualPunch, setManualPunch] = useState<{
+    userId: string; type: AttendancePunchType; punchedAt: string; notes: string;
+  }>({ userId: '', type: 'ENTREE', punchedAt: '', notes: '' });
   const [dash, setDash] = useState<HrDashboard | null>(null);
   const [balance, setBalance] = useState<LeaveBalance | null>(null);
   const [functions, setFunctions] = useState<JobFunction[]>([]);
@@ -167,7 +199,24 @@ export default function HrPage() {
   };
 
   useEffect(() => { api.getUsers().then((all) => setUsers(all.filter((u) => u.isActive !== false))); }, []);
+  const loadAttendance = () => {
+    api.getMyAttendance(attendanceDate).then(setMyAttendance).catch(() => setMyAttendance(null));
+    if (canValidate || writeMaster) {
+      api.getAttendanceOverview(attendanceDate, deptFilter || undefined)
+        .then(setAttendanceOverview)
+        .catch(() => setAttendanceOverview(null));
+    }
+    const [y, m] = timesheetMonth.split('-').map(Number);
+    const from = `${timesheetMonth}-01`;
+    const lastDay = new Date(y, m, 0).getDate();
+    const to = `${timesheetMonth}-${String(lastDay).padStart(2, '0')}`;
+    api.getAttendanceTimesheet(from, to).then(setTimesheet).catch(() => setTimesheet(null));
+  };
+
   useEffect(() => { loadCore(); }, [shiftDate, deptFilter]);
+  useEffect(() => {
+    if (tab === 'pointage') loadAttendance();
+  }, [tab, attendanceDate, timesheetMonth, deptFilter, canValidate, writeMaster]);
 
   const saveEmployee = async (e: FormEvent) => {
     e.preventDefault();
@@ -264,6 +313,7 @@ export default function HrPage() {
           ['dashboard', 'Tableau de bord'],
           ['personnel', 'Personnel'],
           ['conges', 'Congés'],
+          ['pointage', 'Pointage'],
           ['activites', 'Activités'],
           ['performance', 'Évaluations'],
           ['formations', 'Formations'],
@@ -446,6 +496,239 @@ export default function HrPage() {
               </tbody>
             </table>
           </ErpPanel>
+        </>
+      )}
+
+      {tab === 'pointage' && (
+        <>
+          <ErpPanel title="Mon pointage du jour" padded>
+            <div className="form-row" style={{ marginBottom: 12 }}>
+              <div className="form-group">
+                <label>Date</label>
+                <input type="date" value={attendanceDate} onChange={(e) => setAttendanceDate(e.target.value)} />
+              </div>
+            </div>
+            {myAttendance && (
+              <>
+                <p className="erp-muted">
+                  {myAttendance.onLeave
+                    ? 'Vous êtes en congé ce jour.'
+                    : myAttendance.day
+                      ? `Prestation : ${fmtMin(myAttendance.day.workedMinutes)} · Prévu : ${fmtMin(myAttendance.day.plannedMinutes)} · HS : ${fmtMin(myAttendance.day.overtimeMinutes)}`
+                      : 'Aucun pointage enregistré.'}
+                </p>
+                <div className="erp-row-actions" style={{ marginBottom: 12 }}>
+                  <button
+                    type="button"
+                    className="erp-btn"
+                    disabled={punchBusy || !myAttendance.canPunchIn}
+                    onClick={async () => {
+                      setPunchBusy(true);
+                      try {
+                        await api.punchAttendance({ type: 'ENTREE' });
+                        loadAttendance();
+                      } finally {
+                        setPunchBusy(false);
+                      }
+                    }}
+                  >
+                    Entrée
+                  </button>
+                  <button
+                    type="button"
+                    className="erp-btn erp-btn--ghost"
+                    disabled={punchBusy || !myAttendance.canPunchOut}
+                    onClick={async () => {
+                      setPunchBusy(true);
+                      try {
+                        await api.punchAttendance({ type: 'SORTIE' });
+                        loadAttendance();
+                      } finally {
+                        setPunchBusy(false);
+                      }
+                    }}
+                  >
+                    Sortie
+                  </button>
+                  <button
+                    type="button"
+                    className="erp-btn erp-btn--ghost"
+                    disabled={punchBusy || myAttendance.onLeave}
+                    onClick={async () => {
+                      setPunchBusy(true);
+                      try {
+                        await api.punchAttendance({ type: 'PAUSE_DEBUT' });
+                        loadAttendance();
+                      } finally {
+                        setPunchBusy(false);
+                      }
+                    }}
+                  >
+                    Pause
+                  </button>
+                  <button
+                    type="button"
+                    className="erp-btn erp-btn--ghost"
+                    disabled={punchBusy || myAttendance.onLeave}
+                    onClick={async () => {
+                      setPunchBusy(true);
+                      try {
+                        await api.punchAttendance({ type: 'PAUSE_FIN' });
+                        loadAttendance();
+                      } finally {
+                        setPunchBusy(false);
+                      }
+                    }}
+                  >
+                    Reprise
+                  </button>
+                </div>
+                {myAttendance.punches.length > 0 && (
+                  <table className="erp-table erp-table--compact">
+                    <thead><tr><th>Heure</th><th>Type</th></tr></thead>
+                    <tbody>
+                      {myAttendance.punches.map((p) => (
+                        <tr key={p.id}>
+                          <td>{new Date(p.punchedAt).toLocaleTimeString('fr-FR')}</td>
+                          <td>{p.type}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </>
+            )}
+          </ErpPanel>
+
+          {(canValidate || writeMaster) && attendanceOverview && (
+            <ErpPanel title={`Présence du ${new Date(attendanceDate).toLocaleDateString('fr-FR')}`}>
+              <div className="erp-kpi-row">
+                <div className="erp-kpi erp-kpi--green"><div className="erp-kpi-label">Présents</div><div className="erp-kpi-value">{attendanceOverview.totals.present}</div></div>
+                <div className="erp-kpi erp-kpi--orange"><div className="erp-kpi-label">Retards</div><div className="erp-kpi-value">{attendanceOverview.totals.late}</div></div>
+                <div className="erp-kpi"><div className="erp-kpi-label">Absents</div><div className="erp-kpi-value">{attendanceOverview.totals.absent}</div></div>
+                <div className="erp-kpi erp-kpi--blue"><div className="erp-kpi-label">Congés</div><div className="erp-kpi-value">{attendanceOverview.totals.onLeave}</div></div>
+                <div className="erp-kpi"><div className="erp-kpi-label">Heures prestées</div><div className="erp-kpi-value">{fmtMin(attendanceOverview.totals.workedMinutes)}</div></div>
+                <div className="erp-kpi"><div className="erp-kpi-label">Heures supp.</div><div className="erp-kpi-value">{fmtMin(attendanceOverview.totals.overtimeMinutes)}</div></div>
+              </div>
+              <table className="erp-table">
+                <thead>
+                  <tr>
+                    <th>Agent</th>
+                    <th>Service</th>
+                    <th>Statut</th>
+                    <th>Entrée</th>
+                    <th>Sortie</th>
+                    <th>Prestation</th>
+                    <th>Prévu</th>
+                    <th>HS</th>
+                    <th>Retard</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {attendanceOverview.rows.map((row) => (
+                    <tr key={row.user.id}>
+                      <td><strong>{row.user.firstName} {row.user.lastName}</strong></td>
+                      <td>{row.department}</td>
+                      <td><StatusPill status={row.status} label={PRESENCE_LABEL[row.status] ?? row.status} /></td>
+                      <td>{row.firstInAt ? new Date(row.firstInAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
+                      <td>{row.lastOutAt ? new Date(row.lastOutAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
+                      <td>{fmtMin(row.workedMinutes)}</td>
+                      <td>{fmtMin(row.plannedMinutes)}</td>
+                      <td>{fmtMin(row.overtimeMinutes)}</td>
+                      <td>{row.lateMinutes > 0 ? `${row.lateMinutes} min` : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </ErpPanel>
+          )}
+
+          {(canValidate || writeMaster) && timesheet && (
+            <ErpPanel title={`Heures de prestation — ${timesheetMonth}`} actions={
+              <input type="month" value={timesheetMonth} onChange={(e) => setTimesheetMonth(e.target.value)} />
+            }>
+              <p className="erp-muted" style={{ marginBottom: 12 }}>
+                Total : {fmtMin(timesheet.totals.workedMinutes)} prestées · {fmtMin(timesheet.totals.overtimeMinutes)} heures supplémentaires
+              </p>
+              <table className="erp-table erp-table--compact">
+                <thead>
+                  <tr><th>Agent</th><th>Date</th><th>Statut</th><th>Prestation</th><th>Prévu</th><th>HS</th></tr>
+                </thead>
+                <tbody>
+                  {timesheet.rows.map((row) => (
+                    <tr key={row.id}>
+                      <td>{row.user ? `${row.user.firstName} ${row.user.lastName}` : row.userId}</td>
+                      <td>{new Date(row.date).toLocaleDateString('fr-FR')}</td>
+                      <td>{PRESENCE_LABEL[row.status] ?? row.status}</td>
+                      <td>{fmtMin(row.workedMinutes)}</td>
+                      <td>{fmtMin(row.plannedMinutes)}</td>
+                      <td>{fmtMin(row.overtimeMinutes)}</td>
+                    </tr>
+                  ))}
+                  {!timesheet.rows.length && (
+                    <tr><td colSpan={6} className="erp-table-empty">Aucune donnée pour cette période.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </ErpPanel>
+          )}
+
+          {writeMaster && (
+            <ErpPanel title="Saisie manuelle RH" padded>
+              <form
+                className="form-row"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!manualPunch.userId) return;
+                  setPunchBusy(true);
+                  try {
+                    await api.manualAttendancePunch({
+                      userId: manualPunch.userId,
+                      type: manualPunch.type,
+                      punchedAt: manualPunch.punchedAt || undefined,
+                      notes: manualPunch.notes || undefined,
+                    });
+                    setManualPunch({ userId: '', type: 'ENTREE', punchedAt: '', notes: '' });
+                    loadAttendance();
+                  } finally {
+                    setPunchBusy(false);
+                  }
+                }}
+              >
+                <div className="form-group">
+                  <label>Agent</label>
+                  <select value={manualPunch.userId} onChange={(e) => setManualPunch({ ...manualPunch, userId: e.target.value })} required>
+                    <option value="">—</option>
+                    {employees.map((emp) => (
+                      <option key={emp.userId} value={emp.userId}>
+                        {emp.user ? `${emp.user.firstName} ${emp.user.lastName}` : emp.userId}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Type</label>
+                  <select value={manualPunch.type} onChange={(e) => setManualPunch({ ...manualPunch, type: e.target.value as typeof manualPunch.type })}>
+                    <option value="ENTREE">Entrée</option>
+                    <option value="SORTIE">Sortie</option>
+                    <option value="PAUSE_DEBUT">Pause</option>
+                    <option value="PAUSE_FIN">Reprise</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Date/heure (optionnel)</label>
+                  <input type="datetime-local" value={manualPunch.punchedAt} onChange={(e) => setManualPunch({ ...manualPunch, punchedAt: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label>Notes</label>
+                  <input value={manualPunch.notes} onChange={(e) => setManualPunch({ ...manualPunch, notes: e.target.value })} />
+                </div>
+                <div className="form-group" style={{ alignSelf: 'end' }}>
+                  <button type="submit" className="erp-btn" disabled={punchBusy}>Enregistrer</button>
+                </div>
+              </form>
+            </ErpPanel>
+          )}
         </>
       )}
 

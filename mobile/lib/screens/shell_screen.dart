@@ -10,6 +10,7 @@ import '../widgets/offline_banner.dart';
 import 'assistant_screen.dart';
 import 'catalog_list_screen.dart';
 import 'dashboard_screen.dart';
+import 'attendance_screen.dart';
 import 'consignes_screen.dart';
 import 'pos_screen.dart';
 import 'recouvrement_screen.dart';
@@ -77,6 +78,8 @@ class _ShellScreenState extends State<ShellScreen> {
         return const NotificationsScreen();
       case ModuleKind.sync:
         return const SyncScreen();
+      case ModuleKind.attendance:
+        return const AttendanceScreen();
       case ModuleKind.catalog:
         if (module.id == 'recouvrement') {
           return const RecouvrementScreen();

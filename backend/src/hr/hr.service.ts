@@ -12,6 +12,7 @@ import {
   LeaveType,
   PayrollPeriodStatus,
   PayslipStatus,
+  PresenceStatus,
   NotificationCategory,
   NotificationType,
   Prisma,
@@ -457,6 +458,19 @@ export class HrService {
       },
     });
 
+    const attendanceDays = await this.prisma.attendanceDay.findMany({
+      where: {
+        userId: { in: employees.map((e) => e.userId) },
+        date: { gte: monthStart, lte: monthEnd },
+      },
+    });
+    const attendanceByUser = new Map<string, typeof attendanceDays>();
+    for (const row of attendanceDays) {
+      const list = attendanceByUser.get(row.userId) ?? [];
+      list.push(row);
+      attendanceByUser.set(row.userId, list);
+    }
+
     await this.prisma.payslip.deleteMany({
       where: { periodId: id, status: { not: PayslipStatus.PAYEE } },
     });
@@ -469,10 +483,30 @@ export class HrService {
           const to = leave.endDate < monthEnd ? leave.endDate : monthEnd;
           return sum + daysInclusive(from, to);
         }, 0);
-      const workedDays = Math.max(0, period.expectedDays - unpaidDays);
+      const userAttendance = attendanceByUser.get(employee.userId) ?? [];
+      const dailyMinutes = employee.dailyMinutes ?? 480;
+      let workedDays = Math.max(0, period.expectedDays - unpaidDays);
+      let overtimeHours = 0;
+      if (userAttendance.length > 0) {
+        workedDays = userAttendance.reduce((sum, day) => {
+          if (day.status === PresenceStatus.PRESENT || day.status === PresenceStatus.RETARD) {
+            return sum + 1;
+          }
+          if (day.status === PresenceStatus.INCOMPLET && day.workedMinutes >= dailyMinutes / 2) {
+            return sum + 0.5;
+          }
+          return sum;
+        }, 0);
+        workedDays = Math.min(period.expectedDays, Math.round(workedDays * 2) / 2);
+        overtimeHours = Math.round(
+          userAttendance.reduce((sum, day) => sum + day.overtimeMinutes, 0) / 60 * 100,
+        ) / 100;
+      }
       const prorata = period.expectedDays > 0 ? workedDays / period.expectedDays : 0;
       const base = new Prisma.Decimal(employee.baseSalary);
-      const gross = roundMoney(base.mul(prorata));
+      const daily = Number(employee.baseSalary) / 26 / 8;
+      const overtimeAmount = roundMoney(overtimeHours * daily * OVERTIME_RATE);
+      const gross = roundMoney(base.mul(prorata).add(overtimeAmount));
       const cnss = roundMoney(gross.mul(CNSS_RATE));
       const taxable = Number(gross) - IPRF_THRESHOLD;
       const iprf = roundMoney(taxable > 0 ? taxable * IPRF_RATE : 0);
@@ -484,8 +518,8 @@ export class HrService {
           employeeProfileId: employee.id,
           baseSalary: employee.baseSalary,
           workedDays,
-          overtimeHours: 0,
-          overtimeAmount: 0,
+          overtimeHours,
+          overtimeAmount,
           bonuses: 0,
           deductions: 0,
           cnssEmployee: cnss,
@@ -500,6 +534,8 @@ export class HrService {
           employeeProfileId: employee.id,
           baseSalary: employee.baseSalary,
           workedDays,
+          overtimeHours,
+          overtimeAmount,
           cnssEmployee: cnss,
           iprf,
           grossPay: gross,

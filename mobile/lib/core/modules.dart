@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'permissions.dart';
 
-enum ModuleKind { dashboard, catalog, tours, pos, assistant, notifications, sync }
+enum ModuleKind { dashboard, catalog, tours, pos, assistant, notifications, sync, attendance }
 
 class AppModule {
   const AppModule({
@@ -312,6 +312,16 @@ const appModules = <AppModule>[
     kind: ModuleKind.catalog,
     listPath: '/hr/employees',
     prefetchPaths: ['/hr/employees', '/emmapure/shifts'],
+  ),
+  AppModule(
+    id: 'attendance',
+    label: 'Pointage',
+    resource: 'hr',
+    section: 'PERSONNEL',
+    icon: Icons.fingerprint_outlined,
+    kind: ModuleKind.attendance,
+    listPath: '/hr/attendance/me',
+    prefetchPaths: ['/hr/attendance/me'],
   ),
   AppModule(
     id: 'objectives',
