@@ -20,6 +20,8 @@ dependencies:
   geolocator: ^12.0.0
   connectivity_plus: ^6.0.5
   signature: ^5.5.0
+  image_picker: ^1.1.2
+  sqflite_common_ffi: ^2.3.3
 
 dev_dependencies:
   flutter_test:

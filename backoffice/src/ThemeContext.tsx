@@ -12,10 +12,22 @@ const ThemeContext = createContext<ThemeContextType | null>(null);
 
 const DEFAULT_PANELS: DashboardPanelPref[] = [
   { key: 'kpis', visible: true },
+  { key: 'shortcuts', visible: true },
+  { key: 'charts', visible: true },
+  { key: 'products', visible: true },
+  { key: 'pos', visible: true },
   { key: 'orders', visible: true },
   { key: 'payments', visible: true },
   { key: 'observability', visible: true },
 ];
+
+function mergeLayout(saved?: DashboardPanelPref[]): DashboardPanelPref[] {
+  if (!saved?.length) return DEFAULT_PANELS;
+  const map = new Map(saved.map((p) => [p.key, p]));
+  const merged = DEFAULT_PANELS.map((d) => map.get(d.key) ?? d);
+  const extras = saved.filter((p) => !DEFAULT_PANELS.some((d) => d.key === p.key));
+  return [...merged, ...extras];
+}
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<'clair' | 'sombre'>(() => {
@@ -33,7 +45,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     if (!localStorage.getItem('token')) return;
     api.getPreferences().then((p) => {
       if (p.theme === 'sombre' || p.theme === 'clair') setThemeState(p.theme);
-      if (p.dashboardLayout) setLayoutState(p.dashboardLayout);
+      if (p.dashboardLayout) setLayoutState(mergeLayout(p.dashboardLayout));
     }).catch(() => undefined);
   }, []);
 
@@ -53,7 +65,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, dashboardLayout: dashboardLayout ?? DEFAULT_PANELS, setDashboardLayout }}>
+    <ThemeContext.Provider value={{ theme, setTheme, dashboardLayout: mergeLayout(dashboardLayout), setDashboardLayout }}>
       {children}
     </ThemeContext.Provider>
   );

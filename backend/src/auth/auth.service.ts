@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.module';
 import { LoginDto } from './dto/login.dto';
 import { MfaService } from '../security/mfa.service';
 import { SecurityService } from '../security/security.service';
+import { AuthorizationsService } from '../authorizations/authorizations.service';
 
 @Injectable()
 export class AuthService {
@@ -13,6 +14,7 @@ export class AuthService {
     private jwtService: JwtService,
     private security: SecurityService,
     private mfa: MfaService,
+    private authorizations: AuthorizationsService,
   ) {}
 
   async login(dto: LoginDto, ipAddress?: string) {
@@ -67,6 +69,8 @@ export class AuthService {
       role: user.role,
     };
 
+    const acl = await this.authorizations.mine(user.id, user.role);
+
     return {
       accessToken: this.jwtService.sign(payload),
       user: {
@@ -76,6 +80,7 @@ export class AuthService {
         lastName: user.lastName,
         role: user.role,
       },
+      permissions: acl.matrix,
     };
   }
 

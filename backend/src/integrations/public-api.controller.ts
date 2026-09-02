@@ -3,6 +3,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { OrderStatus, Prisma } from '@prisma/client';
 import { Public } from '../common/decorators/roles.decorator';
 import { PrismaService } from '../prisma/prisma.module';
+import { PricingService } from '../pricing/pricing.service';
 import { ApiKeyGuard, ApiScopes } from './api-key.guard';
 
 @ApiTags('public')
@@ -10,7 +11,10 @@ import { ApiKeyGuard, ApiScopes } from './api-key.guard';
 @UseGuards(ApiKeyGuard)
 @Controller('public')
 export class PublicApiController {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private pricing: PricingService,
+  ) {}
 
   @ApiScopes('catalogue')
   @Get('products')
@@ -40,12 +44,19 @@ export class PublicApiController {
     const count = await this.prisma.order.count();
     const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     let total = new Prisma.Decimal(0);
-    const linesData: Array<{ productId: string; quantity: number; unitPrice: Prisma.Decimal; discount: number }> = [];
+    const linesData: Array<{ productId: string; quantity: number; unitPrice: Prisma.Decimal; bonusQuantity: number; bonus: Prisma.Decimal }> = [];
     for (const line of body.lines ?? []) {
       const product = await this.prisma.product.findUnique({ where: { code: line.productCode } });
       if (!product) throw new NotFoundException(`Produit ${line.productCode} introuvable`);
-      total = total.add(product.unitPrice.mul(line.quantity));
-      linesData.push({ productId: product.id, quantity: line.quantity, unitPrice: product.unitPrice, discount: 0 });
+      const priced = await this.pricing.priceLine(this.pricing.ctxFromClient(client), product, line.quantity);
+      total = total.add(priced.unitPrice.mul(line.quantity));
+      linesData.push({
+        productId: product.id,
+        quantity: line.quantity,
+        unitPrice: priced.unitPrice,
+        bonusQuantity: priced.bonusQuantity,
+        bonus: priced.bonus,
+      });
     }
     return this.prisma.order.create({
       data: {

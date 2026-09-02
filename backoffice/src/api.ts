@@ -10,11 +10,214 @@ export interface User {
   isActive?: boolean;
 }
 
+export type AclAction = 'read' | 'create' | 'update' | 'delete' | 'validate';
+
+export interface RoleActivityLimit {
+  functions: '*' | string[];
+  departments: '*' | string[];
+  declare: boolean;
+  team: boolean;
+  summary: string;
+}
+
+export interface AuthorizationCatalog {
+  actions: Array<{ id: AclAction; label: string; short: string }>;
+  resources: Array<{ id: string; label: string; section: string; path?: string; description: string }>;
+  roles: Array<{ id: string; label: string; activity?: RoleActivityLimit }>;
+}
+
+export interface UserAuthorizationDetail {
+  user: { id: string; firstName: string; lastName: string; email: string; role: string };
+  overrides: Array<{ id: string; resource: string; action: string; effect: string }>;
+  effective: Record<string, AclAction[]>;
+}
+
 export interface Vehicle {
   id: string;
   plate: string;
   name: string;
   capacity: number;
+  fuelType?: string;
+  co2FactorKgPerKm?: number;
+  isActive?: boolean;
+}
+
+export interface CreateVehicleInput {
+  plate: string;
+  name: string;
+  capacity?: number;
+  fuelType?: string;
+  co2FactorKgPerKm?: number;
+  isActive?: boolean;
+}
+
+export type ContractPartyKind = 'AGENT' | 'SUPPLIER' | 'KEY_CLIENT';
+export type BusinessContractKind =
+  | 'CDI'
+  | 'CDD'
+  | 'STAGE'
+  | 'PRESTATION'
+  | 'JOURNALIER'
+  | 'FOURNITURE'
+  | 'PRESTATION_SERVICE'
+  | 'CADRE'
+  | 'DISTRIBUTION'
+  | 'EXCLUSIVITE'
+  | 'CONSIGNATION';
+export type ContractLifecycle = 'BROUILLON' | 'ACTIF' | 'SUSPENDU' | 'EXPIRE' | 'RESILIE' | 'RENOUVELE';
+
+export interface Supplier {
+  id: string;
+  code: string;
+  name: string;
+  category?: string | null;
+  contactName?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  address?: string | null;
+  nif?: string | null;
+  rccm?: string | null;
+  notes?: string | null;
+  isActive: boolean;
+}
+
+export interface CreateSupplierInput {
+  code: string;
+  name: string;
+  category?: string;
+  contactName?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  nif?: string;
+  rccm?: string;
+  notes?: string;
+}
+
+export interface ContractAmendment {
+  id: string;
+  reference: string;
+  reason: string;
+  amount?: string | number | null;
+  startDate: string;
+  notes?: string | null;
+  createdAt: string;
+}
+
+export interface BusinessContract {
+  id: string;
+  reference: string;
+  partyKind: ContractPartyKind;
+  title: string;
+  kind: BusinessContractKind;
+  status: ContractLifecycle;
+  startDate: string;
+  endDate?: string | null;
+  noticeDays: number;
+  autoRenew: boolean;
+  currency: string;
+  amount?: string | number | null;
+  paymentTerms?: string | null;
+  billingCycle?: string | null;
+  volumeCommitment?: string | null;
+  territory?: string | null;
+  exclusivity: boolean;
+  clauses?: string | null;
+  notes?: string | null;
+  employeeId?: string | null;
+  supplierId?: string | null;
+  clientId?: string | null;
+  signedByParty?: string | null;
+  signedByCompany?: string | null;
+  validatedAt?: string | null;
+  terminatedAt?: string | null;
+  terminateReason?: string | null;
+  renewalCount: number;
+  employee?: EmployeeProfile | null;
+  supplier?: Supplier | null;
+  client?: { id: string; code: string; name: string; segment: string; phone?: string | null; email?: string | null; zone?: string | null } | null;
+  validatedBy?: { id: string; firstName: string; lastName: string } | null;
+  amendments: ContractAmendment[];
+  documents?: ContractDocument[];
+  template?: { id: string; code: string; name: string } | null;
+}
+
+export interface CreateContractInput {
+  partyKind: ContractPartyKind;
+  title: string;
+  kind: BusinessContractKind;
+  startDate: string;
+  endDate?: string;
+  noticeDays?: number;
+  autoRenew?: boolean;
+  currency?: string;
+  amount?: number;
+  paymentTerms?: string;
+  billingCycle?: string;
+  volumeCommitment?: string;
+  territory?: string;
+  exclusivity?: boolean;
+  clauses?: string;
+  notes?: string;
+  employeeId?: string;
+  supplierId?: string;
+  clientId?: string;
+  signedByParty?: string;
+  signedByCompany?: string;
+}
+
+export interface ContractsSummary {
+  total: number;
+  status: Record<string, number>;
+  parties: Record<string, number>;
+  expiring30d: number;
+  archived?: number;
+}
+
+export interface ContractTemplate {
+  id: string;
+  code: string;
+  name: string;
+  partyKind?: ContractPartyKind | null;
+  kind?: BusinessContractKind | null;
+  title: string;
+  body: string;
+  clauses?: string | null;
+  footer?: string | null;
+  isActive: boolean;
+}
+
+export interface CreateContractTemplateInput {
+  code: string;
+  name: string;
+  partyKind?: ContractPartyKind | null;
+  kind?: BusinessContractKind | null;
+  title: string;
+  body: string;
+  clauses?: string;
+  footer?: string;
+}
+
+export interface ContractDocument {
+  id: string;
+  contractId?: string;
+  templateId?: string | null;
+  kind: 'WORD_SIGNATURE' | 'SIGNED_ARCHIVE';
+  filename: string;
+  mimeType: string;
+  byteSize: number;
+  generatedAt: string;
+  archivedAt?: string | null;
+  notes?: string | null;
+  template?: { id: string; code: string; name: string } | null;
+  archivedBy?: { id: string; firstName: string; lastName: string } | null;
+  contract?: { id: string; reference: string; title: string; partyKind: ContractPartyKind };
+}
+
+export interface ContractParties {
+  employees: EmployeeProfile[];
+  suppliers: Supplier[];
+  clients: Array<{ id: string; code: string; name: string; segment: string; phone?: string | null; email?: string | null; zone?: string | null }>;
 }
 
 export type PaymentMethod =
@@ -27,6 +230,172 @@ export type PaymentMethod =
   | 'AIRTEL_MONEY'
   | 'WAVE'
   | 'CREDIT';
+
+export type FinanceAccountKind = 'CAISSE' | 'BANQUE';
+export type FinanceCategoryKind = 'RECETTE' | 'CHARGE' | 'TRANSFERT';
+export type FinanceMovementKind = 'ENTREE' | 'SORTIE' | 'TRANSFERT' | 'DEPENSE' | 'ENCAISSEMENT';
+export type FinanceMovementStatus = 'BROUILLON' | 'VALIDE' | 'ANNULE';
+export type FinanceInventoryStatus = 'BROUILLON' | 'VALIDE' | 'ANNULE';
+
+export interface FinanceUserRef {
+  id: string;
+  firstName: string;
+  lastName: string;
+}
+
+export interface FinanceAccount {
+  id: string;
+  code: string;
+  name: string;
+  kind: FinanceAccountKind;
+  currency: string;
+  openingBalance: number | string;
+  balance: number;
+  bankName?: string | null;
+  iban?: string | null;
+  isActive: boolean;
+  createdBy?: FinanceUserRef | null;
+}
+
+export interface FinanceCategory {
+  id: string;
+  code: string;
+  name: string;
+  kind: FinanceCategoryKind;
+  isActive: boolean;
+}
+
+export interface FinanceMovement {
+  id: string;
+  number: string;
+  kind: FinanceMovementKind;
+  status: FinanceMovementStatus;
+  accountId: string;
+  destAccountId?: string | null;
+  categoryId?: string | null;
+  paymentId?: string | null;
+  amount: number | string;
+  method: PaymentMethod;
+  date: string;
+  label: string;
+  reference?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  validatedAt?: string | null;
+  account?: { id: string; code: string; name: string; kind: FinanceAccountKind };
+  destAccount?: { id: string; code: string; name: string; kind: FinanceAccountKind } | null;
+  category?: { id: string; code: string; name: string; kind: FinanceCategoryKind } | null;
+  createdBy?: FinanceUserRef;
+  validatedBy?: FinanceUserRef | null;
+}
+
+export interface FinanceBudget {
+  id: string;
+  year: number;
+  month?: number | null;
+  categoryId: string;
+  plannedAmount: number | string;
+  actualAmount?: number;
+  remaining?: number;
+  progressPct?: number;
+  notes?: string | null;
+  category?: FinanceCategory;
+}
+
+export interface FinanceInventoryLine {
+  id?: string;
+  productId: string;
+  locationId: string;
+  productCode?: string;
+  productName?: string;
+  locationCode?: string;
+  locationName?: string;
+  theoreticalQty: number;
+  countedQty?: number;
+  unitValue: number | string;
+  theoreticalValue?: number;
+  product?: { code: string; name: string };
+}
+
+export interface FinanceInventory {
+  id: string;
+  number: string;
+  date: string;
+  status: FinanceInventoryStatus;
+  notes?: string | null;
+  createdAt: string;
+  validatedAt?: string | null;
+  createdBy?: FinanceUserRef;
+  validatedBy?: FinanceUserRef | null;
+  lines: FinanceInventoryLine[];
+  _count?: { lines: number };
+}
+
+export interface FinanceInventorySnapshot {
+  lines: FinanceInventoryLine[];
+  totalQty: number;
+  totalValue: number;
+}
+
+export interface FinanceSummary {
+  cashBalance: number;
+  bankBalance: number;
+  cashInHand: number;
+  totalTreasury: number;
+  monthIn: number;
+  monthOut: number;
+  monthExpenses: number;
+  monthCash: number;
+  monthBank: number;
+  netMonth: number;
+  inventoryValue: number;
+  inventorySku: number;
+  accounts: FinanceAccount[];
+  budgets: FinanceBudget[];
+}
+
+export interface CreateFinanceAccountInput {
+  code: string;
+  name: string;
+  kind: FinanceAccountKind;
+  currency?: string;
+  openingBalance?: number;
+  bankName?: string;
+  iban?: string;
+}
+
+export interface CreateFinanceMovementInput {
+  kind: FinanceMovementKind;
+  accountId: string;
+  destAccountId?: string;
+  categoryId?: string;
+  amount: number;
+  method?: PaymentMethod;
+  date: string;
+  label: string;
+  reference?: string;
+  notes?: string;
+}
+
+export interface CreateFinanceBudgetInput {
+  year: number;
+  month?: number | null;
+  categoryId: string;
+  plannedAmount: number;
+  notes?: string;
+}
+
+export interface CreateFinanceInventoryInput {
+  date: string;
+  notes?: string;
+  lines: Array<{
+    productId: string;
+    locationId: string;
+    theoreticalQty: number;
+    countedQty: number;
+    unitValue: number;
+  }>;
+}
 
 export type ClientSegment =
   | 'PARTICULIER'
@@ -66,7 +435,16 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     if (response.status === 403) {
       throw new Error("Votre profil n'a pas accès à cette ressource.");
     }
-    throw new Error(text || `Erreur API (${response.status})`);
+    let message = text || `Erreur API (${response.status})`;
+    try {
+      const parsed = JSON.parse(text) as { message?: string | string[] };
+      if (parsed?.message) {
+        message = Array.isArray(parsed.message) ? parsed.message.join(', ') : parsed.message;
+      }
+    } catch {
+      /* keep raw text */
+    }
+    throw new Error(message);
   }
   if (response.status === 204) return undefined as T;
   return response.json();
@@ -74,9 +452,34 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 export const api = {
   login: (email: string, password: string, mfaCode?: string) =>
-    request<{ accessToken: string; user: User; mfaRequired?: boolean }>('/auth/login', {
+    request<{ accessToken: string; user: User; mfaRequired?: boolean; permissions?: Partial<Record<string, string[]>> }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password, ...(mfaCode ? { mfaCode } : {}) }),
+    }),
+  getMyAuthorizations: () =>
+    request<{ role: string; matrix: Partial<Record<string, Array<'read' | 'create' | 'update' | 'delete' | 'validate'>>> }>('/authorizations/me'),
+  getAuthorizationCatalog: () =>
+    request<AuthorizationCatalog>('/authorizations/catalog'),
+  getAuthorizationMatrix: () =>
+    request<Record<string, Record<string, Array<'read' | 'create' | 'update' | 'delete' | 'validate'>>>>('/authorizations/matrix'),
+  saveRoleAuthorizations: (role: string, matrix: Record<string, string[]>) =>
+    request<{ role: string; matrix: Record<string, string[]> }>(`/authorizations/roles/${role}`, {
+      method: 'PUT',
+      body: JSON.stringify({ matrix }),
+    }),
+  resetRoleAuthorizations: (role: string) =>
+    request<{ role: string; matrix: Record<string, string[]> }>(`/authorizations/roles/${role}/reset`, { method: 'POST' }),
+  resetAllAuthorizations: () =>
+    request<Record<string, Record<string, string[]>>>('/authorizations/reset', { method: 'POST' }),
+  getUserAuthorizations: (userId: string) =>
+    request<UserAuthorizationDetail>(`/authorizations/users/${userId}`),
+  saveUserAuthorizations: (
+    userId: string,
+    overrides: Array<{ resource: string; action: string; effect: 'GRANT' | 'DENY' }>,
+  ) =>
+    request<UserAuthorizationDetail>(`/authorizations/users/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ overrides }),
     }),
 
   getDashboard: () => request<DashboardOverview>('/dashboard/overview'),
@@ -88,10 +491,114 @@ export const api = {
     request<Client>(`/clients/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
 
   getProducts: () => request<Product[]>('/products'),
+  createProduct: (data: CreateProductInput) =>
+    request<Product>('/products', { method: 'POST', body: JSON.stringify(data) }),
+  updateProduct: (id: string, data: Partial<CreateProductInput>) =>
+    request<Product>(`/products/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteProduct: (id: string) => request<Product>(`/products/${id}`, { method: 'DELETE' }),
+
+  getPricingRules: () => request<PricingRule[]>('/pricing-rules'),
+  createPricingRule: (data: CreatePricingRuleInput) =>
+    request<PricingRule>('/pricing-rules', { method: 'POST', body: JSON.stringify(data) }),
+  updatePricingRule: (id: string, data: Partial<CreatePricingRuleInput>) =>
+    request<PricingRule>(`/pricing-rules/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deletePricingRule: (id: string) => request<PricingRule>(`/pricing-rules/${id}`, { method: 'DELETE' }),
+
+  getActivityObjectives: (params?: { userId?: string; year?: number; month?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.userId) q.set('userId', params.userId);
+    if (params?.year) q.set('year', String(params.year));
+    if (params?.month) q.set('month', String(params.month));
+    const qs = q.toString();
+    return request<ActivityObjective[]>(`/activity-objectives${qs ? `?${qs}` : ''}`);
+  },
+  getActivityObjectivesCatalog: () =>
+    request<{ users: User[]; functions: JobFunction[] }>('/activity-objectives/catalog'),
+  createActivityObjective: (data: CreateActivityObjectiveInput) =>
+    request<ActivityObjective>('/activity-objectives', { method: 'POST', body: JSON.stringify(data) }),
+  updateActivityObjective: (id: string, data: Partial<CreateActivityObjectiveInput>) =>
+    request<ActivityObjective>(`/activity-objectives/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteActivityObjective: (id: string) =>
+    request<ActivityObjective>(`/activity-objectives/${id}`, { method: 'DELETE' }),
+  previewPrice: (clientId: string, productId: string, quantity: number, driverId?: string) => {
+    const q = new URLSearchParams({ clientId, productId, quantity: String(quantity) });
+    if (driverId) q.set('driverId', driverId);
+    return request<PricePreview>(`/pricing-rules/preview?${q.toString()}`);
+  },
+
+  deleteClient: (id: string) => request<Client>(`/clients/${id}`, { method: 'DELETE' }),
 
   getUsersByRole: (role: string) => request<User[]>(`/users/by-role?role=${role}`),
 
   getVehicles: () => request<Vehicle[]>('/vehicles'),
+  createVehicle: (data: CreateVehicleInput) =>
+    request<Vehicle>('/vehicles', { method: 'POST', body: JSON.stringify(data) }),
+  updateVehicle: (id: string, data: Partial<CreateVehicleInput>) =>
+    request<Vehicle>(`/vehicles/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteVehicle: (id: string) => request<Vehicle>(`/vehicles/${id}`, { method: 'DELETE' }),
+
+  getContracts: (params?: { partyKind?: string; status?: string; q?: string; expiringDays?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.partyKind) q.set('partyKind', params.partyKind);
+    if (params?.status) q.set('status', params.status);
+    if (params?.q) q.set('q', params.q);
+    if (params?.expiringDays) q.set('expiringDays', String(params.expiringDays));
+    const qs = q.toString();
+    return request<BusinessContract[]>(`/contracts${qs ? `?${qs}` : ''}`);
+  },
+  getContractsSummary: () => request<ContractsSummary>('/contracts/summary'),
+  getContractParties: () => request<ContractParties>('/contracts/parties'),
+  getContract: (id: string) => request<BusinessContract>(`/contracts/${id}`),
+  createContract: (data: CreateContractInput) =>
+    request<BusinessContract>('/contracts', { method: 'POST', body: JSON.stringify(data) }),
+  updateContract: (id: string, data: Partial<CreateContractInput>) =>
+    request<BusinessContract>(`/contracts/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteContract: (id: string) => request<{ id: string }>(`/contracts/${id}`, { method: 'DELETE' }),
+  validateContract: (id: string) => request<BusinessContract>(`/contracts/${id}/validate`, { method: 'POST' }),
+  suspendContract: (id: string) => request<BusinessContract>(`/contracts/${id}/suspend`, { method: 'POST' }),
+  resumeContract: (id: string) => request<BusinessContract>(`/contracts/${id}/resume`, { method: 'POST' }),
+  renewContract: (id: string, endDate?: string) =>
+    request<BusinessContract>(`/contracts/${id}/renew`, { method: 'POST', body: JSON.stringify(endDate ? { endDate } : {}) }),
+  terminateContract: (id: string, reason: string) =>
+    request<BusinessContract>(`/contracts/${id}/terminate`, { method: 'POST', body: JSON.stringify({ reason }) }),
+  addContractAmendment: (id: string, data: { reason: string; amount?: number; startDate?: string; notes?: string }) =>
+    request<BusinessContract>(`/contracts/${id}/amendments`, { method: 'POST', body: JSON.stringify(data) }),
+  getContractTemplates: () => request<ContractTemplate[]>('/contracts/templates'),
+  restoreContractTemplates: () =>
+    request<{ total: number; created: number; updated: number }>('/contracts/templates/restore', { method: 'POST' }),
+  getContractPlaceholders: () => request<Array<{ key: string; label: string }>>('/contracts/placeholders'),
+  createContractTemplate: (data: CreateContractTemplateInput) =>
+    request<ContractTemplate>('/contracts/templates', { method: 'POST', body: JSON.stringify(data) }),
+  updateContractTemplate: (id: string, data: Partial<CreateContractTemplateInput & { isActive: boolean }>) =>
+    request<ContractTemplate>(`/contracts/templates/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteContractTemplate: (id: string) => request<ContractTemplate>(`/contracts/templates/${id}`, { method: 'DELETE' }),
+  generateContractWord: (id: string, templateId?: string) =>
+    request<ContractDocument>(`/contracts/${id}/generate-word`, { method: 'POST', body: JSON.stringify(templateId ? { templateId } : {}) }),
+  archiveContractDocument: (contractId: string, docId: string, notes?: string) =>
+    request<ContractDocument>(`/contracts/${contractId}/documents/${docId}/archive`, { method: 'POST', body: JSON.stringify({ notes }) }),
+  uploadSignedContract: (contractId: string, data: { filename: string; mimeType?: string; contentBase64: string; notes?: string }) =>
+    request<ContractDocument>(`/contracts/${contractId}/archive-signed`, { method: 'POST', body: JSON.stringify(data) }),
+  getContractArchives: () => request<ContractDocument[]>('/contracts/archives'),
+  downloadContractDocument: async (docId: string, filename: string) => {
+    const token = getToken();
+    const response = await fetch(`${API_BASE}/contracts/documents/${docId}/file`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!response.ok) throw new Error('Telechargement impossible');
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
+  getSuppliers: () => request<Supplier[]>('/contracts/suppliers'),
+  createSupplier: (data: CreateSupplierInput) =>
+    request<Supplier>('/contracts/suppliers', { method: 'POST', body: JSON.stringify(data) }),
+  updateSupplier: (id: string, data: Partial<CreateSupplierInput & { isActive: boolean }>) =>
+    request<Supplier>(`/contracts/suppliers/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteSupplier: (id: string) => request<Supplier>(`/contracts/suppliers/${id}`, { method: 'DELETE' }),
 
   getTours: (params?: { driverId?: string; status?: string }) => {
     const q = new URLSearchParams();
@@ -102,30 +609,213 @@ export const api = {
   },
   createTour: (data: CreateTourInput) =>
     request<Tour>('/tours', { method: 'POST', body: JSON.stringify(data) }),
+  updateTour: (id: string, data: Partial<CreateTourInput>) =>
+    request<Tour>(`/tours/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteTour: (id: string) => request<void>(`/tours/${id}`, { method: 'DELETE' }),
   startTour: (id: string) => request<Tour>(`/tours/${id}/start`, { method: 'PATCH' }),
   completeTour: (id: string) => request<Tour>(`/tours/${id}/complete`, { method: 'PATCH' }),
+  cancelTour: (id: string) => request<Tour>(`/tours/${id}/cancel`, { method: 'PATCH' }),
+  createLoadSheet: (tourId: string, items: Array<{ productId: string; quantity: number }>) =>
+    request<LoadSheet>(`/tours/${tourId}/load-sheet`, { method: 'POST', body: JSON.stringify({ items }) }),
+  validateLoadSheet: (tourId: string, sheetId: string, role: 'store' | 'driver') =>
+    request<LoadSheet>(`/tours/${tourId}/load-sheet/${sheetId}/validate`, {
+      method: 'PATCH',
+      body: JSON.stringify({ role }),
+    }),
+  getTourUnsold: (tourId: string) =>
+    request<TourUnsoldLine[]>(`/tours/${tourId}/unsold`),
+  recordTourUnsold: (tourId: string, lines: Array<{ productId: string; quantity: number; notes?: string }>) =>
+    request<TourUnsoldLine[]>(`/tours/${tourId}/unsold`, { method: 'POST', body: JSON.stringify({ lines }) }),
+  startFieldTour: (data: { vehicleId: string; zone?: string; date?: string }) =>
+    request<Tour>('/tours/field-start', { method: 'POST', body: JSON.stringify(data) }),
 
   getOrders: () => request<Order[]>('/orders'),
+  getOrder: (id: string) => request<Order>(`/orders/${id}`),
   createOrder: (data: CreateOrderInput) =>
     request<Order>('/orders', { method: 'POST', body: JSON.stringify(data) }),
   validateOrder: (id: string) =>
     request<Order>(`/orders/${id}/validate`, { method: 'PATCH' }),
+  cancelOrder: (id: string) =>
+    request<Order>(`/orders/${id}/cancel`, { method: 'PATCH' }),
+  updateOrder: (id: string, data: { notes?: string }) =>
+    request<Order>(`/orders/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteOrder: (id: string) => request<void>(`/orders/${id}`, { method: 'DELETE' }),
 
-  getStock: () => request<StockItem[]>('/stock'),
+  getStock: (params?: { locationId?: string }) => {
+    const q = params?.locationId ? `?locationId=${params.locationId}` : '';
+    return request<StockItem[]>(`/stock${q}`);
+  },
+  getVehicleStock: (vehicleId: string) => request<StockItem[]>(`/stock/vehicle/${vehicleId}`),
+  getStockLocations: () => request<StockLocation[]>('/stock/locations'),
+  createStockLocation: (data: CreateStockLocationInput) =>
+    request<StockLocation>('/stock/locations', { method: 'POST', body: JSON.stringify(data) }),
+  updateStockLocation: (id: string, data: Partial<CreateStockLocationInput>) =>
+    request<StockLocation>(`/stock/locations/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteStockLocation: (id: string) => request<void>(`/stock/locations/${id}`, { method: 'DELETE' }),
+  adjustStock: (data: { productId: string; locationId: string; quantity: number; lotNumber?: string }) =>
+    request<StockItem>('/stock/adjust', { method: 'POST', body: JSON.stringify(data) }),
+  updateStockQuantity: (id: string, quantity: number) =>
+    request<StockItem>(`/stock/${id}`, { method: 'PATCH', body: JSON.stringify({ quantity }) }),
+  deleteStockItem: (id: string) => request<void>(`/stock/${id}`, { method: 'DELETE' }),
+
+  getPackagingSkus: (kind?: string) => {
+    const q = kind ? `?kind=${kind}` : '';
+    return request<PackagingSku[]>(`/packaging${q}`);
+  },
+  getPackagingSummary: () => request<PackagingSummary>('/packaging/summary'),
+  getPackagingMovements: (params?: { kind?: string; type?: string; skuId?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.kind) q.set('kind', params.kind);
+    if (params?.type) q.set('type', params.type);
+    if (params?.skuId) q.set('skuId', params.skuId);
+    const qs = q.toString();
+    return request<PackagingMovement[]>(`/packaging/movements${qs ? `?${qs}` : ''}`);
+  },
+  createPackagingMovement: (data: CreatePackagingMovementInput) =>
+    request<PackagingMovement>('/packaging/movements', { method: 'POST', body: JSON.stringify(data) }),
+  updatePackagingMovement: (id: string, data: Partial<CreatePackagingMovementInput>) =>
+    request<PackagingMovement>(`/packaging/movements/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deletePackagingMovement: (id: string) =>
+    request<void>(`/packaging/movements/${id}`, { method: 'DELETE' }),
+  createPackagingSku: (data: CreatePackagingSkuInput) =>
+    request<PackagingSku>('/packaging/skus', { method: 'POST', body: JSON.stringify(data) }),
+  updatePackagingSku: (id: string, data: Partial<CreatePackagingSkuInput> & { isActive?: boolean }) =>
+    request<PackagingSku>(`/packaging/skus/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deletePackagingSku: (id: string) =>
+    request<PackagingSku>(`/packaging/skus/${id}`, { method: 'DELETE' }),
 
   getDeliveries: () => request<Delivery[]>('/deliveries'),
+  getDelivery: (id: string) => request<Delivery>(`/deliveries/${id}`),
+  getDeliveryTourReconciliation: (tourId: string) =>
+    request<DeliveryTourReconciliation>(`/deliveries/tour/${tourId}/reconciliation`),
   createDelivery: (data: CreateDeliveryInput) =>
     request<Delivery>('/deliveries', { method: 'POST', body: JSON.stringify(data) }),
+  updateDelivery: (id: string, data: { status: string; notes?: string }) =>
+    request<Delivery>(`/deliveries/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteDelivery: (id: string) => request<void>(`/deliveries/${id}`, { method: 'DELETE' }),
 
   getPayments: () => request<Payment[]>('/payments'),
   createPayment: (data: CreatePaymentInput) =>
     request<Payment>('/payments', { method: 'POST', body: JSON.stringify(data) }),
+
+  getFinanceSummary: () => request<FinanceSummary>('/finance/summary'),
+  getFinanceAccounts: () => request<FinanceAccount[]>('/finance/accounts'),
+  createFinanceAccount: (data: CreateFinanceAccountInput) =>
+    request<FinanceAccount>('/finance/accounts', { method: 'POST', body: JSON.stringify(data) }),
+  updateFinanceAccount: (id: string, data: Partial<CreateFinanceAccountInput> & { isActive?: boolean }) =>
+    request<FinanceAccount>(`/finance/accounts/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  getFinanceCategories: () => request<FinanceCategory[]>('/finance/categories'),
+  createFinanceCategory: (data: { code: string; name: string; kind: FinanceCategoryKind }) =>
+    request<FinanceCategory>('/finance/categories', { method: 'POST', body: JSON.stringify(data) }),
+  getFinanceMovements: (params?: { kind?: string; status?: string; accountId?: string; from?: string; to?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.kind) q.set('kind', params.kind);
+    if (params?.status) q.set('status', params.status);
+    if (params?.accountId) q.set('accountId', params.accountId);
+    if (params?.from) q.set('from', params.from);
+    if (params?.to) q.set('to', params.to);
+    const qs = q.toString();
+    return request<FinanceMovement[]>(`/finance/movements${qs ? `?${qs}` : ''}`);
+  },
+  createFinanceMovement: (data: CreateFinanceMovementInput) =>
+    request<FinanceMovement>('/finance/movements', { method: 'POST', body: JSON.stringify(data) }),
+  validateFinanceMovement: (id: string) =>
+    request<FinanceMovement>(`/finance/movements/${id}/validate`, { method: 'POST' }),
+  cancelFinanceMovement: (id: string) =>
+    request<FinanceMovement>(`/finance/movements/${id}/cancel`, { method: 'POST' }),
+  getFinanceBudgets: (year?: number, month?: number) => {
+    const q = new URLSearchParams();
+    if (year) q.set('year', String(year));
+    if (month) q.set('month', String(month));
+    const qs = q.toString();
+    return request<FinanceBudget[]>(`/finance/budgets${qs ? `?${qs}` : ''}`);
+  },
+  createFinanceBudget: (data: CreateFinanceBudgetInput) =>
+    request<FinanceBudget>('/finance/budgets', { method: 'POST', body: JSON.stringify(data) }),
+  updateFinanceBudget: (id: string, data: Partial<CreateFinanceBudgetInput>) =>
+    request<FinanceBudget>(`/finance/budgets/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteFinanceBudget: (id: string) =>
+    request<{ id: string }>(`/finance/budgets/${id}`, { method: 'DELETE' }),
+  getFinanceInventorySnapshot: () => request<FinanceInventorySnapshot>('/finance/inventory/snapshot'),
+  getFinanceInventories: () => request<FinanceInventory[]>('/finance/inventory'),
+  createFinanceInventory: (data: CreateFinanceInventoryInput) =>
+    request<FinanceInventory>('/finance/inventory', { method: 'POST', body: JSON.stringify(data) }),
+  validateFinanceInventory: (id: string) =>
+    request<FinanceInventory>(`/finance/inventory/${id}/validate`, { method: 'POST' }),
+
+  getPosCatalog: () => request<PosCatalog>('/pos/catalog'),
+  getPosSales: (from?: string, to?: string) => {
+    const q = new URLSearchParams();
+    if (from) q.set('from', from);
+    if (to) q.set('to', to);
+    const qs = q.toString();
+    return request<PosSalesResponse>(`/pos/sales${qs ? `?${qs}` : ''}`);
+  },
+  quotePos: (data: { clientId?: string | null; lines: Array<{ productId: string; quantity: number; emptiesReturned?: number }> }) =>
+    request<PosQuote>('/pos/quote', { method: 'POST', body: JSON.stringify(data) }),
+  checkoutPos: (data: PosCheckoutInput) =>
+    request<PosSale>('/pos/checkout', { method: 'POST', body: JSON.stringify(data) }),
+  posAdvance: (data: PosAdvanceInput) =>
+    request<Payment>('/pos/advance', { method: 'POST', body: JSON.stringify(data) }),
+  posAcompte: (data: PosAcompteInput) =>
+    request<Payment>('/pos/acompte', { method: 'POST', body: JSON.stringify(data) }),
+  cancelPosSale: (id: string) =>
+    request<PosSale>(`/pos/sales/${id}/cancel`, { method: 'POST' }),
+  updatePayment: (id: string, data: Partial<CreatePaymentInput>) =>
+    request<Payment>(`/payments/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deletePayment: (id: string) => request<void>(`/payments/${id}`, { method: 'DELETE' }),
+  getOutstandingOrders: (clientId?: string) =>
+    request<OutstandingOrder[]>(`/payments/outstanding${clientId ? `?clientId=${clientId}` : ''}`),
+  applyAdvance: (orderId: string) =>
+    request<{
+      orderId: string;
+      orderNumber: string;
+      applied: number;
+      paidAmount: number;
+      remaining: number;
+      paymentStatus: OrderPaymentStatus;
+    }>('/payments/apply-advance', { method: 'POST', body: JSON.stringify({ orderId }) }),
+  applyAdvanceForClient: (clientId: string) =>
+    request<{
+      clientId: string;
+      clientName: string;
+      totalApplied: number;
+      remainingAdvance: number;
+      remainingDebt: number;
+      orders: Array<{ orderId: string; orderNumber: string; applied: number }>;
+    }>('/payments/apply-advance', { method: 'POST', body: JSON.stringify({ clientId }) }),
+  previewAllocation: (params: { amount: number; orderId?: string; clientId?: string }) => {
+    const q = new URLSearchParams({ amount: String(params.amount) });
+    if (params.orderId) q.set('orderId', params.orderId);
+    if (params.clientId) q.set('clientId', params.clientId);
+    return request<AllocationPreview>(`/payments/allocation-preview?${q.toString()}`);
+  },
+
+  getRecouvrement: (params?: { filter?: RecouvrementFilter; minAgeDays?: number; search?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.filter) q.set('filter', params.filter);
+    if (params?.minAgeDays) q.set('minAgeDays', String(params.minAgeDays));
+    if (params?.search) q.set('search', params.search);
+    const qs = q.toString();
+    return request<RecouvrementRow[]>(`/recouvrement${qs ? `?${qs}` : ''}`);
+  },
+  getClientSituation: (clientId: string) =>
+    request<ClientSituation>(`/recouvrement/clients/${clientId}`),
+  remindClient: (clientId: string, notes?: string) =>
+    request<ClientSituation>(`/recouvrement/clients/${clientId}/relance`, {
+      method: 'POST',
+      body: JSON.stringify({ notes }),
+    }),
 
   getProductionOrders: () => request<ProductionOrder[]>('/emmapure/production'),
   createProductionOrder: (data: { productFormat: string; lineCode: string; plannedQty: number }) =>
     request<ProductionOrder>('/emmapure/production', { method: 'POST', body: JSON.stringify(data) }),
   validateProductionOrder: (id: string) =>
     request<ProductionOrder>(`/emmapure/production/${id}/validate`, { method: 'PATCH' }),
+  updateProductionOrder: (id: string, data: { producedQty?: number; plannedQty?: number }) =>
+    request<ProductionOrder>(`/emmapure/production/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteProductionOrder: (id: string) =>
+    request<void>(`/emmapure/production/${id}`, { method: 'DELETE' }),
 
   getQualityChecks: () => request<QualityCheck[]>('/emmapure/quality'),
   createQualityCheck: (data: CreateQualityCheckInput) =>
@@ -135,8 +825,20 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ conform }),
     }),
+  deleteQualityCheck: (id: string) => request<void>(`/emmapure/quality/${id}`, { method: 'DELETE' }),
+  updateQualityCheck: (id: string, data: Partial<CreateQualityCheckInput>) =>
+    request<QualityCheck>(`/emmapure/quality/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
 
   getLoyaltyClients: () => request<LoyaltyClient[]>('/emmapure/loyalty'),
+  creditLoyalty: (clientId: string, points: number) =>
+    request<LoyaltyClient>(`/emmapure/loyalty/${clientId}/points`, {
+      method: 'POST',
+      body: JSON.stringify({ points }),
+    }),
+  updateLoyalty: (clientId: string, data: { loyaltyPoints?: number; walletBalance?: number }) =>
+    request<LoyaltyClient>(`/emmapure/loyalty/${clientId}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  resetLoyalty: (clientId: string) =>
+    request<LoyaltyClient>(`/emmapure/loyalty/${clientId}/reset`, { method: 'POST' }),
 
   getShiftAssignments: (date?: string) => {
     const qs = date ? `?date=${date}` : '';
@@ -144,9 +846,25 @@ export const api = {
   },
   createShiftAssignment: (data: CreateShiftInput) =>
     request<ShiftAssignment>('/emmapure/shifts', { method: 'POST', body: JSON.stringify(data) }),
+  updateShiftAssignment: (id: string, data: Partial<CreateShiftInput>) =>
+    request<ShiftAssignment>(`/emmapure/shifts/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  validateShiftAssignment: (id: string) =>
+    request<ShiftAssignment>(`/emmapure/shifts/${id}/validate`, { method: 'PATCH' }),
+  deleteShiftAssignment: (id: string) =>
+    request<void>(`/emmapure/shifts/${id}`, { method: 'DELETE' }),
 
   getPackagingUnits: () => request<PackagingUnit[]>('/emmapure/packaging'),
+  createPackagingUnit: (data: { barcode: string; productFormat: string; maxRotations: number }) =>
+    request<PackagingUnit>('/emmapure/packaging', { method: 'POST', body: JSON.stringify(data) }),
+  updatePackagingUnit: (id: string, data: { rotationCount?: number; status?: string; maxRotations?: number }) =>
+    request<PackagingUnit>(`/emmapure/packaging/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deletePackagingUnit: (id: string) => request<void>(`/emmapure/packaging/${id}`, { method: 'DELETE' }),
   getFountains: () => request<FountainAsset[]>('/emmapure/fountains'),
+  createFountain: (data: { serialNumber: string; model?: string; contractType?: string; nextService?: string }) =>
+    request<FountainAsset>('/emmapure/fountains', { method: 'POST', body: JSON.stringify(data) }),
+  updateFountain: (id: string, data: { model?: string; contractType?: string; nextService?: string; isActive?: boolean }) =>
+    request<FountainAsset>(`/emmapure/fountains/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteFountain: (id: string) => request<void>(`/emmapure/fountains/${id}`, { method: 'DELETE' }),
   getObservability: () => request<ObservabilityStatus>('/emmapure/observability'),
 
   getUsers: () => request<User[]>('/users'),
@@ -154,6 +872,190 @@ export const api = {
     request<User>('/users', { method: 'POST', body: JSON.stringify(data) }),
   updateUser: (id: string, data: Partial<CreateUserInput & { isActive: boolean }>) =>
     request<User>(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteUser: (id: string) => request<User>(`/users/${id}`, { method: 'DELETE' }),
+
+  getEmployees: () => request<EmployeeProfile[]>('/hr/employees'),
+  createEmployee: (data: CreateEmployeeInput) =>
+    request<EmployeeProfile>('/hr/employees', { method: 'POST', body: JSON.stringify(data) }),
+  updateEmployee: (id: string, data: Partial<CreateEmployeeInput & { status: string }>) =>
+    request<EmployeeProfile>(`/hr/employees/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteEmployee: (id: string) => request<EmployeeProfile>(`/hr/employees/${id}`, { method: 'DELETE' }),
+  getHrDashboard: (params?: { department?: string; year?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.department) q.set('department', params.department);
+    if (params?.year) q.set('year', String(params.year));
+    const qs = q.toString();
+    return request<HrDashboard>(`/hr/dashboard${qs ? `?${qs}` : ''}`);
+  },
+  punchAttendance: (data: { type: AttendancePunchType; notes?: string }) =>
+    request<AttendancePunchResult>('/hr/attendance/punch', { method: 'POST', body: JSON.stringify(data) }),
+  getMyAttendance: (date?: string) =>
+    request<AttendanceMyStatus>(`/hr/attendance/me${date ? `?date=${date}` : ''}`),
+  getAttendanceOverview: (date: string, department?: string) => {
+    const q = new URLSearchParams({ date });
+    if (department) q.set('department', department);
+    return request<AttendanceOverview>(`/hr/attendance/overview?${q}`);
+  },
+  getAttendanceTimesheet: (from: string, to?: string, userId?: string) => {
+    const q = new URLSearchParams({ from });
+    if (to) q.set('to', to);
+    if (userId) q.set('userId', userId);
+    return request<AttendanceTimesheet>(`/hr/attendance/timesheet?${q}`);
+  },
+  manualAttendancePunch: (data: ManualAttendancePunchInput) =>
+    request<AttendancePunchResult>('/hr/attendance/manual', { method: 'POST', body: JSON.stringify(data) }),
+  adjustAttendanceDay: (id: string, data: { workedMinutes?: number; overtimeMinutes?: number; notes?: string; adjustmentReason?: string }) =>
+    request<AttendanceDay>(`/hr/attendance/days/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  getLeaveBalance: (userId?: string, year?: number) => {
+    const q = new URLSearchParams();
+    if (userId) q.set('userId', userId);
+    if (year) q.set('year', String(year));
+    const qs = q.toString();
+    return request<LeaveBalance>(`/hr/leave-balance${qs ? `?${qs}` : ''}`);
+  },
+  getLeaveCalendar: (start: string, end: string, department?: string) => {
+    const q = new URLSearchParams({ start, end });
+    if (department) q.set('department', department);
+    return request<LeaveRequest[]>(`/hr/leave-calendar?${q.toString()}`);
+  },
+  getJobFunctions: () => request<JobFunction[]>(`/hr/functions`),
+  createJobFunction: (data: { name: string; department?: string; activities?: string[] }) =>
+    request<JobFunction>('/hr/functions', { method: 'POST', body: JSON.stringify(data) }),
+  addJobActivity: (functionId: string, name: string) =>
+    request(`/hr/functions/${functionId}/activities`, { method: 'POST', body: JSON.stringify({ name }) }),
+  getMyJobActivities: () => request<JobFunctionActivity[]>('/hr/functions/my-activities'),
+  getActivityDeclarations: (userId?: string) =>
+    request<ActivityDeclaration[]>(`/hr/declarations${userId ? `?userId=${userId}` : ''}`),
+  declareActivity: (data: { activityId?: string; date: string; comment?: string; attachmentUrl?: string }) =>
+    request<ActivityDeclaration>('/hr/declarations', { method: 'POST', body: JSON.stringify(data) }),
+  validateDeclaration: (id: string) =>
+    request(`/hr/declarations/${id}/validate`, { method: 'PATCH' }),
+  rejectDeclaration: (id: string, reason: string) =>
+    request(`/hr/declarations/${id}/reject`, { method: 'PATCH', body: JSON.stringify({ reason }) }),
+  getObjectives: (userId?: string, year?: number) => {
+    const q = new URLSearchParams();
+    if (userId) q.set('userId', userId);
+    if (year) q.set('year', String(year));
+    const qs = q.toString();
+    return request<PerformanceObjective[]>(`/hr/objectives${qs ? `?${qs}` : ''}`);
+  },
+  createObjective: (data: { userId: string; title: string; year: number; weight: number; periodType?: string; quarter?: number; description?: string }) =>
+    request<PerformanceObjective>('/hr/objectives', { method: 'POST', body: JSON.stringify(data) }),
+  getReviews: (year?: number) => request<PerformanceReview[]>(`/hr/reviews${year ? `?year=${year}` : ''}`),
+  getReviewRanking: (year: number, department?: string) => {
+    const q = new URLSearchParams({ year: String(year) });
+    if (department) q.set('department', department);
+    return request<PerformanceReview[]>(`/hr/reviews/ranking?${q.toString()}`);
+  },
+  submitSelfReview: (data: { year: number; period: string; selfScores: Record<string, number>; selfComment?: string }) =>
+    request<PerformanceReview>('/hr/reviews/self', { method: 'POST', body: JSON.stringify(data) }),
+  validateReview: (id: string, data: { managerScores: Record<string, number>; managerComment?: string }) =>
+    request(`/hr/reviews/${id}/validate`, { method: 'PATCH', body: JSON.stringify(data) }),
+  getTrainings: () => request<TrainingCourse[]>('/hr/trainings'),
+  createTraining: (data: { title: string; kind?: string; provider?: string; location?: string; startDate?: string; endDate?: string }) =>
+    request<TrainingCourse>('/hr/trainings', { method: 'POST', body: JSON.stringify(data) }),
+  getTrainingEnrollments: () => request<TrainingEnrollment[]>('/hr/trainings/enrollments'),
+  enrollTraining: (courseId: string) =>
+    request(`/hr/trainings/${courseId}/enroll`, { method: 'POST' }),
+  validateEnrollment: (id: string) =>
+    request(`/hr/trainings/enrollments/${id}/validate`, { method: 'PATCH' }),
+  rejectEnrollment: (id: string, reason: string) =>
+    request(`/hr/trainings/enrollments/${id}/reject`, { method: 'PATCH', body: JSON.stringify({ reason }) }),
+  followEnrollment: (id: string, certificateUrl?: string) =>
+    request(`/hr/trainings/enrollments/${id}/follow`, { method: 'PATCH', body: JSON.stringify({ certificateUrl }) }),
+  getHrDocuments: (params?: { employeeId?: string; type?: string; q?: string }) => {
+    const q = new URLSearchParams();
+    if (params?.employeeId) q.set('employeeId', params.employeeId);
+    if (params?.type) q.set('type', params.type);
+    if (params?.q) q.set('q', params.q);
+    const qs = q.toString();
+    return request<HrDocument[]>(`/hr/documents${qs ? `?${qs}` : ''}`);
+  },
+  addHrDocument: (data: { employeeId: string; type: string; title: string; fileUrl?: string; issuedAt?: string }) =>
+    request<HrDocument>('/hr/documents', { method: 'POST', body: JSON.stringify(data) }),
+  getEmployeeHistory: (id: string) => request<EmployeeFieldHistory[]>(`/hr/employees/${id}/history`),
+  getLeaves: () => request<LeaveRequest[]>('/hr/leaves'),
+  getMyLeaves: () => request<LeaveRequest[]>('/hr/leaves/me'),
+  createLeave: (data: CreateLeaveInput) =>
+    request<LeaveRequest>('/hr/leaves', { method: 'POST', body: JSON.stringify(data) }),
+  validateLeave: (id: string) => request<LeaveRequest>(`/hr/leaves/${id}/validate`, { method: 'PATCH' }),
+  rejectLeave: (id: string, reason?: string) =>
+    request<LeaveRequest>(`/hr/leaves/${id}/reject`, { method: 'PATCH', body: JSON.stringify({ reason }) }),
+  cancelLeave: (id: string) => request<void>(`/hr/leaves/${id}`, { method: 'DELETE' }),
+  getPayrollPeriods: () => request<PayrollPeriod[]>('/hr/payroll/periods'),
+  createPayrollPeriod: (data: { year: number; month: number; expectedDays?: number }) =>
+    request<PayrollPeriod>('/hr/payroll/periods', { method: 'POST', body: JSON.stringify(data) }),
+  computePayroll: (id: string) =>
+    request<PayrollPeriod>(`/hr/payroll/periods/${id}/compute`, { method: 'POST' }),
+  validatePayrollPeriod: (id: string) =>
+    request<PayrollPeriod>(`/hr/payroll/periods/${id}/validate`, { method: 'PATCH' }),
+  closePayrollPeriod: (id: string) =>
+    request<PayrollPeriod>(`/hr/payroll/periods/${id}/close`, { method: 'PATCH' }),
+  deletePayrollPeriod: (id: string) =>
+    request<void>(`/hr/payroll/periods/${id}`, { method: 'DELETE' }),
+  getPayslips: (periodId: string) => request<Payslip[]>(`/hr/payroll/periods/${periodId}/payslips`),
+  updatePayslip: (id: string, data: { overtimeHours?: number; bonuses?: number; deductions?: number }) =>
+    request<Payslip>(`/hr/payroll/payslips/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  validatePayslip: (id: string) =>
+    request<Payslip>(`/hr/payroll/payslips/${id}/validate`, { method: 'PATCH' }),
+    payPayslip: (id: string, paymentReference?: string) =>
+    request<Payslip>(`/hr/payroll/payslips/${id}/pay`, {
+      method: 'PATCH',
+      body: JSON.stringify({ paymentReference }),
+    }),
+
+  getMyActivityReport: (date: string) =>
+    request<ActivityReportDetail>(`/hr/activity-reports/me?date=${date}`),
+  saveMyActivityReport: (data: { date: string; summary?: string; incidents?: string }) =>
+    request<DailyActivityReport>('/hr/activity-reports/me', { method: 'POST', body: JSON.stringify(data) }),
+  getActivityOverview: (date: string) =>
+    request<ActivityOverview>(`/hr/activity-reports/overview?date=${date}`),
+  getPerformanceDashboard: (from: string, to?: string) => {
+    const q = new URLSearchParams({ from });
+    if (to) q.set('to', to);
+    return request<PerformanceDashboard>(`/hr/performance/dashboard?${q}`);
+  },
+  getAgentActivityReport: (userId: string, date: string) =>
+    request<ActivityReportDetail>(`/hr/activity-reports/${userId}?date=${date}`),
+  validateActivityReport: (id: string) =>
+    request<DailyActivityReport>(`/hr/activity-reports/${id}/validate`, { method: 'PATCH' }),
+
+  getConsigneMovements: () => request<ConsigneMovement[]>('/consignes'),
+  createConsigneMovement: (data: { clientId: string; productFormat: string; qtyIn: number; qtyOut: number; notes?: string }) =>
+    request<ConsigneMovement>('/consignes', { method: 'POST', body: JSON.stringify(data) }),
+  updateConsigneMovement: (id: string, data: { productFormat?: string; qtyIn?: number; qtyOut?: number; notes?: string }) =>
+    request<ConsigneMovement>(`/consignes/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteConsigneMovement: (id: string) => request<void>(`/consignes/${id}`, { method: 'DELETE' }),
+  getConsigneDebtors: () => request<ConsigneDebtor[]>('/consignes/debtors'),
+  getConsigneSituation: (filter?: 'DEBITEUR' | 'CREDITEUR' | 'TOUS') =>
+    request<ConsigneDebtor[]>(`/consignes/situation${filter ? `?filter=${filter}` : ''}`),
+  getClientConsigneBalances: (clientId: string) =>
+    request<ConsigneBalances>(`/consignes/client/${clientId}/balances`),
+  recordConsigneReturn: (data: { clientId: string; productFormat: string; quantity: number; notes?: string }) =>
+    request<ConsigneMovement>('/consignes/returns', { method: 'POST', body: JSON.stringify(data) }),
+
+  getDiscrepancies: (params?: { kind?: DiscrepancyKind; status?: DiscrepancyStatus }) => {
+    const q = new URLSearchParams();
+    if (params?.kind) q.set('kind', params.kind);
+    if (params?.status) q.set('status', params.status);
+    const qs = q.toString();
+    return request<Discrepancy[]>(`/ecarts${qs ? `?${qs}` : ''}`);
+  },
+  getDiscrepancySummary: () =>
+    request<Array<{ kind: DiscrepancyKind; status: DiscrepancyStatus; count: number; variance: number }>>('/ecarts/summary'),
+  resolveDiscrepancy: (id: string, data: { status: DiscrepancyStatus; notes?: string }) =>
+    request<Discrepancy>(`/ecarts/${id}/resolve`, { method: 'PATCH', body: JSON.stringify(data) }),
+  getCashClosings: () => request<CashClosing[]>('/ecarts/cash-closings'),
+  getCurrentCashClosing: () => request<CashClosing | null>('/ecarts/cash-closings/current'),
+  openCashClosing: (notes?: string) =>
+    request<CashClosing>('/ecarts/cash-closings/open', { method: 'POST', body: JSON.stringify({ notes }) }),
+  closeCashClosing: (id: string, data: { countedAmount: number; notes?: string }) =>
+    request<CashClosing>(`/ecarts/cash-closings/${id}/close`, { method: 'POST', body: JSON.stringify(data) }),
+  validateCashClosing: (id: string) =>
+    request<CashClosing>(`/ecarts/cash-closings/${id}/validate`, { method: 'POST' }),
+  getTourReconciliation: (tourId: string) => request<TourReconciliation>(`/ecarts/tours/${tourId}`),
+  reconcileTour: (tourId: string) =>
+    request<TourReconciliation>(`/ecarts/tours/${tourId}/reconcile`, { method: 'POST' }),
 
   getNotifications: (unreadOnly?: boolean) =>
     request<NotificationItem[]>(`/notifications${unreadOnly ? '?unread=true' : ''}`),
@@ -298,6 +1200,8 @@ export const api = {
     }),
   convertQuoteRequest: (id: string) =>
     request<Order>(`/marketplace/quote-requests/${id}/convert`, { method: 'POST' }),
+  deleteQuoteRequest: (id: string) =>
+    request<void>(`/marketplace/quote-requests/${id}`, { method: 'DELETE' }),
 
   // ------------------------------------------------ API publique & webhooks
   getApiKeys: () => request<ApiKeyInfo[]>('/integrations/api-keys'),
@@ -323,7 +1227,12 @@ export const api = {
 
   // ------------------------------------ Préférences, vues, recherche globale
   getPreferences: () => request<UserPreference>('/preferences'),
-  updatePreferences: (data: { theme?: string; dashboardLayout?: DashboardPanelPref[] }) =>
+  updatePreferences: (data: {
+    theme?: string;
+    emailNotifications?: boolean;
+    whatsappNotifications?: boolean;
+    dashboardLayout?: DashboardPanelPref[];
+  }) =>
     request<UserPreference>('/preferences', { method: 'PATCH', body: JSON.stringify(data) }),
   getSavedViews: (resource?: string) =>
     request<SavedView[]>(`/saved-views${resource ? `?resource=${resource}` : ''}`),
@@ -340,6 +1249,17 @@ export const api = {
 
 const PORTAL_TOKEN_KEY = 'portalToken';
 
+function parsePortalError(text: string, status: number): string {
+  try {
+    const json = JSON.parse(text) as { message?: string | string[] };
+    if (Array.isArray(json.message)) return json.message.join(' ');
+    if (typeof json.message === 'string' && json.message.trim()) return json.message;
+  } catch {
+    /* texte brut */
+  }
+  return text || `Erreur API (${status})`;
+}
+
 async function portalRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = localStorage.getItem(PORTAL_TOKEN_KEY);
   const headers: Record<string, string> = {
@@ -351,15 +1271,19 @@ async function portalRequest<T>(path: string, options: RequestInit = {}): Promis
   const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
   if (!response.ok) {
     const text = await response.text().catch(() => '');
-    if (response.status === 401 && !path.includes('/auth/login')) {
+    const publicAuth = path.includes('/auth/login') || path.includes('/auth/register');
+    if (response.status === 401 && !publicAuth) {
       localStorage.removeItem(PORTAL_TOKEN_KEY);
       localStorage.removeItem('portalAccount');
-      if (!window.location.pathname.startsWith('/portail/connexion')) {
+      if (
+        !window.location.pathname.startsWith('/portail/connexion')
+        && !window.location.pathname.startsWith('/portail/inscription')
+      ) {
         window.location.replace('/portail/connexion?expired=1');
       }
       throw new Error('Session expirée — veuillez vous reconnecter.');
     }
-    throw new Error(text || `Erreur API (${response.status})`);
+    throw new Error(parsePortalError(text, response.status));
   }
   if (response.status === 204) return undefined as T;
   return response.json();
@@ -370,6 +1294,11 @@ export const portalApi = {
     portalRequest<{ accessToken: string; account: PortalAccount }>('/portal/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
+    }),
+  register: (data: RegisterPortalInput) =>
+    portalRequest<{ accessToken: string; account: PortalAccount }>('/portal/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
     }),
   me: () => portalRequest<PortalMe>('/portal/me'),
   getCatalog: () => portalRequest<PortalCatalogItem[]>('/portal/catalog'),
@@ -400,9 +1329,22 @@ export interface CreateClientInput {
   code: string;
   name: string;
   segment: ClientSegment;
+  avenue?: string;
+  avenueNumber?: string;
+  quartier?: string;
+  commune?: string;
+  district?: string;
+  province?: string;
+  city?: string;
   zone?: string;
   phone?: string;
   email?: string;
+  idDocumentType?: string;
+  idDocumentNumber?: string;
+  logoUrl?: string;
+  profession?: string;
+  latitude?: number;
+  longitude?: number;
   consigneLimit?: number;
 }
 
@@ -417,8 +1359,64 @@ export interface CreateTourInput {
 export interface CreateOrderInput {
   clientId: string;
   tourId?: string;
+  driverId?: string;
   notes?: string;
-  lines: Array<{ productId: string; quantity: number; discount?: number }>;
+  lines: Array<{ productId: string; quantity: number; bonusQuantity?: number; emptiesReturned?: number }>;
+}
+
+export type PricingRuleType = 'ARTICLE_OFFERT' | 'FIXED';
+
+export interface PricingRule {
+  id: string;
+  name: string;
+  segment?: ClientSegment | null;
+  clientId?: string | null;
+  zone?: string | null;
+  driverId?: string | null;
+  productId?: string | null;
+  minQuantity: number;
+  maxQuantity?: number | null;
+  stepQuantity?: number;
+  type: PricingRuleType;
+  value: string | number;
+  priority: number;
+  isActive: boolean;
+  product?: { id: string; code: string; name: string } | null;
+  client?: { id: string; code: string; name: string } | null;
+  driver?: { id: string; firstName: string; lastName: string } | null;
+}
+
+export interface CreatePricingRuleInput {
+  name: string;
+  segment?: ClientSegment | null;
+  clientId?: string | null;
+  zone?: string | null;
+  driverId?: string | null;
+  productId?: string | null;
+  minQuantity: number;
+  maxQuantity?: number | null;
+  stepQuantity?: number;
+  type: PricingRuleType;
+  value: number;
+  priority?: number;
+  isActive?: boolean;
+}
+
+export interface PricePreview {
+  segment: ClientSegment;
+  zone?: string | null;
+  quantity: number;
+  catalogPrice: number;
+  unitPrice: number;
+  lineTotal: number;
+  bonus: number;
+  bonusPct: number;
+  ruleId: string | null;
+  ruleName: string | null;
+  type: PricingRuleType | null;
+  stepQuantity?: number;
+  bonusQuantity?: number;
+  deliveredQuantity?: number;
 }
 
 export interface CreateDeliveryInput {
@@ -439,9 +1437,12 @@ export interface CreateDeliveryInput {
 export interface CreatePaymentInput {
   clientId?: string;
   deliveryId?: string;
+  orderId?: string;
   amount: number;
   method: PaymentMethod;
   reference?: string;
+  /** Garder le montant au credit du client au lieu de l'imputer tout de suite. */
+  asAdvance?: boolean;
 }
 
 export interface CreateQualityCheckInput {
@@ -471,6 +1472,472 @@ export interface CreateUserInput {
   role: string;
 }
 
+export interface CreateProductInput {
+  code: string;
+  name: string;
+  format: string;
+  unitPrice: number;
+  consigneAmount?: number;
+  isReusable?: boolean;
+  imageUrl?: string | null;
+}
+
+export interface CreateEmployeeInput {
+  userId: string;
+  matricule?: string;
+  jobTitle: string;
+  department: string;
+  contractType?: string;
+  hireDate: string;
+  endDate?: string;
+  baseSalary: number;
+  bankName?: string;
+  bankAccount?: string;
+  cnssNumber?: string;
+  nif?: string;
+  notes?: string;
+  gender?: string;
+  birthDate?: string;
+  address?: string;
+  avenue?: string;
+  avenueNumber?: string;
+  quartier?: string;
+  commune?: string;
+  district?: string;
+  maritalStatus?: string;
+  emergencyName?: string;
+  emergencyPhone?: string;
+  photoUrl?: string;
+  managerId?: string;
+  jobFunctionId?: string;
+  annualLeaveDays?: number;
+}
+
+export interface EmployeeProfile {
+  id: string;
+  userId?: string;
+  matricule: string;
+  jobTitle: string;
+  department: string;
+  contractType: string;
+  hireDate: string;
+  endDate?: string;
+  baseSalary: string | number;
+  bankName?: string;
+  bankAccount?: string;
+  cnssNumber?: string;
+  nif?: string;
+  status: string;
+  gender?: string | null;
+  birthDate?: string | null;
+  address?: string | null;
+  avenue?: string | null;
+  avenueNumber?: string | null;
+  quartier?: string | null;
+  commune?: string | null;
+  district?: string | null;
+  province?: string | null;
+  maritalStatus?: string | null;
+  emergencyName?: string | null;
+  emergencyPhone?: string | null;
+  photoUrl?: string | null;
+  managerId?: string | null;
+  jobFunctionId?: string | null;
+  annualLeaveDays?: number;
+  user?: User;
+  manager?: User | null;
+  jobFunction?: JobFunction | null;
+}
+
+export interface JobFunctionActivity {
+  id: string;
+  name: string;
+  description?: string;
+  jobFunction?: { id: string; name: string; department?: string };
+}
+
+export interface ActivityObjective {
+  id: string;
+  userId: string;
+  activityId: string;
+  title: string;
+  periodType: string;
+  year: number;
+  month?: number | null;
+  quarter?: number | null;
+  targetValue: number;
+  unit: string;
+  notes?: string | null;
+  isActive: boolean;
+  actualValue: number;
+  remaining: number;
+  progressPct: number;
+  status: 'ATTEINT' | 'EN_COURS' | 'EN_RETARD';
+  user?: User;
+  activity?: JobFunctionActivity;
+}
+
+export interface CreateActivityObjectiveInput {
+  userId: string;
+  activityId: string;
+  title: string;
+  periodType?: string;
+  year: number;
+  month?: number | null;
+  quarter?: number | null;
+  targetValue: number;
+  unit?: string;
+  notes?: string;
+}
+
+export interface JobFunction {
+  id: string;
+  name: string;
+  department?: string;
+  activities: JobFunctionActivity[];
+  _count?: { employees: number };
+}
+
+export interface ActivityDeclaration {
+  id: string;
+  userId?: string;
+  activityId?: string | null;
+  date: string;
+  comment?: string;
+  status: string;
+  rejectionReason?: string | null;
+  user?: User;
+  activity?: JobFunctionActivity | null;
+}
+
+export interface PerformanceObjective {
+  id: string;
+  userId: string;
+  title: string;
+  year: number;
+  quarter?: number | null;
+  periodType: string;
+  weight: string | number;
+  user?: User;
+}
+
+export interface PerformanceReview {
+  id: string;
+  userId: string;
+  year: number;
+  period: string;
+  status: string;
+  finalScore?: string | number | null;
+  selfComment?: string | null;
+  managerComment?: string | null;
+  selfScores?: Record<string, number> | null;
+  managerScores?: Record<string, number> | null;
+  user?: User & { employeeProfile?: { department?: string; matricule?: string } };
+}
+
+export interface TrainingCourse {
+  id: string;
+  title: string;
+  kind: string;
+  provider?: string | null;
+  location?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+}
+
+export interface TrainingEnrollment {
+  id: string;
+  status: string;
+  certificateUrl?: string | null;
+  rejectionReason?: string | null;
+  course?: TrainingCourse;
+  user?: User;
+}
+
+export interface HrDocument {
+  id: string;
+  type: string;
+  title: string;
+  fileUrl?: string | null;
+  issuedAt?: string | null;
+  createdAt: string;
+  employee?: EmployeeProfile;
+}
+
+export interface EmployeeFieldHistory {
+  id: string;
+  field: string;
+  oldValue?: string | null;
+  newValue?: string | null;
+  createdAt: string;
+  actor?: { firstName: string; lastName: string };
+}
+
+export interface LeaveBalance {
+  year: number;
+  rights: number;
+  consumed: number;
+  remaining: number;
+}
+
+export type AttendancePunchType = 'ENTREE' | 'SORTIE' | 'PAUSE_DEBUT' | 'PAUSE_FIN';
+export type PresenceStatus = 'PRESENT' | 'RETARD' | 'ABSENT' | 'CONGE' | 'MISSION' | 'INCOMPLET' | 'REPOS';
+
+export interface AttendancePunch {
+  id: string;
+  userId: string;
+  punchedAt: string;
+  type: AttendancePunchType;
+  notes?: string | null;
+}
+
+export interface AttendanceDay {
+  id: string;
+  userId: string;
+  date: string;
+  status: PresenceStatus;
+  plannedMinutes: number;
+  workedMinutes: number;
+  breakMinutes: number;
+  overtimeMinutes: number;
+  lateMinutes: number;
+  earlyLeaveMinutes: number;
+  firstInAt?: string | null;
+  lastOutAt?: string | null;
+  notes?: string | null;
+  user?: User;
+}
+
+export interface AttendanceMyStatus {
+  date: string;
+  punches: AttendancePunch[];
+  day: AttendanceDay | null;
+  shift?: ShiftAssignment | null;
+  onLeave: boolean;
+  canPunchIn: boolean;
+  canPunchOut: boolean;
+}
+
+export interface AttendanceOverviewRow {
+  user: User;
+  department: string;
+  jobTitle: string;
+  status: PresenceStatus;
+  plannedMinutes: number;
+  workedMinutes: number;
+  overtimeMinutes: number;
+  lateMinutes: number;
+  firstInAt?: string | null;
+  lastOutAt?: string | null;
+  dayId?: string | null;
+}
+
+export interface AttendanceOverview {
+  date: string;
+  totals: {
+    agents: number;
+    present: number;
+    late: number;
+    absent: number;
+    onLeave: number;
+    workedMinutes: number;
+    overtimeMinutes: number;
+  };
+  rows: AttendanceOverviewRow[];
+}
+
+export interface AttendanceTimesheet {
+  from: string;
+  to: string;
+  totals: { workedMinutes: number; overtimeMinutes: number; plannedMinutes: number };
+  rows: AttendanceDay[];
+}
+
+export interface AttendancePunchResult {
+  punch: AttendancePunch;
+  summary: AttendanceDay;
+}
+
+export interface ManualAttendancePunchInput {
+  userId: string;
+  type: AttendancePunchType;
+  punchedAt?: string;
+  notes?: string;
+}
+
+export interface HrDashboard {
+  year: number;
+  department?: string | null;
+  effectifs: { total: number; archived: number; byDepartment: Record<string, number>; byGender: Record<string, number> };
+  conges: { consumed: number; remaining: number; rights: number; absentToday: number };
+  activites: { declared: number; validated: number; rejected: number; rate: number };
+  performance: { average: number; reviews: number; objectives: number };
+  formations: { inscribed: number; followed: number };
+  alerts: {
+    contractsEnding: Array<{ matricule: string; name: string; endDate?: string | null }>;
+    birthdays: Array<{ matricule: string; name: string; birthDate?: string | null }>;
+  };
+}
+
+export interface DailyActivityReport {
+  id: string;
+  userId: string;
+  date: string;
+  activities: Record<string, unknown>;
+  incidents?: string | null;
+  validated: boolean;
+}
+
+export interface ActivityMetrics {
+  deliveries: number;
+  delivered: number;
+  refused: number;
+  qtyDelivered: number;
+  tours: number;
+  paymentsCount: number;
+  paymentsAmount: number;
+  shifts: number;
+}
+
+export interface ActivityReportDetail {
+  user: User;
+  date: string;
+  metrics: ActivityMetrics;
+  deliveries: Array<{ id: string; deliveryNumber: string; status: string; clientName?: string; qtyDelivered: number }>;
+  tours: Array<{ id: string; tourNumber: string; zone: string; status: string }>;
+  payments: Array<{ id: string; paymentNumber: string; amount: number; method: string }>;
+  shifts: ShiftAssignment[];
+  report: DailyActivityReport | null;
+  summary: string;
+  incidents: string;
+}
+
+export interface ActivityOverviewRow {
+  user: User;
+  deliveries: number;
+  delivered: number;
+  refused: number;
+  tours: number;
+  shifts: number;
+  paymentsCount: number;
+  paymentsAmount: number;
+  submitted: boolean;
+  validated: boolean;
+  incidents: string;
+  reportId: string | null;
+}
+
+export interface ActivityOverview {
+  date: string;
+  totals: {
+    agents: number;
+    submitted: number;
+    validated: number;
+    deliveries: number;
+    tours: number;
+    paymentsAmount: number;
+  };
+  rows: ActivityOverviewRow[];
+}
+
+export interface PerformanceDashboardRow {
+  user: User;
+  deliveries: number;
+  delivered: number;
+  refused: number;
+  deliveryRate: number | null;
+  tours: number;
+  ordersCreated: number;
+  revenue: number;
+  paymentsCount: number;
+  paymentsAmount: number;
+  declarations: number;
+  unsoldUnits: number;
+  objectiveProgress: number | null;
+}
+
+export interface PerformanceDashboard {
+  from: string;
+  to: string;
+  totals: {
+    agents: number;
+    deliveries: number;
+    delivered: number;
+    tours: number;
+    ordersCreated: number;
+    revenue: number;
+    paymentsAmount: number;
+    unsoldUnits: number;
+    avgObjectiveProgress: number | null;
+  };
+  rows: PerformanceDashboardRow[];
+}
+
+export interface TourUnsoldLine {
+  id: string;
+  tourId: string;
+  productId: string;
+  quantity: number;
+  notes?: string | null;
+  product?: { id: string; code: string; name: string; format?: string };
+}
+
+export interface CreateLeaveInput {
+  userId: string;
+  type: string;
+  startDate: string;
+  endDate: string;
+  reason?: string;
+}
+
+export interface LeaveRequest {
+  id: string;
+  userId?: string;
+  type: string;
+  startDate: string;
+  endDate: string;
+  days: number;
+  reason?: string;
+  status: string;
+  rejectionReason?: string | null;
+  user?: User & { employeeProfile?: { department?: string; matricule?: string } };
+}
+
+export interface PayrollPeriod {
+  id: string;
+  year: number;
+  month: number;
+  status: string;
+  expectedDays: number;
+  _count?: { payslips: number };
+}
+
+export interface Payslip {
+  id: string;
+  workedDays: number;
+  overtimeHours: string | number;
+  bonuses: string | number;
+  deductions: string | number;
+  cnssEmployee: string | number;
+  iprf: string | number;
+  grossPay: string | number;
+  netPay: string | number;
+  baseSalary: string | number;
+  status: string;
+  user?: User;
+  employee?: { matricule: string; jobTitle: string };
+}
+
+export interface ConsigneMovement {
+  id: string;
+  productFormat: string;
+  qtyIn: number;
+  qtyOut: number;
+  balanceAfter: number;
+  createdAt: string;
+  client?: { name: string; code: string };
+}
+
 export interface DashboardOverview {
   clientsCount: number;
   ordersToday: number;
@@ -486,10 +1953,29 @@ export interface Client {
   code: string;
   name: string;
   segment: string;
+  address?: string;
+  avenue?: string;
+  avenueNumber?: string;
+  quartier?: string;
+  commune?: string;
+  district?: string;
+  province?: string;
+  city?: string;
   zone?: string;
   phone?: string;
+  email?: string;
+  idDocumentType?: string;
+  idDocumentNumber?: string;
+  logoUrl?: string;
+  profession?: string;
+  latitude?: number;
+  longitude?: number;
   consigneBalance: number;
   consigneLimit: number;
+  creditBalance?: string | number;
+  creditLimit?: string | number;
+  /** Trop-percu disponible, imputable sur les prochaines commandes. */
+  advanceBalance?: string | number;
 }
 
 export interface Product {
@@ -498,7 +1984,10 @@ export interface Product {
   name: string;
   format: string;
   unitPrice: string | number;
+  /** Prix de la vidange, facture au client tant que le contenant n'est pas rendu. */
+  consigneAmount?: string | number;
   isReusable: boolean;
+  imageUrl?: string | null;
 }
 
 export interface Tour {
@@ -508,9 +1997,19 @@ export interface Tour {
   status: string;
   date: string;
   driverId?: string;
-  driver?: { firstName: string; lastName: string };
-  vehicle?: { plate: string; name: string };
+  driver?: { id: string; firstName: string; lastName: string };
+  vehicle?: { id: string; plate: string; name: string };
   orders?: Order[];
+  loadSheets?: LoadSheet[];
+}
+
+export interface LoadSheet {
+  id: string;
+  tourId: string;
+  validatedByStore: boolean;
+  validatedByDriver: boolean;
+  items: Array<{ productId: string; quantity: number; name?: string }>;
+  createdAt: string;
 }
 
 export interface Order {
@@ -519,14 +2018,26 @@ export interface Order {
   status: string;
   clientId?: string;
   totalAmount: string | number;
-  client?: { name: string };
+  consigneAmount?: string | number;
+  paidAmount?: string | number;
+  paymentStatus?: OrderPaymentStatus;
+  createdAt?: string;
+  client?: { name: string; segment?: string };
+  posSale?: { id: string } | null;
   lines?: Array<{
     productId: string;
     quantity: number;
     unitPrice: string | number;
+    bonusQuantity?: number;
+    bonus?: string | number;
+    emptiesReturned?: number;
+    consigneQuantity?: number;
+    consigneAmount?: string | number;
     product?: { name: string; isReusable: boolean };
   }>;
 }
+
+export type OrderPaymentStatus = 'IMPAYEE' | 'PARTIELLE' | 'SOLDEE';
 
 export interface StockItem {
   id: string;
@@ -536,20 +2047,396 @@ export interface StockItem {
   location: { name: string; code: string };
 }
 
+export type StockLocationType =
+  | 'MATIERES_PREMIERES'
+  | 'PRODUCTION'
+  | 'BIDONS_A_TRIER'
+  | 'BIDONS_LAVAGE'
+  | 'BIDONS_LIBERES'
+  | 'PRODUITS_FINIS'
+  | 'VEHICULE'
+  | 'QUARANTAINE'
+  | 'RETRAITEMENT'
+  | 'REPARATION'
+  | 'REBUT';
+
+export interface StockLocation {
+  id: string;
+  code: string;
+  name: string;
+  type: StockLocationType;
+  vehicleId?: string | null;
+  vehicle?: { id: string; plate: string; name: string } | null;
+}
+
+export interface CreateStockLocationInput {
+  code: string;
+  name: string;
+  type: StockLocationType;
+  vehicleId?: string;
+}
+
+export type PackagingKind = 'EMBALLAGE' | 'ETIQUETTE' | 'BOUCHON';
+export type PackagingPackFormat = 'BIDON_5L' | 'BIDON_10L' | 'BIDON_25L' | 'BONBONNE_5G';
+export type PackagingMovementType = 'ACHAT' | 'UTILISATION' | 'VENTE' | 'DECLASSEMENT';
+
+export interface PackagingSku {
+  id: string;
+  code: string;
+  name: string;
+  kind: PackagingKind;
+  format: PackagingPackFormat;
+  minStock: number;
+  isActive: boolean;
+  stock?: { id: string; quantity: number } | null;
+}
+
+export interface PackagingSummary {
+  EMBALLAGE: { kind: PackagingKind; quantity: number; skuCount: number; lowStock: number };
+  ETIQUETTE: { kind: PackagingKind; quantity: number; skuCount: number; lowStock: number };
+  BOUCHON: { kind: PackagingKind; quantity: number; skuCount: number; lowStock: number };
+}
+
+export interface PackagingMovement {
+  id: string;
+  skuId: string;
+  type: PackagingMovementType;
+  quantity: number;
+  unitCost?: string | number | null;
+  supplier?: string | null;
+  reference?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  sku: PackagingSku;
+  createdBy?: { firstName: string; lastName: string } | null;
+}
+
+export interface CreatePackagingSkuInput {
+  code: string;
+  name: string;
+  kind: PackagingKind;
+  format: PackagingPackFormat;
+  minStock?: number;
+}
+
+export interface CreatePackagingMovementInput {
+  skuId: string;
+  type: PackagingMovementType;
+  quantity: number;
+  unitCost?: number;
+  supplier?: string;
+  reference?: string;
+  notes?: string;
+}
+
 export interface Delivery {
   id: string;
   deliveryNumber: string;
   status: string;
   deliveredAt?: string;
-  client?: { name: string };
+  tourId?: string;
+  signatureUrl?: string | null;
+  photoUrl?: string | null;
+  client?: { id?: string; name: string };
+}
+
+export interface DeliveryTourReconciliation {
+  tour: Tour | null;
+  deliveries: number;
+  totals: { delivered: number; returned: number; refused: number; damaged: number };
+  loadSheets: LoadSheet[];
 }
 
 export interface Payment {
   id: string;
   amount: string | number;
   method: string;
+  reference?: string;
   createdAt: string;
+  clientId?: string;
+  orderId?: string | null;
+  /** Encaissement anticipe, garde au credit du client. */
+  isAdvance?: boolean;
   client?: { name: string };
+  order?: { id: string; orderNumber: string; totalAmount?: string | number; paidAmount?: string | number; paymentStatus?: OrderPaymentStatus } | null;
+}
+
+/** Commande non soldee, avec son reste a payer. */
+export interface OutstandingOrder {
+  id: string;
+  orderNumber: string;
+  createdAt: string;
+  client?: {
+    id: string;
+    code: string;
+    name: string;
+    creditLimit: string | number;
+    creditBalance: string | number;
+    advanceBalance?: string | number;
+  };
+  totalAmount: number;
+  consigneAmount: number;
+  paidAmount: number;
+  remaining: number;
+  paymentStatus: OrderPaymentStatus;
+}
+
+export interface ConsigneBalances {
+  formats: Array<{ productFormat: string; quantity: number; amount: number }>;
+  totalQuantity: number;
+  totalAmount: number;
+  /** Contenants dus par le client. */
+  dueQuantity: number;
+  /** Contenants rapportes en trop, deductibles des prochaines sorties. */
+  creditQuantity: number;
+}
+
+/** Repartition previsionnelle d'un versement avant validation. */
+export interface AllocationPreview {
+  amount: number;
+  lines: Array<{ orderId: string; orderNumber: string; due: number; allocated: number }>;
+  advance: number;
+}
+
+export type RecouvrementFilter = 'TOUS' | 'ARGENT' | 'VIDANGE' | 'CREDITEUR';
+
+export interface RecouvrementRow {
+  clientId: string;
+  code: string;
+  name: string;
+  segment: string;
+  phone: string | null;
+  moneyDue: number;
+  advance: number;
+  creditLimit: number;
+  emptiesDue: number;
+  emptiesCredit: number;
+  emptiesValue: number;
+  consigneLimit: number;
+  formats: Array<{ productFormat: string; quantity: number; amount: number }>;
+  unpaidOrders: number;
+  oldestDebtDays: number | null;
+  lastPaymentAt: string | null;
+  lastReturnAt: string | null;
+}
+
+/** Situation consolidee d'un client : argent, vidange, pieces et ecarts. */
+export interface ClientSituation {
+  client: {
+    id: string;
+    code: string;
+    name: string;
+    segment: string;
+    phone: string | null;
+    creditLimit: number;
+    consigneLimit: number;
+  };
+  money: { due: number; advance: number; limit: number; unpaidOrders: number };
+  empties: {
+    due: number;
+    credit: number;
+    value: number;
+    limit: number;
+    formats: Array<{ productFormat: string; quantity: number; amount: number }>;
+  };
+  orders: Array<{
+    id: string;
+    orderNumber: string;
+    createdAt: string;
+    totalAmount: number;
+    paidAmount: number;
+    remaining: number;
+    paymentStatus: OrderPaymentStatus;
+    ageDays: number;
+  }>;
+  payments: Array<{
+    id: string;
+    paymentNumber: string;
+    amount: number;
+    method: string;
+    isAdvance: boolean;
+    createdAt: string;
+    orderNumber: string | null;
+    orderPaymentStatus?: OrderPaymentStatus | null;
+  }>;
+  movements: Array<{
+    id: string;
+    productFormat: string;
+    qtyIn: number;
+    qtyOut: number;
+    balanceAfter: number;
+    source: string;
+    createdAt: string;
+  }>;
+  discrepancies: Discrepancy[];
+}
+
+export interface ConsigneDebtor {
+  client: { id: string; code: string; name: string; segment: string; consigneLimit: number; phone?: string | null };
+  totalQuantity: number;
+  totalAmount: number;
+  formats: Array<{ productFormat: string; quantity: number; amount: number }>;
+}
+
+export type DiscrepancyKind = 'CAISSE' | 'TOURNEE' | 'VIDANGE';
+export type DiscrepancyStatus = 'OUVERT' | 'JUSTIFIE' | 'REGULARISE';
+
+export interface Discrepancy {
+  id: string;
+  reference: string;
+  kind: DiscrepancyKind;
+  status: DiscrepancyStatus;
+  label: string;
+  expected: string | number;
+  actual: string | number;
+  variance: string | number;
+  productFormat?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  resolvedAt?: string | null;
+  client?: { id: string; code: string; name: string } | null;
+  tour?: { id: string; tourNumber: string; zone: string } | null;
+  resolvedBy?: { id: string; firstName: string; lastName: string } | null;
+}
+
+export interface CashClosing {
+  id: string;
+  reference: string;
+  openedAt: string;
+  closedAt?: string | null;
+  expectedAmount: string | number;
+  countedAmount: string | number;
+  variance: string | number;
+  status: 'OUVERTE' | 'CLOTUREE' | 'VALIDEE';
+  notes?: string | null;
+  cashier?: { id: string; firstName: string; lastName: string };
+  discrepancies?: Discrepancy[];
+}
+
+export interface TourReconciliation {
+  tour: { id: string; tourNumber: string; zone: string; date: string; driver: string };
+  hasLoadSheet: boolean;
+  lines: Array<{
+    productId: string;
+    productName: string;
+    loaded: number;
+    delivered: number;
+    returned: number;
+    refused: number;
+    damaged: number;
+    accounted: number;
+    variance: number;
+  }>;
+  totals: { loaded: number; accounted: number; variance: number };
+  recorded?: number;
+}
+
+export interface PosCatalog {
+  walkInClient: { id: string; code: string; name: string; segment: string };
+  products: Array<{ id: string; code: string; name: string; format: string; unitPrice: number; isReusable: boolean; imageUrl?: string | null }>;
+  clients: Array<{ id: string; code: string; name: string; segment: string; zone?: string | null; phone?: string | null }>;
+  methods: PaymentMethod[];
+}
+
+export interface PosQuoteLine {
+  productId: string;
+  code: string;
+  name: string;
+  format: string;
+  quantity: number;
+  catalogPrice: number;
+  unitPrice: number;
+  bonusQuantity: number;
+  bonus: number;
+  isReusable: boolean;
+  emptiesReturned: number;
+  consigneQuantity: number;
+  consigneAmount: number;
+  lineTotal: number;
+  ruleName: string | null;
+}
+
+export interface PosQuote {
+  client: { id: string; code: string; name: string; segment: string };
+  lines: PosQuoteLine[];
+  subtotal: number;
+  bonusQuantity: number;
+  bonus: number;
+  goodsAmount: number;
+  consigneQuantity: number;
+  consigneAmount: number;
+  total: number;
+  /** Avance disponible au credit du client. */
+  advanceAvailable: number;
+  /** Part du total couverte par cette avance. */
+  advanceApplied: number;
+  /** Ce qui reste a encaisser au comptoir. */
+  netToPay: number;
+}
+
+export interface PosSale {
+  id: string;
+  saleNumber: string;
+  method: PaymentMethod;
+  status: 'PAYEE' | 'ANNULEE';
+  subtotal: string | number;
+  bonus: string | number;
+  consigneAmount?: string | number;
+  /** Part du ticket reglee par l'avance du client, non encaissee en caisse. */
+  advanceApplied?: string | number;
+  totalAmount: string | number;
+  cashReceived?: string | number | null;
+  changeGiven?: string | number | null;
+  notes?: string | null;
+  createdAt: string;
+  client?: { id: string; code: string; name: string; segment: string };
+  cashier?: { id: string; firstName: string; lastName: string };
+  order?: { id: string; orderNumber: string; status: string } | null;
+  payment?: { id: string; paymentNumber: string; method: string; amount: string | number } | null;
+  lines?: Array<{
+    productId: string;
+    quantity: number;
+    catalogPrice: string | number;
+    unitPrice: string | number;
+    bonusQuantity?: number;
+    bonus: string | number;
+    emptiesReturned?: number;
+    consigneQuantity?: number;
+    consigneAmount?: string | number;
+    product?: { id: string; code: string; name: string; format: string };
+  }>;
+}
+
+export interface PosSalesResponse {
+  sales: PosSale[];
+  summary: { tickets: number; cancelled: number; revenue: number; averageTicket: number };
+}
+
+export interface PosCheckoutInput {
+  clientId?: string | null;
+  lines: Array<{ productId: string; quantity: number; emptiesReturned?: number }>;
+  method: PaymentMethod;
+  cashReceived?: number;
+  reference?: string;
+  notes?: string;
+  /** Montant encaisse ; inferieur au net = acompte sur la vente en cours. */
+  amountPaid?: number;
+}
+
+export interface PosAdvanceInput {
+  clientId: string;
+  amount: number;
+  method: PaymentMethod;
+  reference?: string;
+  notes?: string;
+}
+
+export interface PosAcompteInput {
+  orderId: string;
+  amount: number;
+  method: PaymentMethod;
+  cashReceived?: number;
+  reference?: string;
 }
 
 export interface ProductionOrder {
@@ -568,7 +2455,9 @@ export interface QualityCheck {
   id: string;
   lotNumber: string;
   ph?: number;
+  chlorineFree?: number;
   tds?: number;
+  turbidity?: number;
   microbiologyOk?: boolean;
   status: string;
 }
@@ -953,6 +2842,19 @@ export interface CreatePortalAccountInput {
   clientId: string;
 }
 
+export interface RegisterPortalInput {
+  email: string;
+  password: string;
+  fullName: string;
+  phone: string;
+  commune: string;
+  avenue?: string;
+  quartier?: string;
+  district?: string;
+  companyName?: string;
+  segment?: ClientSegment;
+}
+
 export interface PortalMe {
   account: PortalAccount;
   client: Client & { loyaltyPoints: number; loyaltyTier: string; walletBalance: string | number };
@@ -968,9 +2870,21 @@ export interface PortalCatalogItem {
   name: string;
   format: string;
   isReusable: boolean;
+  imageUrl?: string | null;
   basePrice: number;
   segmentPrice: number;
-  discountPct: number;
+  bonusPct: number;
+  tiers?: Array<{
+    id: string;
+    name: string;
+    productId?: string | null;
+    minQuantity: number;
+    maxQuantity: number | null;
+    type: PricingRuleType;
+    value: number;
+    priority: number;
+    stepQuantity?: number;
+  }>;
 }
 
 export interface DeliveryTracking {
@@ -1084,6 +2998,8 @@ export interface DashboardPanelPref {
 
 export interface UserPreference {
   theme: string;
+  emailNotifications: boolean;
+  whatsappNotifications: boolean;
   dashboardLayout?: DashboardPanelPref[];
 }
 

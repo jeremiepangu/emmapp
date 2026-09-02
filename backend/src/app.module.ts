@@ -10,6 +10,8 @@ import { ToursModule } from './tours/tours.module';
 import { DeliveriesModule } from './deliveries/deliveries.module';
 import { PaymentsModule } from './payments/payments.module';
 import { ConsignesModule } from './consignes/consignes.module';
+import { EcartsModule } from './ecarts/ecarts.module';
+import { RecouvrementModule } from './recouvrement/recouvrement.module';
 import { SyncModule } from './sync/sync.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { EmmapureModule } from './emmapure/emmapure.module';
@@ -26,6 +28,14 @@ import { IntegrationsModule } from './integrations/integrations.module';
 import { SecurityModule } from './security/security.module';
 import { PreferencesModule } from './preferences/preferences.module';
 import { SearchModule } from './search/search.module';
+import { HrModule } from './hr/hr.module';
+import { PricingModule } from './pricing/pricing.module';
+import { ObjectivesModule } from './objectives/objectives.module';
+import { PosModule } from './pos/pos.module';
+import { PackagingModule } from './packaging/packaging.module';
+import { AuthorizationsModule } from './authorizations/authorizations.module';
+import { ContractsModule } from './contracts/contracts.module';
+import { FinanceModule } from './finance/finance.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -42,6 +52,8 @@ import { HealthController } from './health.controller';
     DeliveriesModule,
     PaymentsModule,
     ConsignesModule,
+    EcartsModule,
+    RecouvrementModule,
     SyncModule,
     DashboardModule,
     EmmapureModule,
@@ -57,6 +69,14 @@ import { HealthController } from './health.controller';
     SecurityModule,
     PreferencesModule,
     SearchModule,
+    HrModule,
+    PricingModule,
+    ObjectivesModule,
+    PosModule,
+    PackagingModule,
+    AuthorizationsModule,
+    ContractsModule,
+    FinanceModule,
   ],
   controllers: [HealthController],
 })

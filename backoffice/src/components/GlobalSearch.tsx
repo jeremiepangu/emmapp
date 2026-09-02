@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, GlobalSearchResults } from '../api';
+import { Icon } from './ErpIcons';
 
 export default function GlobalSearch() {
   const [q, setQ] = useState('');
@@ -32,10 +33,13 @@ export default function GlobalSearch() {
   return (
     <div className="erp-global-search" ref={boxRef}>
       <label className="sr-only" htmlFor="global-search">Recherche globale</label>
+      <span className="erp-global-search-icon" aria-hidden>
+        <Icon name="search" size={18} />
+      </span>
       <input
         id="global-search"
         type="search"
-        placeholder="Client, commande, lot…"
+        placeholder="Rechercher…"
         value={q}
         onChange={(e) => { setQ(e.target.value); setOpen(true); }}
         onFocus={() => setOpen(true)}

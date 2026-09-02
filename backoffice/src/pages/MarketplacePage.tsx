@@ -3,6 +3,9 @@ import { api, Client, CreateQuoteRequestInput, Product, QuoteRequest, QuoteReque
 import { usePermissions } from '../hooks/usePermissions';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
+import DocButton from '../components/DocButton';
+import { printQuote, printQuotesList } from '../documents/templates';
+import { sheetQuotes } from '../excel/specs';
 
 export default function MarketplacePage() {
   const { can } = usePermissions();
@@ -39,14 +42,25 @@ export default function MarketplacePage() {
   return (
     <div className="erp-page">
       <ErpPageHeader
+        excel={{ filename: 'marketplace', sheets: [sheetQuotes(quotes)] }}
         title="Marketplace B2B"
         subtitle="Demandes de cotation des grossistes et détaillants, conversion en commande interne"
+        actions={
+          <>
+            <DocButton label="Imprimer les devis" onClick={() => printQuotesList(quotes)} />
+            {can('marketplace', 'create') && (
+              <button type="button" className="erp-btn" onClick={() => document.getElementById('marketplace-form')?.scrollIntoView({ behavior: 'smooth' })}>
+                + Nouvelle demande
+              </button>
+            )}
+          </>
+        }
       />
       {error && <p className="error-msg">{error}</p>}
 
       {can('marketplace', 'create') && (
         <ErpPanel title="Nouvelle demande" padded>
-          <form onSubmit={submit} className="form-row">
+          <form id="marketplace-form" onSubmit={submit} className="form-row">
             <div className="form-group"><label>Société</label><input value={form.companyName} onChange={(e) => setForm({ ...form, companyName: e.target.value })} required /></div>
             <div className="form-group"><label>Email</label><input type="email" value={form.contactEmail} onChange={(e) => setForm({ ...form, contactEmail: e.target.value })} required /></div>
             <div className="form-group">
@@ -91,7 +105,8 @@ export default function MarketplacePage() {
                 <td>{q.lines.map((l) => `${l.productName} × ${l.quantity}`).join(', ')}</td>
                 <td>{q.quotedAmount != null ? Number(q.quotedAmount).toLocaleString('fr-FR') : '—'}</td>
                 <td><StatusPill status={q.status} /></td>
-                <td>
+                <td className="erp-row-actions">
+                  <DocButton label="Devis" onClick={() => printQuote(q)} />
                   {can('marketplace', 'update') && q.status === 'NOUVELLE' && (
                     <>
                       <input
@@ -106,6 +121,9 @@ export default function MarketplacePage() {
                   )}
                   {can('marketplace', 'validate') && q.status === 'ACCEPTEE' && (
                     <button type="button" className="erp-btn erp-btn--sm" onClick={() => api.convertQuoteRequest(q.id).then(load)}>Convertir en commande</button>
+                  )}
+                  {can('marketplace', 'delete') && (q.status === 'NOUVELLE' || q.status === 'REFUSEE') && (
+                    <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => api.deleteQuoteRequest(q.id).then(load)}>Supprimer</button>
                   )}
                 </td>
               </tr>

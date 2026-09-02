@@ -3,20 +3,13 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { ClientSegment, NotificationCategory, NotificationType, OrderStatus, PaymentMethod, Prisma, UserRole } from '@prisma/client';
+import { NotificationCategory, NotificationType, OrderStatus, PaymentMethod, Prisma, UserRole } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { NotificationsService } from '../notifications/notifications.service';
+import { PaymentsService } from '../payments/payments.service';
+import { PricingService } from '../pricing/pricing.service';
 import { PrismaService } from '../prisma/prisma.module';
 import { ACCOUNT_SELECT } from './portal-auth.service';
-
-const SEGMENT_DISCOUNT: Record<ClientSegment, number> = {
-  PARTICULIER: 0,
-  BOUTIQUE: 0.03,
-  DETAILLANT: 0.05,
-  SUPERMARCHE: 0.07,
-  HOTEL_RESTAURANT: 0.08,
-  ENTREPRISE: 0.1,
-};
 
 /** 100 points = 1 000 CDF de portefeuille. */
 const POINTS_TO_WALLET = 10;
@@ -27,6 +20,8 @@ export class PortalService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationsService,
+    private pricing: PricingService,
+    private payments: PaymentsService,
   ) {}
 
   async me(clientId: string, accountId: string) {
@@ -61,19 +56,22 @@ export class PortalService {
   async catalog(clientId: string) {
     const client = await this.prisma.client.findUnique({ where: { id: clientId } });
     if (!client) throw new NotFoundException();
-    const discountPct = SEGMENT_DISCOUNT[client.segment] * 100;
+    const rules = await this.pricing.findActive();
+    const ctx = this.pricing.ctxFromClient(client);
     const products = await this.prisma.product.findMany({ where: { isActive: true } });
     return products.map((p) => {
-      const basePrice = Number(p.unitPrice);
+      const priced = this.pricing.apply(rules, ctx, p, 1);
       return {
         id: p.id,
         code: p.code,
         name: p.name,
         format: p.format,
         isReusable: p.isReusable,
-        basePrice,
-        segmentPrice: Math.round(basePrice * (1 - SEGMENT_DISCOUNT[client.segment])),
-        discountPct,
+        imageUrl: p.imageUrl,
+        basePrice: Number(p.unitPrice),
+        segmentPrice: Number(priced.unitPrice),
+        bonusPct: priced.bonusPct,
+        tiers: this.pricing.tiersFor(rules, ctx, p.id),
       };
     });
   }
@@ -87,19 +85,27 @@ export class PortalService {
   }
 
   async createOrder(clientId: string, body: { lines: Array<{ productId: string; quantity: number }>; notes?: string }) {
+    const lines = (body.lines ?? []).filter((line) => line.quantity > 0);
+    if (!lines.length) throw new BadRequestException('Ajoutez au moins un produit');
     const client = await this.prisma.client.findUnique({ where: { id: clientId } });
     if (!client) throw new NotFoundException();
     const count = await this.prisma.order.count();
     const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const orderNumber = `CMD-${date}-${String(count + 1).padStart(4, '0')}`;
     let total = new Prisma.Decimal(0);
-    const linesData: Array<{ productId: string; quantity: number; unitPrice: Prisma.Decimal; discount: number }> = [];
-    for (const line of body.lines) {
+    const linesData: Array<{ productId: string; quantity: number; unitPrice: Prisma.Decimal; bonusQuantity: number; bonus: Prisma.Decimal }> = [];
+    for (const line of lines) {
       const product = await this.prisma.product.findUnique({ where: { id: line.productId } });
       if (!product) throw new NotFoundException(`Produit ${line.productId} introuvable`);
-      const unit = product.unitPrice.mul(1 - SEGMENT_DISCOUNT[client.segment]);
-      total = total.add(unit.mul(line.quantity));
-      linesData.push({ productId: product.id, quantity: line.quantity, unitPrice: unit, discount: 0 });
+      const priced = await this.pricing.priceLine(this.pricing.ctxFromClient(client), product, line.quantity);
+      total = total.add(priced.unitPrice.mul(line.quantity));
+      linesData.push({
+        productId: product.id,
+        quantity: line.quantity,
+        unitPrice: priced.unitPrice,
+        bonusQuantity: priced.bonusQuantity,
+        bonus: priced.bonus,
+      });
     }
     const order = await this.prisma.order.create({
       data: {
@@ -116,7 +122,7 @@ export class PortalService {
       [UserRole.COMMERCIAL, UserRole.CHEF_EXPLOITATION, UserRole.ADMIN],
       {
         title: 'Commande portail',
-        message: `${client.name} a passé ${order.orderNumber} (${Number(total).toLocaleString('fr-FR')} CDF).`,
+        message: `${client.name} a passé ${order.orderNumber} (${Math.round(Number(total))} CDF).`,
         type: NotificationType.INFO,
         category: NotificationCategory.PORTAIL,
         link: '/orders',
@@ -201,33 +207,20 @@ export class PortalService {
       const delivery = await this.prisma.delivery.findFirst({ where: { orderId: body.orderId, clientId } });
       deliveryId = delivery?.id;
     }
-    const count = await this.prisma.payment.count();
-    const paymentNumber = `PAY-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(count + 1).padStart(4, '0')}`;
     const collector = await this.prisma.user.findFirst({ where: { role: UserRole.CAISSIER, isActive: true } })
       ?? await this.prisma.user.findFirst({ where: { role: UserRole.ADMIN } });
     if (!collector) throw new BadRequestException('Aucun caissier pour rattacher l\'encaissement');
-    const payment = await this.prisma.payment.create({
-      data: {
-        paymentNumber,
+    return this.payments.create(
+      {
         clientId,
+        orderId: body.orderId,
         deliveryId,
         amount: body.amount,
         method: body.method,
         reference: body.reference || `PORTAL-${Date.now()}`,
-        collectedBy: collector.id,
       },
-    });
-    await this.notifications.notifyRoles(
-      [UserRole.CAISSIER, UserRole.COMPTABLE, UserRole.ADMIN],
-      {
-        title: 'Paiement portail',
-        message: `${body.amount} CDF via ${body.method}`,
-        type: NotificationType.SUCCESS,
-        category: NotificationCategory.PAIEMENT,
-        link: '/payments',
-      },
+      collector.id,
     );
-    return payment;
   }
 
   async loyalty(clientId: string) {
@@ -235,8 +228,8 @@ export class PortalService {
     if (!client) throw new NotFoundException();
     const tiers = [
       { name: 'BRONZE', min: 0, next: 'ARGENT', threshold: 100, benefits: ['Cumul de points à chaque livraison'] },
-      { name: 'ARGENT', min: 100, next: 'OR', threshold: 300, benefits: ['Remise boutique', 'Priorité de tournée'] },
-      { name: 'OR', min: 300, next: undefined, threshold: undefined, benefits: ['Remise entreprise', 'Échange de points', 'Volume bonus'] },
+      { name: 'ARGENT', min: 100, next: 'OR', threshold: 300, benefits: ['Bonus boutique', 'Priorité de tournée'] },
+      { name: 'OR', min: 300, next: undefined, threshold: undefined, benefits: ['Bonus entreprise', 'Échange de points', 'Volume bonus'] },
     ];
     const current = tiers.find((t) => t.name === client.loyaltyTier) ?? tiers[0];
     const pointsToNextTier = current.threshold ? Math.max(0, current.threshold - client.loyaltyPoints) : undefined;
@@ -290,7 +283,7 @@ export class PortalService {
     const passwordHash = await bcrypt.hash(data.password, 10);
     return this.prisma.portalAccount.create({
       data: {
-        email: data.email,
+        email: data.email.trim().toLowerCase(),
         passwordHash,
         fullName: data.fullName,
         clientId: data.clientId,

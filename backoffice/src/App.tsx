@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './AuthContext';
 import { ThemeProvider } from './ThemeContext';
 import { PortalProvider, usePortal } from './PortalContext';
@@ -11,16 +11,26 @@ import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import ClientsPage from './pages/ClientsPage';
 import ProductsPage from './pages/ProductsPage';
+import PricingPage from './pages/PricingPage';
+import PosPage from './pages/PosPage';
 import OrdersPage from './pages/OrdersPage';
 import ToursPage from './pages/ToursPage';
+import VehiclesPage from './pages/VehiclesPage';
 import StockPage from './pages/StockPage';
+import PackagingPage from './pages/PackagingPage';
 import DeliveriesPage from './pages/DeliveriesPage';
 import PaymentsPage from './pages/PaymentsPage';
+import FinancePage from './pages/FinancePage';
 import ProductionPage from './pages/ProductionPage';
 import QualityPage from './pages/QualityPage';
 import LoyaltyPage from './pages/LoyaltyPage';
 import HrPage from './pages/HrPage';
+import ObjectivesPage from './pages/ObjectivesPage';
+import ActivityPage from './pages/ActivityPage';
+import PayrollPage from './pages/PayrollPage';
 import ConsignesPage from './pages/ConsignesPage';
+import EcartsPage from './pages/EcartsPage';
+import RecouvrementPage from './pages/RecouvrementPage';
 import ObservabilityPage from './pages/ObservabilityPage';
 import UsersPage from './pages/UsersPage';
 import NotificationsPage from './pages/NotificationsPage';
@@ -31,10 +41,15 @@ import IotPage from './pages/IotPage';
 import RoutingPage from './pages/RoutingPage';
 import EsgPage from './pages/EsgPage';
 import SecurityPage from './pages/SecurityPage';
+import AuthorizationsPage from './pages/AuthorizationsPage';
+import ContractsPage from './pages/ContractsPage';
 import MarketplacePage from './pages/MarketplacePage';
 import IntegrationsPage from './pages/IntegrationsPage';
 import PortalAccountsPage from './pages/PortalAccountsPage';
 import PortalLoginPage from './pages/portal/PortalLoginPage';
+import PortalRegisterPage from './pages/portal/PortalRegisterPage';
+import WebsiteLayout from './website/WebsiteLayout';
+import WebsiteHomePage from './website/pages/WebsiteHomePage';
 import {
   PortalLayout,
   PortalHomePage,
@@ -66,12 +81,21 @@ function ProtectedLayout() {
         <ErpTopBar
           onMenuToggle={() => setMenuOpen(!menuOpen)}
           onLogout={logout}
-          userName={`${user.firstName} ${user.lastName} · ${roleLabel}`}
+          userName={`${user.firstName} ${user.lastName}`}
+          userRole={roleLabel}
           showNotifications={menuItems.some((m) => m.resource === 'notifications')}
         />
         <main className="erp-content">
           <Outlet />
         </main>
+        <footer className="erp-shell-footer">
+          <span>© {new Date().getFullYear()} Emmanuel Services SARLU</span>
+          <div className="erp-shell-footer-links">
+            <a href="https://www.emmas.cd" target="_blank" rel="noreferrer">Site public</a>
+            <a href="mailto:contact@emmas.cd">Contact</a>
+            <a href="tel:+243813170215">+243 813 170 215</a>
+          </div>
+        </footer>
       </div>
     </div>
   );
@@ -90,16 +114,30 @@ function PortalGate({ children }: { children: JSX.Element }) {
 
 function AppRoutes() {
   const { user, isLoading } = useAuth();
+  const { pathname } = useLocation();
+  const isPublicSite =
+    pathname === '/'
+    || ['/eau', '/systeme', '/origine', '/produits', '/engagement', '/contact', '/portail/connexion', '/portail/inscription'].includes(pathname);
 
-  if (isLoading) return <div className="loading-screen">Chargement...</div>;
+  if (isLoading && !isPublicSite) return <div className="loading-screen">Chargement...</div>;
 
-  const home = '/';
+  const home = '/app';
 
   return (
     <Routes>
+      <Route element={<WebsiteLayout />}>
+        <Route path="/" element={<WebsiteHomePage />} />
+        <Route path="/eau" element={<Navigate to="/#qualite" replace />} />
+        <Route path="/systeme" element={<Navigate to="/#services" replace />} />
+        <Route path="/origine" element={<Navigate to="/#apropos" replace />} />
+        <Route path="/produits" element={<Navigate to="/#produits" replace />} />
+        <Route path="/engagement" element={<Navigate to="/#apropos" replace />} />
+        <Route path="/contact" element={<Navigate to="/#contact" replace />} />
+      </Route>
       <Route path="/login" element={user ? <Navigate to={home} /> : <LoginPage />} />
       <Route path="/mobile" element={<MobilePage />} />
       <Route path="/portail/connexion" element={<PortalLoginPage />} />
+      <Route path="/portail/inscription" element={<PortalRegisterPage />} />
       <Route
         path="/portail"
         element={(
@@ -118,19 +156,30 @@ function AppRoutes() {
         <Route path="assistant" element={<PortalAssistantPage />} />
       </Route>
       <Route element={<ProtectedLayout />}>
-        <Route path="/" element={<GuardedRoute resource="dashboard" element={<DashboardPage />} />} />
+        <Route path="/app" element={<GuardedRoute resource="dashboard" element={<DashboardPage />} />} />
         <Route path="/clients" element={<GuardedRoute resource="clients" element={<ClientsPage />} />} />
+        <Route path="/contracts" element={<GuardedRoute resource="contracts" element={<ContractsPage />} />} />
         <Route path="/orders" element={<GuardedRoute resource="orders" element={<OrdersPage />} />} />
+        <Route path="/pos" element={<GuardedRoute resource="pos" element={<PosPage />} />} />
         <Route path="/products" element={<GuardedRoute resource="products" element={<ProductsPage />} />} />
+        <Route path="/pricing" element={<GuardedRoute resource="pricing" element={<PricingPage />} />} />
         <Route path="/tours" element={<GuardedRoute resource="tours" element={<ToursPage />} />} />
+        <Route path="/vehicles" element={<GuardedRoute resource="vehicles" element={<VehiclesPage />} />} />
         <Route path="/stock" element={<GuardedRoute resource="stock" element={<StockPage />} />} />
+        <Route path="/packaging" element={<GuardedRoute resource="packaging" element={<PackagingPage />} />} />
         <Route path="/deliveries" element={<GuardedRoute resource="deliveries" element={<DeliveriesPage />} />} />
         <Route path="/payments" element={<GuardedRoute resource="payments" element={<PaymentsPage />} />} />
+        <Route path="/finance" element={<GuardedRoute resource="finance" element={<FinancePage />} />} />
         <Route path="/production" element={<GuardedRoute resource="production" element={<ProductionPage />} />} />
         <Route path="/quality" element={<GuardedRoute resource="quality" element={<QualityPage />} />} />
         <Route path="/loyalty" element={<GuardedRoute resource="loyalty" element={<LoyaltyPage />} />} />
         <Route path="/consignes" element={<GuardedRoute resource="consignes" element={<ConsignesPage />} />} />
+        <Route path="/ecarts" element={<GuardedRoute resource="ecarts" element={<EcartsPage />} />} />
+        <Route path="/recouvrement" element={<GuardedRoute resource="recouvrement" element={<RecouvrementPage />} />} />
         <Route path="/hr" element={<GuardedRoute resource="hr" element={<HrPage />} />} />
+        <Route path="/objectives" element={<GuardedRoute resource="objectives" element={<ObjectivesPage />} />} />
+        <Route path="/activity" element={<GuardedRoute resource="activity" element={<ActivityPage />} />} />
+        <Route path="/payroll" element={<GuardedRoute resource="payroll" element={<PayrollPage />} />} />
         <Route path="/observability" element={<GuardedRoute resource="observability" element={<ObservabilityPage />} />} />
         <Route path="/users" element={<GuardedRoute resource="users" element={<UsersPage />} />} />
         <Route path="/notifications" element={<GuardedRoute resource="notifications" element={<NotificationsPage />} />} />
@@ -140,6 +189,7 @@ function AppRoutes() {
         <Route path="/routing" element={<GuardedRoute resource="routing" element={<RoutingPage />} />} />
         <Route path="/esg" element={<GuardedRoute resource="esg" element={<EsgPage />} />} />
         <Route path="/security" element={<GuardedRoute resource="security" element={<SecurityPage />} />} />
+        <Route path="/authorizations" element={<GuardedRoute resource="authorizations" element={<AuthorizationsPage />} />} />
         <Route path="/marketplace" element={<GuardedRoute resource="marketplace" element={<MarketplacePage />} />} />
         <Route path="/integrations" element={<GuardedRoute resource="integrations" element={<IntegrationsPage />} />} />
         <Route path="/portal-accounts" element={<GuardedRoute resource="portal" element={<PortalAccountsPage />} />} />
