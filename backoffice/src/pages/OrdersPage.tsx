@@ -1,8 +1,7 @@
 import { useEffect, useState, FormEvent } from 'react';
 import { api, Order, Client, Product, CreateOrderInput, PricePreview, User, PaymentMethod } from '../api';
 import { usePermissions } from '../hooks/usePermissions';
-import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
-import StatusPill from '../components/ErpUi';
+import StatusPill, { EmptyState, ErpPageHeader, ErpPanel, TableLoading } from '../components/ErpUi';
 import Modal from '../components/Modal';
 import ClientSituationPanel from '../components/ClientSituationPanel';
 import DocButton from '../components/DocButton';
@@ -31,9 +30,10 @@ export default function OrdersPage() {
   const [payOrder, setPayOrder] = useState<Order | null>(null);
   const [payForm, setPayForm] = useState({ amount: 0, method: 'ESPECES' as PaymentMethod, reference: '' });
   const [payError, setPayError] = useState('');
+  const [loading, setLoading] = useState(true);
   const selectedProduct = products.find((p) => p.id === form.productId);
 
-  const load = () => api.getOrders().then(setOrders);
+  const load = () => api.getOrders().then(setOrders).finally(() => setLoading(false));
 
   useEffect(() => {
     load();
@@ -137,7 +137,11 @@ export default function OrdersPage() {
           </>
         }
       />
+      {payError && !payOrder && <p className="error-msg">{payError}</p>}
       <ErpPanel title={`Historique (${orders.length})`}>
+        {loading && <TableLoading label="Chargement des commandes…" />}
+        {!loading && orders.length === 0 && <EmptyState>Aucune commande enregistrée pour le moment.</EmptyState>}
+        {!loading && orders.length > 0 && (
         <table className="erp-table">
           <thead>
             <tr>
@@ -181,16 +185,35 @@ export default function OrdersPage() {
                     <button type="button" className="erp-btn erp-btn--sm" onClick={() => api.validateOrder(o.id).then(load)}>Valider</button>
                   )}
                   {can('orders', 'update') && o.status !== 'LIVREE' && o.status !== 'ANNULEE' && (
-                    <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => api.cancelOrder(o.id).then(load)}>Annuler</button>
+                    <button
+                      type="button"
+                      className="erp-btn erp-btn--sm erp-btn--ghost"
+                      onClick={() => {
+                        if (!window.confirm(`Annuler la commande ${o.orderNumber} ?`)) return;
+                        api.cancelOrder(o.id).then(load);
+                      }}
+                    >
+                      Annuler
+                    </button>
                   )}
                   {can('orders', 'delete') && o.status !== 'LIVREE' && (
-                    <button type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => api.deleteOrder(o.id).then(load)}>Supprimer</button>
+                    <button
+                      type="button"
+                      className="erp-btn erp-btn--sm erp-btn--ghost"
+                      onClick={() => {
+                        if (!window.confirm(`Supprimer définitivement la commande ${o.orderNumber} ?`)) return;
+                        api.deleteOrder(o.id).then(load);
+                      }}
+                    >
+                      Supprimer
+                    </button>
                   )}
                 </td>
               </tr>
             );})}
           </tbody>
         </table>
+        )}
       </ErpPanel>
 
       <Modal title="Nouvelle commande" open={showForm} onClose={() => setShowForm(false)}>

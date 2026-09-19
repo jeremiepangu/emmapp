@@ -1,11 +1,12 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { AssistantChannel, PaymentMethod, UserRole } from '@prisma/client';
+import { AssistantChannel, UserRole } from '@prisma/client';
 import { Public } from '../common/decorators/roles.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { AssistantService } from '../assistant/assistant.service';
 import { RegisterPortalDto } from './dto/register-portal.dto';
+import { CreatePortalOrderDto, LoginPortalDto, PayPortalDto, RedeemLoyaltyDto } from './dto/portal.dto';
 import { PortalAuthGuard } from './portal-auth.guard';
 import { PortalAuthService } from './portal-auth.service';
 import { PortalService } from './portal.service';
@@ -22,7 +23,7 @@ export class PortalController {
 
   @Public()
   @Post('auth/login')
-  login(@Body() body: { email: string; password: string }) {
+  login(@Body() body: LoginPortalDto) {
     return this.auth.login(body.email, body.password);
   }
 
@@ -54,7 +55,7 @@ export class PortalController {
   @Post('orders')
   createOrder(
     @Req() req: { portal: { clientId: string } },
-    @Body() body: { lines: Array<{ productId: string; quantity: number }>; notes?: string },
+    @Body() body: CreatePortalOrderDto,
   ) {
     return this.portal.createOrder(req.portal.clientId, body);
   }
@@ -81,7 +82,7 @@ export class PortalController {
   @Post('payments')
   pay(
     @Req() req: { portal: { clientId: string } },
-    @Body() body: { orderId?: string; amount: number; method: PaymentMethod; reference?: string },
+    @Body() body: PayPortalDto,
   ) {
     return this.portal.pay(req.portal.clientId, body);
   }
@@ -94,7 +95,7 @@ export class PortalController {
 
   @UseGuards(PortalAuthGuard)
   @Post('loyalty/redeem')
-  redeem(@Req() req: { portal: { clientId: string } }, @Body() body: { points: number }) {
+  redeem(@Req() req: { portal: { clientId: string } }, @Body() body: RedeemLoyaltyDto) {
     return this.portal.redeem(req.portal.clientId, body.points);
   }
 

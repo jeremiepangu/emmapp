@@ -2874,6 +2874,7 @@ export interface PortalCatalogItem {
   basePrice: number;
   segmentPrice: number;
   bonusPct: number;
+  availableQty?: number;
   tiers?: Array<{
     id: string;
     name: string;

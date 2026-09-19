@@ -58,6 +58,9 @@ const STATUS_MAP: Record<string, { label: string; className: string }> = {
   UTILISATION: { label: 'Utilisation', className: 'erp-pill erp-pill--blue' },
   VENTE: { label: 'Vente', className: 'erp-pill erp-pill--blue' },
   DECLASSEMENT: { label: 'Déclassement', className: 'erp-pill erp-pill--red' },
+  IMPAYEE: { label: 'Impayée', className: 'erp-pill erp-pill--red' },
+  PARTIELLE: { label: 'Partielle', className: 'erp-pill erp-pill--orange' },
+  SOLDEE: { label: 'Soldée', className: 'erp-pill erp-pill--green' },
 };
 
 export default function StatusPill({ status, label }: { status: string; label?: string }) {
@@ -94,6 +97,18 @@ export function ErpPageHeader({
         </div>
       )}
     </div>
+  );
+}
+
+export function EmptyState({ children }: { children: ReactNode }) {
+  return <p className="erp-table-empty">{children}</p>;
+}
+
+export function TableLoading({ label = 'Chargement…' }: { label?: string }) {
+  return (
+    <p className="erp-loading" role="status" aria-live="polite">
+      {label}
+    </p>
   );
 }
 

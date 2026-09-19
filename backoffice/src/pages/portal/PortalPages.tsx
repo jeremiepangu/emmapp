@@ -1,9 +1,8 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { Link, NavLink, Navigate, Outlet, useNavigate } from 'react-router-dom';
-import { portalApi, DeliveryTracking, Order, PaymentMethod, PortalCatalogItem, PortalConsigne, PortalInvoice, PortalLoyalty } from '../../api';
+import { portalApi, Delivery, DeliveryTracking, Order, PaymentMethod, PortalCatalogItem, PortalConsigne, PortalInvoice, PortalLoyalty } from '../../api';
 import { usePortal } from '../../PortalContext';
-import StatusPill from '../../components/ErpUi';
-import { ErpPageHeader, ErpPanel } from '../../components/ErpUi';
+import StatusPill, { EmptyState, ErpPageHeader, ErpPanel, TableLoading } from '../../components/ErpUi';
 import DocButton from '../../components/DocButton';
 import ProductSaleCard, { ProductSaleGrid } from '../../components/ProductSaleCard';
 import { printClientSheet, printDeliveryTracking, printOrder, printOrdersList, printPortalConsignes, printPortalInvoice, printPortalLoyalty } from '../../documents/templates';
@@ -17,6 +16,35 @@ const PAY_METHODS: { value: PaymentMethod; label: string }[] = [
   { value: 'WAVE', label: 'Wave' },
   { value: 'MOBILE_MONEY', label: 'Mobile Money' },
 ];
+
+const CART_KEY = 'emmapp-portal-cart';
+
+function readCart(): Record<string, number> {
+  try {
+    const raw = sessionStorage.getItem(CART_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, number>;
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function persistCart(qty: Record<string, number>) {
+  sessionStorage.setItem(CART_KEY, JSON.stringify(qty));
+}
+
+function invoicePaymentStatus(invoice: PortalInvoice) {
+  if (invoice.balance <= 0) return 'SOLDEE';
+  if (invoice.paidAmount > 0) return 'PARTIELLE';
+  return 'IMPAYEE';
+}
+
+function osmEmbed(lat: number, lng: number) {
+  const d = 0.02;
+  const bbox = `${lng - d},${lat - d},${lng + d},${lat + d}`;
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik&marker=${lat}%2C${lng}`;
+}
 
 function priceForQty(item: PortalCatalogItem, quantity: number) {
   const qty = Math.max(1, quantity);
@@ -155,23 +183,58 @@ export function PortalHomePage() {
 export function PortalCatalogPage() {
   const { refresh } = usePortal();
   const [items, setItems] = useState<PortalCatalogItem[]>([]);
-  const [qty, setQty] = useState<Record<string, number>>({});
+  const [qty, setQty] = useState<Record<string, number>>(readCart);
+  const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
 
-  useEffect(() => { portalApi.getCatalog().then(setItems); }, []);
+  const updateQty = (next: Record<string, number>) => {
+    setQty(next);
+    persistCart(next);
+  };
+
+  useEffect(() => {
+    portalApi.getCatalog()
+      .then(setItems)
+      .catch((err) => setError(err instanceof Error ? err.message : 'Catalogue indisponible'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const cartLines = useMemo(() => (
+    items
+      .map((item) => {
+        const quantity = qty[item.id] ?? 0;
+        if (quantity <= 0) return null;
+        const priced = priceForQty(item, quantity);
+        return { item, quantity, priced, lineTotal: priced.unit * quantity };
+      })
+      .filter((row): row is NonNullable<typeof row> => Boolean(row))
+  ), [items, qty]);
+  const cartTotal = cartLines.reduce((sum, line) => sum + line.lineTotal, 0);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    const lines = Object.entries(qty).filter(([, q]) => q > 0).map(([productId, quantity]) => ({ productId, quantity }));
-    if (!lines.length) return;
+    const lines = cartLines.map(({ item, quantity }) => ({ productId: item.id, quantity }));
+    if (!lines.length) {
+      setError('Ajoutez au moins un produit au panier.');
+      return;
+    }
+    setSubmitting(true);
+    setError('');
+    setMessage('');
     try {
       await portalApi.createOrder({ lines });
+      persistCart({});
+      setQty({});
       setMessage('Commande enregistrée.');
       await refresh();
       navigate('/portail/commandes');
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : 'Commande impossible');
+      setError(err instanceof Error ? err.message : 'Commande impossible');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -214,49 +277,80 @@ export function PortalCatalogPage() {
         }
       />
       {message && <p className="erp-success">{message}</p>}
+      {error && <p className="error-msg">{error}</p>}
       <form onSubmit={submit}>
         <ErpPanel title="Catalogue">
-          <ProductSaleGrid>
-            {items.map((p) => {
-              const q = qty[p.id] ?? 0;
-              const priced = priceForQty(p, q || 1);
-              return (
-                <ProductSaleCard
-                  key={p.id}
-                  name={p.name}
-                  code={p.code}
-                  format={p.format}
-                  imageUrl={p.imageUrl}
-                  price={priced.unit}
-                  quantity={q}
-                  onQuantityChange={(next) => setQty({ ...qty, [p.id]: next })}
-                  onAdd={() => setQty({ ...qty, [p.id]: Math.max(1, q) })}
-                  addLabel={q > 0 ? 'Dans la commande' : 'Ajouter au panier'}
-                  selected={q > 0}
-                  badge={q > 0 ? `${q}` : undefined}
-                  metaLabel="Livraison"
-                  metaValue="Sous 24 h après validation"
-                  note={
-                    <>
-                      {priced.offered > 0 && (
-                        <div>
-                          {priced.offered} article{priced.offered > 1 ? 's' : ''} offert{priced.offered > 1 ? 's' : ''} · {q + priced.offered} livrés
-                        </div>
-                      )}
-                      {p.tiers?.map((t) => (
-                        <div key={t.id}>
-                          {t.minQuantity}{t.maxQuantity != null ? `-${t.maxQuantity}` : '+'} : {t.type === 'ARTICLE_OFFERT' ? `${t.value} offert(s) pour ${t.stepQuantity ?? 10} achetés` : `${t.value.toLocaleString('fr-FR')} CDF`}
-                        </div>
-                      ))}
-                    </>
-                  }
-                />
-              );
-            })}
-          </ProductSaleGrid>
-          {!items.length && <p className="erp-table-empty">Aucun produit disponible.</p>}
+          {loading && <TableLoading label="Chargement du catalogue…" />}
+          {!loading && items.length === 0 && <EmptyState>Aucun produit disponible.</EmptyState>}
+          {!loading && items.length > 0 && (
+            <ProductSaleGrid>
+              {items.map((p) => {
+                const q = qty[p.id] ?? 0;
+                const priced = priceForQty(p, q || 1);
+                const outOfStock = p.availableQty != null && p.availableQty <= 0;
+                const max = p.availableQty != null ? p.availableQty : 999;
+                return (
+                  <ProductSaleCard
+                    key={p.id}
+                    name={p.name}
+                    code={p.code}
+                    format={p.format}
+                    imageUrl={p.imageUrl}
+                    price={priced.unit}
+                    quantity={q}
+                    max={max}
+                    disabled={outOfStock}
+                    onQuantityChange={(next) => updateQty({ ...qty, [p.id]: next })}
+                    onAdd={() => updateQty({ ...qty, [p.id]: Math.max(1, q) })}
+                    addLabel={outOfStock ? 'Rupture de stock' : q > 0 ? 'Dans la commande' : 'Ajouter au panier'}
+                    selected={q > 0}
+                    badge={outOfStock ? 'Rupture' : q > 0 ? `${q}` : undefined}
+                    metaLabel="Livraison"
+                    metaValue={outOfStock ? 'Indisponible' : p.availableQty != null ? `${p.availableQty} en stock · sous 24 h` : 'Sous 24 h après validation'}
+                    note={
+                      <>
+                        {priced.offered > 0 && (
+                          <div>
+                            {priced.offered} article{priced.offered > 1 ? 's' : ''} offert{priced.offered > 1 ? 's' : ''} · {q + priced.offered} livrés
+                          </div>
+                        )}
+                        {p.tiers?.map((t) => (
+                          <div key={t.id}>
+                            {t.minQuantity}{t.maxQuantity != null ? `-${t.maxQuantity}` : '+'} : {t.type === 'ARTICLE_OFFERT' ? `${t.value} offert(s) pour ${t.stepQuantity ?? 10} achetés` : `${t.value.toLocaleString('fr-FR')} CDF`}
+                          </div>
+                        ))}
+                      </>
+                    }
+                  />
+                );
+              })}
+            </ProductSaleGrid>
+          )}
         </ErpPanel>
-        <button type="submit" className="erp-btn">Passer la commande</button>
+        <ErpPanel title="Récapitulatif" padded>
+          <div className="portal-cart-recap">
+            {cartLines.length === 0 ? (
+              <EmptyState>Votre panier est vide. Ajoutez un produit ci-dessus.</EmptyState>
+            ) : (
+              <div>
+                <ul>
+                  {cartLines.map(({ item, quantity, lineTotal, priced }) => (
+                    <li key={item.id}>
+                      {item.name} × {quantity}
+                      {priced.offered > 0 ? ` (+${priced.offered} offert${priced.offered > 1 ? 's' : ''})` : ''}
+                      {' · '}
+                      {lineTotal.toLocaleString('fr-FR')} CDF
+                    </li>
+                  ))}
+                </ul>
+                <p className="portal-cart-total">Total {cartTotal.toLocaleString('fr-FR')} CDF</p>
+              </div>
+            )}
+            <button type="submit" className="erp-btn" disabled={submitting || cartLines.length === 0}>
+              {submitting ? 'Envoi…' : 'Passer la commande'}
+            </button>
+          </div>
+        </ErpPanel>
       </form>
     </div>
   );
@@ -264,7 +358,16 @@ export function PortalCatalogPage() {
 
 export function PortalOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
-  useEffect(() => { portalApi.getOrders().then(setOrders); }, []);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    portalApi.getOrders()
+      .then(setOrders)
+      .catch((err) => setError(err instanceof Error ? err.message : 'Impossible de charger les commandes'))
+      .finally(() => setLoading(false));
+  }, []);
+
   return (
     <div className="erp-page">
       <ErpPageHeader
@@ -272,20 +375,26 @@ export function PortalOrdersPage() {
         excel={{ filename: 'portail-commandes', sheets: [sheetOrders(orders)] }}
         actions={<DocButton label="Imprimer" onClick={() => printOrdersList(orders)} />}
       />
+      {error && <p className="error-msg">{error}</p>}
       <ErpPanel title={`${orders.length} commandes`}>
-        <table className="erp-table">
-          <thead><tr><th>N°</th><th>Statut</th><th>Montant</th><th></th></tr></thead>
-          <tbody>
-            {orders.map((o) => (
-              <tr key={o.id}>
-                <td><code>{o.orderNumber}</code></td>
-                <td><StatusPill status={o.status} /></td>
-                <td>{Number(o.totalAmount).toLocaleString('fr-FR')} CDF</td>
-                <td><DocButton onClick={() => printOrder(o)} /></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {loading && <TableLoading label="Chargement des commandes…" />}
+        {!loading && orders.length === 0 && <EmptyState>Aucune commande pour le moment.</EmptyState>}
+        {!loading && orders.length > 0 && (
+          <table className="erp-table">
+            <thead><tr><th>N°</th><th>Statut</th><th>Paiement</th><th>Montant</th><th></th></tr></thead>
+            <tbody>
+              {orders.map((o) => (
+                <tr key={o.id}>
+                  <td><code>{o.orderNumber}</code></td>
+                  <td><StatusPill status={o.status} /></td>
+                  <td><StatusPill status={o.paymentStatus ?? 'IMPAYEE'} /></td>
+                  <td>{Number(o.totalAmount).toLocaleString('fr-FR')} CDF</td>
+                  <td><DocButton onClick={() => printOrder(o)} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </ErpPanel>
     </div>
   );
@@ -293,14 +402,28 @@ export function PortalOrdersPage() {
 
 export function PortalDeliveriesPage() {
   const [tracking, setTracking] = useState<DeliveryTracking | null>(null);
-  const [ids, setIds] = useState<string[]>([]);
+  const [deliveries, setDeliveries] = useState<Delivery[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const loadTracking = (id: string) => {
+    portalApi.getDeliveryTracking(id)
+      .then(setTracking)
+      .catch((err) => setError(err instanceof Error ? err.message : 'Suivi indisponible'));
+  };
 
   useEffect(() => {
-    portalApi.getDeliveries().then((list) => {
-      setIds(list.map((d) => d.id));
-      if (list[0]) portalApi.getDeliveryTracking(list[0].id).then(setTracking);
-    });
+    portalApi.getDeliveries()
+      .then((list) => {
+        setDeliveries(list);
+        if (list[0]) loadTracking(list[0].id);
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : 'Livraisons indisponibles'))
+      .finally(() => setLoading(false));
   }, []);
+
+  const lat = tracking?.latitude;
+  const lng = tracking?.longitude;
 
   return (
     <div className="erp-page">
@@ -312,6 +435,7 @@ export function PortalDeliveriesPage() {
             exportSheet('Livraison', [['champ', 'Champ'], ['valeur', 'Valeur']], tracking ? [
               { champ: 'Numero', valeur: tracking.deliveryNumber },
               { champ: 'Statut', valeur: tracking.status },
+              { champ: 'Tournee', valeur: tracking.tourNumber ?? '' },
               { champ: 'Chauffeur', valeur: tracking.driverName ?? '' },
               { champ: 'Vehicule', valeur: tracking.vehiclePlate ?? '' },
               { champ: 'ETA min', valeur: tracking.etaMinutes ?? '' },
@@ -326,28 +450,50 @@ export function PortalDeliveriesPage() {
         }}
         actions={tracking ? <DocButton label="Bon de suivi" onClick={() => printDeliveryTracking(tracking)} /> : undefined}
       />
+      {error && <p className="error-msg">{error}</p>}
       <ErpPanel title="Livraisons" padded>
-        {ids.map((id) => (
-          <button key={id} type="button" className="erp-btn erp-btn--sm erp-btn--ghost" onClick={() => portalApi.getDeliveryTracking(id).then(setTracking)}>
-            {id.slice(0, 8)}
-          </button>
-        ))}
+        {loading && <TableLoading label="Chargement des livraisons…" />}
+        {!loading && deliveries.length === 0 && <EmptyState>Aucune livraison en cours.</EmptyState>}
+        {!loading && deliveries.length > 0 && (
+          <div className="erp-delivery-picks">
+            {deliveries.map((d) => (
+              <button
+                key={d.id}
+                type="button"
+                className={`erp-btn erp-btn--sm${tracking?.deliveryId === d.id ? '' : ' erp-btn--ghost'}`}
+                onClick={() => loadTracking(d.id)}
+              >
+                {d.deliveryNumber} · <StatusPill status={d.status} />
+              </button>
+            ))}
+          </div>
+        )}
         {tracking && (
           <div style={{ marginTop: 16 }}>
             <p>
               {tracking.deliveryNumber} · <StatusPill status={tracking.status} />
+              {tracking.tourNumber ? ` · ${tracking.tourNumber}` : ''}
               {tracking.driverName ? ` · ${tracking.driverName}` : ''}
               {tracking.vehiclePlate ? ` · ${tracking.vehiclePlate}` : ''}
             </p>
             <p>ETA {tracking.etaMinutes ?? '—'} min · arrêts restants {tracking.stopsRemaining ?? '—'}</p>
-            <ul>
+            <ul className="erp-timeline">
               {tracking.timeline.map((t) => (
-                <li key={t.label}>{t.done ? '✓' : '○'} {t.label} {t.at ? `· ${new Date(t.at).toLocaleString('fr-FR')}` : ''}</li>
+                <li key={t.label} className={t.done ? 'is-done' : undefined}>
+                  {t.label}
+                  {t.at && <time dateTime={t.at}>{new Date(t.at).toLocaleString('fr-FR')}</time>}
+                </li>
               ))}
             </ul>
+            {lat != null && lng != null && (
+              <iframe
+                className="erp-track-map"
+                title="Position de la tournée"
+                src={osmEmbed(lat, lng)}
+              />
+            )}
           </div>
         )}
-        {!ids.length && <p className="erp-muted">Aucune livraison en cours.</p>}
       </ErpPanel>
     </div>
   );
@@ -355,15 +501,48 @@ export function PortalDeliveriesPage() {
 
 export function PortalInvoicesPage() {
   const [invoices, setInvoices] = useState<PortalInvoice[]>([]);
+  const [loading, setLoading] = useState(true);
   const [pay, setPay] = useState({ orderId: '', amount: 0, method: 'MPESA' as PaymentMethod, reference: '' });
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const [paying, setPaying] = useState(false);
 
-  const load = () => portalApi.getInvoices().then(setInvoices);
+  const load = () => portalApi.getInvoices()
+    .then(setInvoices)
+    .catch((err) => setError(err instanceof Error ? err.message : 'Factures indisponibles'))
+    .finally(() => setLoading(false));
+
   useEffect(() => { load(); }, []);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    await portalApi.pay({ orderId: pay.orderId || undefined, amount: pay.amount, method: pay.method, reference: pay.reference || undefined });
-    load();
+    setPaying(true);
+    setError('');
+    setMessage('');
+    try {
+      await portalApi.pay({
+        orderId: pay.orderId || undefined,
+        amount: pay.amount,
+        method: pay.method,
+        reference: pay.reference || undefined,
+      });
+      setMessage('Paiement enregistré.');
+      setPay({ ...pay, amount: 0, reference: '' });
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Paiement impossible');
+    } finally {
+      setPaying(false);
+    }
+  };
+
+  const selectInvoice = (orderId: string) => {
+    const invoice = invoices.find((row) => row.orderId === orderId);
+    setPay({
+      ...pay,
+      orderId,
+      amount: invoice ? invoice.balance : pay.amount,
+    });
   };
 
   return (
@@ -394,41 +573,57 @@ export function PortalInvoicesPage() {
           signatures: ['Pour EMMANUEL SERVICES SARLU', 'Pour le client'],
         })} />}
       />
+      {message && <p className="erp-success">{message}</p>}
+      {error && <p className="error-msg">{error}</p>}
       <ErpPanel title="Factures">
-        <table className="erp-table">
-          <thead><tr><th>Commande</th><th>Total</th><th>Payé</th><th>Solde</th><th>Statut</th><th></th></tr></thead>
-          <tbody>
-            {invoices.map((i) => (
-              <tr key={i.orderId}>
-                <td><code>{i.orderNumber}</code></td>
-                <td>{i.totalAmount.toLocaleString('fr-FR')}</td>
-                <td>{i.paidAmount.toLocaleString('fr-FR')}</td>
-                <td>{i.balance.toLocaleString('fr-FR')}</td>
-                <td><StatusPill status={i.status} /></td>
-                <td><DocButton label="Facture" onClick={() => printPortalInvoice(i)} /></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {loading && <TableLoading label="Chargement des factures…" />}
+        {!loading && invoices.length === 0 && <EmptyState>Aucune facture pour le moment.</EmptyState>}
+        {!loading && invoices.length > 0 && (
+          <table className="erp-table">
+            <thead><tr><th>Commande</th><th>Total</th><th>Payé</th><th>Solde</th><th>Livraison</th><th>Paiement</th><th></th></tr></thead>
+            <tbody>
+              {invoices.map((i) => (
+                <tr key={i.orderId}>
+                  <td><code>{i.orderNumber}</code></td>
+                  <td>{i.totalAmount.toLocaleString('fr-FR')}</td>
+                  <td>{i.paidAmount.toLocaleString('fr-FR')}</td>
+                  <td>{i.balance.toLocaleString('fr-FR')}</td>
+                  <td><StatusPill status={i.status} /></td>
+                  <td><StatusPill status={invoicePaymentStatus(i)} /></td>
+                  <td><DocButton label="Facture" onClick={() => printPortalInvoice(i)} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </ErpPanel>
       <ErpPanel title="Régler par monnaie électronique" padded>
+        <p className="erp-muted">M-Pesa, Orange Money, Airtel Money ou Wave uniquement. Indiquez la référence de transaction.</p>
         <form onSubmit={submit} className="form-row">
           <div className="form-group">
-            <label>Commande</label>
-            <select value={pay.orderId} onChange={(e) => setPay({ ...pay, orderId: e.target.value })}>
+            <label htmlFor="portal-pay-order">Commande</label>
+            <select id="portal-pay-order" value={pay.orderId} onChange={(e) => selectInvoice(e.target.value)}>
               <option value="">Libre</option>
               {invoices.filter((i) => i.balance > 0).map((i) => <option key={i.orderId} value={i.orderId}>{i.orderNumber}</option>)}
             </select>
           </div>
-          <div className="form-group"><label>Montant</label><input type="number" min={1} value={pay.amount} onChange={(e) => setPay({ ...pay, amount: Number(e.target.value) })} required /></div>
           <div className="form-group">
-            <label>Opérateur</label>
-            <select value={pay.method} onChange={(e) => setPay({ ...pay, method: e.target.value as PaymentMethod })}>
+            <label htmlFor="portal-pay-amount">Montant</label>
+            <input id="portal-pay-amount" type="number" min={1} value={pay.amount || ''} onChange={(e) => setPay({ ...pay, amount: Number(e.target.value) })} required />
+          </div>
+          <div className="form-group">
+            <label htmlFor="portal-pay-method">Opérateur</label>
+            <select id="portal-pay-method" value={pay.method} onChange={(e) => setPay({ ...pay, method: e.target.value as PaymentMethod })}>
               {PAY_METHODS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
             </select>
           </div>
-          <div className="form-group"><label>Référence</label><input value={pay.reference} onChange={(e) => setPay({ ...pay, reference: e.target.value })} /></div>
-          <div className="form-group" style={{ alignSelf: 'end' }}><button type="submit" className="erp-btn">Payer</button></div>
+          <div className="form-group">
+            <label htmlFor="portal-pay-ref">Référence</label>
+            <input id="portal-pay-ref" value={pay.reference} onChange={(e) => setPay({ ...pay, reference: e.target.value })} />
+          </div>
+          <div className="form-group" style={{ alignSelf: 'end' }}>
+            <button type="submit" className="erp-btn" disabled={paying}>{paying ? 'Envoi…' : 'Payer'}</button>
+          </div>
         </form>
       </ErpPanel>
     </div>
@@ -438,9 +633,24 @@ export function PortalInvoicesPage() {
 export function PortalLoyaltyPage() {
   const [loyalty, setLoyalty] = useState<PortalLoyalty | null>(null);
   const [points, setPoints] = useState(100);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
   const load = () => portalApi.getLoyalty().then(setLoyalty);
   useEffect(() => { load(); }, []);
-  if (!loyalty) return <p className="erp-loading">Chargement…</p>;
+
+  const redeem = async (e: FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setMessage('');
+    try {
+      setLoyalty(await portalApi.redeemLoyalty(points));
+      setMessage(`${points} points échangés.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Échange impossible');
+    }
+  };
+
+  if (!loyalty) return <TableLoading label="Chargement de la fidélité…" />;
   return (
     <div className="erp-page">
       <ErpPageHeader
@@ -466,11 +676,13 @@ export function PortalLoyaltyPage() {
         }}
         actions={<DocButton label="Relevé" onClick={() => printPortalLoyalty(loyalty)} />}
       />
+      {message && <p className="erp-success">{message}</p>}
+      {error && <p className="error-msg">{error}</p>}
       <ErpPanel title="Avantages" padded>
         <ul>{loyalty.benefits.map((b) => <li key={b}>{b}</li>)}</ul>
         {loyalty.nextTier && <p>Encore {loyalty.pointsToNextTier} points pour {loyalty.nextTier}.</p>}
-        <form onSubmit={(e) => { e.preventDefault(); portalApi.redeemLoyalty(points).then(setLoyalty); }} className="form-row">
-          <div className="form-group"><label>Échanger des points</label><input type="number" min={1} value={points} onChange={(e) => setPoints(Number(e.target.value))} /></div>
+        <form onSubmit={redeem} className="form-row">
+          <div className="form-group"><label htmlFor="portal-loyalty-points">Échanger des points</label><input id="portal-loyalty-points" type="number" min={1} value={points} onChange={(e) => setPoints(Number(e.target.value))} /></div>
           <div className="form-group" style={{ alignSelf: 'end' }}><button type="submit" className="erp-btn">Échanger</button></div>
         </form>
       </ErpPanel>
@@ -501,19 +713,23 @@ export function PortalConsignesPage() {
         actions={<DocButton label="Relevé" onClick={() => printPortalConsignes(rows)} />}
       />
       <ErpPanel title="Mouvements">
-        <table className="erp-table">
-          <thead><tr><th>Type</th><th>Quantité</th><th>Produit</th><th>Date</th></tr></thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.id}>
-                <td>{r.type}</td>
-                <td>{r.quantity}</td>
-                <td>{r.productName ?? '—'}</td>
-                <td>{new Date(r.createdAt).toLocaleString('fr-FR')}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {rows.length === 0 ? (
+          <EmptyState>Aucun mouvement de consigne.</EmptyState>
+        ) : (
+          <table className="erp-table">
+            <thead><tr><th>Type</th><th>Quantité</th><th>Produit</th><th>Date</th></tr></thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id}>
+                  <td>{r.type}</td>
+                  <td>{r.quantity}</td>
+                  <td>{r.productName ?? '—'}</td>
+                  <td>{new Date(r.createdAt).toLocaleString('fr-FR')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </ErpPanel>
     </div>
   );
@@ -523,12 +739,18 @@ export function PortalAssistantPage() {
   const [sessionId, setSessionId] = useState<string>();
   const [question, setQuestion] = useState('');
   const [log, setLog] = useState<Array<{ q: string; a: string }>>([]);
+  const [error, setError] = useState('');
   const ask = async (e: FormEvent) => {
     e.preventDefault();
-    const r = await portalApi.ask(question, sessionId);
-    setSessionId(r.sessionId);
-    setLog((prev) => [...prev, { q: question, a: r.answer }]);
-    setQuestion('');
+    setError('');
+    try {
+      const r = await portalApi.ask(question, sessionId);
+      setSessionId(r.sessionId);
+      setLog((prev) => [...prev, { q: question, a: r.answer }]);
+      setQuestion('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Assistant indisponible');
+    }
   };
   return (
     <div className="erp-page">
@@ -559,6 +781,7 @@ export function PortalAssistantPage() {
           />
         }
       />
+      {error && <p className="error-msg">{error}</p>}
       <ErpPanel title="Conversation" padded>
         {log.map((m, i) => (
           <div key={i}>
@@ -567,7 +790,7 @@ export function PortalAssistantPage() {
           </div>
         ))}
         <form onSubmit={ask} className="form-row">
-          <div className="form-group" style={{ flex: 1 }}><label>Question</label><input value={question} onChange={(e) => setQuestion(e.target.value)} required /></div>
+          <div className="form-group" style={{ flex: 1 }}><label htmlFor="portal-assistant-q">Question</label><input id="portal-assistant-q" value={question} onChange={(e) => setQuestion(e.target.value)} required /></div>
           <div className="form-group" style={{ alignSelf: 'end' }}><button type="submit" className="erp-btn">Envoyer</button></div>
         </form>
       </ErpPanel>

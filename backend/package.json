@@ -15,7 +15,8 @@
     "prisma:seed": "ts-node prisma/seed.ts",
     "db:setup": "prisma migrate dev && ts-node prisma/seed.ts",
     "db:local": "node scripts/start-local-db.mjs",
-    "start:local": "node scripts/start-local.mjs"
+    "start:local": "node scripts/start-local.mjs",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.0",

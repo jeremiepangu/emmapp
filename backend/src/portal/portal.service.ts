@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { NotificationCategory, NotificationType, OrderStatus, PaymentMethod, Prisma, UserRole } from '@prisma/client';
+import { NotificationCategory, NotificationType, OrderStatus, PaymentMethod, Prisma, StockLocationType, UserRole } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PaymentsService } from '../payments/payments.service';
@@ -23,6 +23,15 @@ export class PortalService {
     private pricing: PricingService,
     private payments: PaymentsService,
   ) {}
+
+  private async availableFinishedQty(productId: string): Promise<number> {
+    const grouped = await this.prisma.stockItem.groupBy({
+      by: ['productId'],
+      where: { productId, location: { type: StockLocationType.PRODUITS_FINIS } },
+      _sum: { quantity: true },
+    });
+    return grouped[0]?._sum.quantity ?? 0;
+  }
 
   async me(clientId: string, accountId: string) {
     const account = await this.prisma.portalAccount.findUnique({
@@ -59,6 +68,18 @@ export class PortalService {
     const rules = await this.pricing.findActive();
     const ctx = this.pricing.ctxFromClient(client);
     const products = await this.prisma.product.findMany({ where: { isActive: true } });
+    const productIds = products.map((p) => p.id);
+    const stock = productIds.length === 0
+      ? []
+      : await this.prisma.stockItem.groupBy({
+          by: ['productId'],
+          where: {
+            productId: { in: productIds },
+            location: { type: StockLocationType.PRODUITS_FINIS },
+          },
+          _sum: { quantity: true },
+        });
+    const qtyByProduct = new Map(stock.map((row) => [row.productId, row._sum.quantity ?? 0]));
     return products.map((p) => {
       const priced = this.pricing.apply(rules, ctx, p, 1);
       return {
@@ -71,6 +92,7 @@ export class PortalService {
         basePrice: Number(p.unitPrice),
         segmentPrice: Number(priced.unitPrice),
         bonusPct: priced.bonusPct,
+        availableQty: qtyByProduct.get(p.id) ?? 0,
         tiers: this.pricing.tiersFor(rules, ctx, p.id),
       };
     });
@@ -97,6 +119,12 @@ export class PortalService {
     for (const line of lines) {
       const product = await this.prisma.product.findUnique({ where: { id: line.productId } });
       if (!product) throw new NotFoundException(`Produit ${line.productId} introuvable`);
+      const available = await this.availableFinishedQty(product.id);
+      if (line.quantity > available) {
+        throw new BadRequestException(
+          `Stock insuffisant pour ${product.code} (disponible : ${available})`,
+        );
+      }
       const priced = await this.pricing.priceLine(this.pricing.ctxFromClient(client), product, line.quantity);
       total = total.add(priced.unitPrice.mul(line.quantity));
       linesData.push({
@@ -168,7 +196,12 @@ export class PortalService {
         { label: 'Commande validée', at: delivery.order.createdAt.toISOString(), done: true },
         { label: 'Chargement validé', at: delivery.tour.startedAt?.toISOString(), done: Boolean(delivery.tour.startedAt) },
         { label: 'Tournée démarrée', at: delivery.tour.startedAt?.toISOString(), done: Boolean(delivery.tour.startedAt) },
-        { label: 'En route', at: delivery.deliveredAt?.toISOString(), done: delivery.status !== 'EN_ATTENTE' },
+        {
+          label: 'En route',
+          at: delivery.tour.startedAt?.toISOString()
+            ?? (delivery.status !== 'EN_ATTENTE' ? delivery.updatedAt.toISOString() : undefined),
+          done: delivery.status !== 'EN_ATTENTE',
+        },
         { label: 'Livrée', at: delivery.deliveredAt?.toISOString(), done: delivery.status === 'LIVREE' },
       ],
     };
@@ -182,7 +215,10 @@ export class PortalService {
     });
     const payments = await this.prisma.payment.findMany({ where: { clientId } });
     return orders.map((o) => {
-      const related = payments.filter((p) => p.deliveryId && o.deliveries.some((d) => d.id === p.deliveryId));
+      const related = payments.filter((p) =>
+        p.orderId === o.id
+        || (p.deliveryId != null && o.deliveries.some((d) => d.id === p.deliveryId)),
+      );
       const paidAmount = related.reduce((s, p) => s + Number(p.amount), 0);
       const totalAmount = Number(o.totalAmount);
       return {

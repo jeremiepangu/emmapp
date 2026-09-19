@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, Delivery, DeliveryTourReconciliation, Tour } from '../api';
 import { usePermissions } from '../hooks/usePermissions';
-import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
-import StatusPill from '../components/ErpUi';
+import StatusPill, { EmptyState, ErpPageHeader, ErpPanel, TableLoading } from '../components/ErpUi';
 import DocButton from '../components/DocButton';
 import Modal from '../components/Modal';
 import ClientSituationPanel from '../components/ClientSituationPanel';
@@ -17,7 +16,8 @@ export default function DeliveriesPage() {
   const [reconcileTourId, setReconcileTourId] = useState('');
   const [reconciliation, setReconciliation] = useState<DeliveryTourReconciliation | null>(null);
   const [proofDelivery, setProofDelivery] = useState<Delivery | null>(null);
-  const load = () => api.getDeliveries().then(setDeliveries);
+  const [loading, setLoading] = useState(true);
+  const load = () => api.getDeliveries().then(setDeliveries).finally(() => setLoading(false));
   useEffect(() => {
     load();
     api.getTours().then(setTours).catch(() => setTours([]));
@@ -80,9 +80,11 @@ export default function DeliveriesPage() {
       </ErpPanel>
 
       <ErpPanel title={`Historique (${deliveries.length})`}>
-        {deliveries.length === 0 ? (
-          <p className="erp-table-empty">Aucune livraison enregistrée pour le moment.</p>
-        ) : (
+        {loading && <TableLoading label="Chargement des livraisons…" />}
+        {!loading && deliveries.length === 0 && (
+          <EmptyState>Aucune livraison enregistrée pour le moment.</EmptyState>
+        )}
+        {!loading && deliveries.length > 0 && (
           <table className="erp-table">
             <thead>
               <tr><th>N° Livraison</th><th>Client</th><th>Statut</th><th>Date</th><th>Preuves</th><th>Actions</th></tr>
@@ -92,7 +94,7 @@ export default function DeliveriesPage() {
                 <tr key={d.id}>
                   <td><strong>{d.deliveryNumber}</strong></td>
                   <td>{d.client?.name ?? '—'}</td>
-                  <td><StatusPill status={d.status} label={d.status} /></td>
+                  <td><StatusPill status={d.status} /></td>
                   <td>{d.deliveredAt ? new Date(d.deliveredAt).toLocaleString('fr-FR') : '—'}</td>
                   <td>
                     {d.photoUrl || d.signatureUrl ? (
