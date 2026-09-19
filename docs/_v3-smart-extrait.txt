@@ -1,0 +1,231 @@
+EMMAPURE SMART
+ERP / CRM intelligent de production et distribution d'eau potable
+CAHIER DES CHARGES — Version 3.0 « Enterprise Smart & AI-Augmented »
+Projet
+EMMAPURE / EMMAS — plateforme ERP-CRM eau potable augmentée par l'IA
+Version du document
+3.0 (évolution de la v2.1)
+Statut
+Document de référence — édition modernisée, optimisée et « smartisée »
+Périmètre
+Production, qualité, distribution, commerce, finance, RH, supervision, IA/analytics, IoT, portail client
+Composants
+API REST/GraphQL NestJS · Back-office React · PWA terrain · App Android/iOS · Moteur IA · Bus d'événements
+Zone d'exploitation
+République Démocratique du Congo (Kinshasa et provinces) — extensible multi-pays
+Date d'édition
+15 août 2026
+Confidentialité
+Document interne — diffusion restreinte
+[Heading1] Préambule — De la version 2.1 à la version 3.0 « Smart »
+Cette édition 3.0 fait évoluer le cahier des charges EMMAPURE v2.1 vers une plateforme augmentée par l'intelligence artificielle, l'IoT et l'analytique avancée, tout en modernisant l'expérience utilisateur et l'architecture technique. Elle conserve l'intégralité des exigences validées en v2.1 et les enrichit de nouveaux modules, indicateurs et automatisations.
+
+=== TABLEAU 1 ===
+| Axe d'évolution | Apport principal v2.1 → v3.0 |
+| Intelligence artificielle | Prévision de la demande, maintenance prédictive, détection d'anomalies, assistant conversationnel, scoring crédit client |
+| Internet des objets (IoT) | Capteurs qualité en ligne, télémétrie véhicules, capteurs de niveau sur fontaines |
+| Expérience utilisateur | Interface repensée mode sombre/clair, personnalisation des tableaux de bord, navigation vocale terrain |
+| Ouverture | Portail et application client self-service, marketplace B2B, API publique et webhooks |
+| Durabilité | Suivi de l'empreinte carbone logistique et indicateurs ESG |
+| Sécurité renforcée | Authentification biométrique et multifacteur, chiffrement de bout en bout, zero-trust |
+| Gouvernance des données | Data lake analytique, exports BI, conformité RGPD/loi congolaise renforcée |
+
+[Heading1] 1. Nouveaux objectifs stratégiques « Smart »
+En complément des dix objectifs opérationnels de la v2.1 (traçabilité, qualité, consignes, mode hors connexion, etc.), la version 3.0 introduit des objectifs orientés intelligence et expérience.
+
+=== TABLEAU 2 ===
+| Réf. | Objectif | Indicateur de réussite |
+| OBJ-11 | Anticiper la demande par zone et par produit grâce à l'IA prédictive | Prévision à 7 jours avec un écart inférieur à 12 % |
+| OBJ-12 | Prévenir les pannes machines avant l'arrêt de production | Détection d'anomalie au moins 48 heures avant l'incident |
+| OBJ-13 | Offrir un self-service client complet (commande, suivi, consigne) | 60 % des commandes récurrentes passées via le portail/app client |
+| OBJ-14 | Optimiser automatiquement les tournées de livraison | Réduction de 15 % de la distance parcourue par tournée |
+| OBJ-15 | Réduire l'empreinte carbone de la distribution | Suivi mensuel des émissions CO2 par tournée et par véhicule |
+| OBJ-16 | Assister les équipes par un agent conversationnel intelligent | 80 % des requêtes courantes résolues sans intervention humaine |
+| OBJ-17 | Renforcer la sécurité d'accès par la biométrie et le MFA | 100 % des comptes sensibles protégés par double facteur |
+
+[Heading1] 2. Nouveaux modules fonctionnels « Smart »
+Le périmètre fonctionnel de la v2.1 (seize modules) est étendu par neuf nouveaux modules qui apportent l'intelligence, l'ouverture et la durabilité attendues d'une plateforme moderne.
+
+=== TABLEAU 3 ===
+| Domaine | Nouveau module | Objet fonctionnel |
+| Intelligence | IA prédictive & analytics | Prévision de la demande, détection d'anomalies, scoring et recommandations |
+| Intelligence | Assistant conversationnel | Chatbot interne et client pour requêtes courantes, en français et lingala |
+| IoT | Capteurs & télémétrie | Collecte temps réel des données qualité, véhicules et fontaines connectées |
+| Client | Portail client self-service | Commande en ligne, suivi de livraison, solde de consignes, factures |
+| Client | Application mobile client | Version allégée du portail, notifications push et paiement mobile intégré |
+| Commerce | Marketplace B2B | Mise en relation avec grossistes et détaillants, catalogue élargi |
+| Logistique | Optimisation d'itinéraires | Calcul automatique des tournées optimales selon trafic et priorités |
+| Durabilité | Indicateurs ESG | Empreinte carbone, consommation d'eau et d'énergie, rapports de durabilité |
+| Sécurité | Centre de sécurité et conformité | Authentification forte, gestion des risques, audit de sécurité continu |
+
+[Heading2] 2.1 Assistant IA — cas d'usage détaillés
+[ListBullet] Prévision de la demande : anticipation des volumes de commande par zone, produit et saisonnalité, pour ajuster la planification de production.
+[ListBullet] Maintenance prédictive : analyse des cycles machine et des capteurs pour alerter avant une panne de la ligne d'embouteillage.
+[ListBullet] Détection de fraude et d'anomalies : repérage des écarts suspects de consigne, de stock ou d'encaissement.
+[ListBullet] Assistant conversationnel multicanal : réponses automatiques aux questions fréquentes des livreurs, clients et gestionnaires, disponible sur le back-office, le portail client et WhatsApp.
+[ListBullet] Scoring crédit client : évaluation automatique du risque avant l'octroi d'un encaissement en crédit.
+[ListBullet] Recommandations commerciales : suggestion de produits, de volumes et d'offres de fidélité personnalisées par client.
+[Heading1] 3. Exigences fonctionnelles des modules Smart
+[Heading2] 3.1 IA prédictive et analytics
+
+=== TABLEAU 4 ===
+| Réf. | Exigence fonctionnelle |
+| EF-IA-01 | Le module génère une prévision de la demande à sept jours par produit et par zone, actualisée quotidiennement. |
+| EF-IA-02 | Un modèle de détection d'anomalies signale tout écart significatif de stock, de consigne ou d'encaissement. |
+| EF-IA-03 | Un module de maintenance prédictive exploite les données de production et de capteurs pour estimer la probabilité de panne d'un équipement. |
+| EF-IA-04 | Les recommandations générées sont explicables : chaque suggestion affiche les facteurs principaux ayant conduit au résultat. |
+| EF-IA-05 | Les modèles sont réentraînés périodiquement et leur performance est mesurée et journalisée. |
+| EF-IA-06 | L'accès aux fonctionnalités d'IA est soumis à la même matrice d'habilitation que les autres modules. |
+
+[Heading2] 3.2 Assistant conversationnel
+
+=== TABLEAU 5 ===
+| Réf. | Exigence fonctionnelle |
+| EF-BOT-01 | L'assistant répond en langage naturel aux questions courantes sur les commandes, livraisons et soldes de consignes. |
+| EF-BOT-02 | L'assistant est disponible dans le back-office, le portail client et sur WhatsApp. |
+| EF-BOT-03 | Toute requête hors périmètre de connaissance est transférée à un agent humain avec le contexte de la conversation. |
+| EF-BOT-04 | Les échanges sont journalisés et peuvent être audités pour amélioration continue. |
+
+[Heading2] 3.3 Portail et application client self-service
+
+=== TABLEAU 6 ===
+| Réf. | Exigence fonctionnelle |
+| EF-PC-01 | Le client authentifié consulte son solde de consignes, son historique de commandes et ses factures. |
+| EF-PC-02 | Le client passe une commande en autonomie à partir du catalogue et du tarif applicable à son segment. |
+| EF-PC-03 | Le client suit sa livraison en temps réel, incluant la position estimée du véhicule. |
+| EF-PC-04 | Le client règle sa commande par monnaie électronique directement depuis le portail ou l'application. |
+| EF-PC-05 | Le client consulte son niveau et ses avantages de fidélité, et peut demander l'échange de points. |
+| EF-PC-06 | Toute commande passée par le portail suit le même cycle de statuts que les commandes internes. |
+
+[Heading2] 3.4 Optimisation d'itinéraires
+
+=== TABLEAU 7 ===
+| Réf. | Exigence fonctionnelle |
+| EF-OPT-01 | Le système propose un ordre de passage optimisé pour chaque tournée selon la distance, le trafic estimé et les priorités client. |
+| EF-OPT-02 | Le chef d'exploitation peut ajuster manuellement l'itinéraire proposé avant validation. |
+| EF-OPT-03 | L'écart entre l'itinéraire optimisé et l'itinéraire réellement suivi est mesuré à la clôture de la tournée. |
+
+[Heading2] 3.5 IoT et télémétrie
+
+=== TABLEAU 8 ===
+| Réf. | Exigence fonctionnelle |
+| EF-IOT-01 | Les capteurs qualité en ligne transmettent en continu le pH, la conductivité, la turbidité et le chlore résiduel au module de contrôle qualité. |
+| EF-IOT-02 | Les véhicules équipés transmettent leur position, leur vitesse et leur consommation de carburant en temps réel. |
+| EF-IOT-03 | Les fontaines connectées signalent leur niveau de remplissage et déclenchent une alerte de réapprovisionnement automatique. |
+| EF-IOT-04 | Une donnée de capteur hors plage déclenche une notification immédiate au profil responsable. |
+
+[Heading2] 3.6 Indicateurs de durabilité (ESG)
+
+=== TABLEAU 9 ===
+| Réf. | Exigence fonctionnelle |
+| EF-ESG-01 | L'empreinte carbone de chaque tournée est estimée à partir de la distance parcourue et du type de véhicule. |
+| EF-ESG-02 | Un tableau de bord ESG consolide les émissions, la consommation d'eau de production et le taux de réemploi des emballages. |
+| EF-ESG-03 | Un rapport de durabilité périodique est exportable pour la direction générale. |
+
+[Heading1] 4. Sécurité et gouvernance renforcées
+
+=== TABLEAU 10 ===
+| Réf. | Exigence |
+| ESE-08 | L'authentification supporte un second facteur (code temporaire, application d'authentification ou biométrie mobile). |
+| ESE-09 | L'accès aux fonctions sensibles (validation financière, libération de lot, administration) peut exiger une reconfirmation biométrique. |
+| ESE-10 | L'architecture applique un modèle de confiance zéro : chaque appel est vérifié indépendamment de son origine réseau. |
+| ESE-11 | Les données sensibles sont chiffrées au repos, en complément du chiffrement en transit déjà requis. |
+| ESE-12 | Un centre de sécurité centralise les alertes d'intrusion, les tentatives d'accès anormales et les journaux de conformité. |
+
+[Heading2] 4.1 Nouveaux canaux d'accès
+
+=== TABLEAU 11 ===
+| Canal | Public visé | Usage principal |
+| Portail client web | Clients de tous segments | Self-service commande, suivi, consigne et fidélité |
+| Application mobile client (Android/iOS) | Clients | Version mobile allégée du portail avec notifications push |
+| Assistant WhatsApp | Clients et équipes terrain | Requêtes courantes et notifications conversationnelles |
+| API publique et webhooks | Partenaires et systèmes tiers | Intégration élargie, y compris opérateurs de monnaie électronique |
+
+[Heading1] 5. Nouveaux points d'entrée API
+
+=== TABLEAU 12 ===
+| Méthode | Chemin | Objet |
+| GET | /ai/demand-forecast | Prévision de la demande par produit et par zone |
+| GET | /ai/anomalies | Liste des anomalies détectées |
+| GET | /ai/maintenance-risk | Score de risque de panne par équipement |
+| POST | /assistant/query | Requête envoyée à l'assistant conversationnel |
+| GET | /portal/orders | Commandes du client connecté au portail |
+| POST | /portal/orders | Création d'une commande en self-service |
+| GET | /portal/deliveries/{id}/tracking | Suivi en temps réel d'une livraison |
+| GET | /tours/{id}/optimized-route | Itinéraire optimisé d'une tournée |
+| GET | /iot/sensors/{sensorId}/readings | Relevés d'un capteur IoT |
+| GET | /esg/dashboard | Indicateurs consolidés de durabilité |
+| GET | /security/center/alerts | Alertes du centre de sécurité |
+
+[Heading1] 6. Expérience utilisateur modernisée
+
+=== TABLEAU 13 ===
+| Réf. | Exigence |
+| EX-IHM-13 | L'interface propose un mode sombre et un mode clair, sélectionnable par l'utilisateur. |
+| EX-IHM-14 | Chaque utilisateur personnalise l'ordre et le contenu des panneaux de son tableau de bord. |
+| EX-IHM-15 | L'interface terrain intègre une saisie vocale pour les livreurs en complément de la saisie tactile. |
+| EX-IHM-16 | Les listes volumineuses proposent des vues sauvegardées et des filtres favoris par utilisateur. |
+| EX-IHM-17 | Une recherche globale permet de retrouver un client, une commande ou un lot depuis n'importe quel écran. |
+| EX-IHM-18 | Les composants d'interface respectent les standards d'accessibilité pour les utilisateurs malvoyants. |
+
+[Heading1] 7. Architecture technique modernisée
+L'architecture v2.1 (NestJS, PostgreSQL, Prisma, React, PWA, Flutter) est enrichie de composants dédiés à l'intelligence, à l'événementiel et à l'ouverture, sans remise en cause du principe central : aucun client n'accède directement à la base de données.
+
+=== TABLEAU 14 ===
+| Composant | Technologie | Responsabilité |
+| Passerelle API | GraphQL en complément de REST | Requêtes flexibles pour le portail client et les partenaires |
+| Bus d'événements | Message broker (Kafka ou équivalent) | Diffusion des événements métier vers l'IA, l'IoT et les notifications |
+| Plateforme IA/ML | Service de modèles prédictifs | Prévision, détection d'anomalies, scoring et recommandations |
+| Entrepôt analytique | Data warehouse dédié au reporting | Consolidation historisée pour le tableau de bord et l'export BI |
+| Passerelle IoT | Protocole MQTT | Collecte des données de capteurs qualité, véhicules et fontaines |
+| Cache distribué | Redis ou équivalent | Accélération des consultations fréquentes et des sessions |
+| Observabilité étendue | Traces, métriques et journaux centralisés | Supervision technique de bout en bout, y compris les services IA |
+
+[Heading1] 8. Compléments au modèle de données
+
+=== TABLEAU 15 ===
+| Entité ajoutée | Rôle dans le modèle |
+| Prévision de demande | Estimation calculée par produit, zone et période |
+| Anomalie détectée | Événement signalé par le moteur d'IA avec son niveau de confiance |
+| Session assistant conversationnel | Historique d'échange avec un utilisateur ou un client |
+| Capteur IoT | Dispositif connecté rattaché à une machine, un véhicule ou une fontaine |
+| Relevé de capteur | Mesure horodatée transmise par un capteur |
+| Itinéraire optimisé | Séquence de points de livraison proposée par le module d'optimisation |
+| Indicateur ESG | Mesure de durabilité rattachée à une période et à une tournée ou un site |
+| Compte client portail | Accès self-service distinct du compte utilisateur interne |
+
+[Heading1] 9. Nouveaux profils utilisateurs
+
+=== TABLEAU 16 ===
+| Code technique | Libellé | Responsabilité principale |
+| CLIENT_PORTAIL | Client self-service | Accès autonome au portail et à l'application client |
+| DATA_ANALYST | Analyste de données | Exploitation de l'entrepôt analytique et des modèles prédictifs |
+| RESP_SECURITE | Responsable sécurité | Pilotage du centre de sécurité et de la conformité |
+| RESP_DURABILITE | Responsable durabilité | Suivi des indicateurs ESG et des rapports de durabilité |
+
+[Heading1] 10. Trajectoire projet révisée
+
+=== TABLEAU 17 ===
+| Lot | Contenu | Statut |
+| Lot 1 — Distribution | Clients, produits, stocks, commandes, tournées, livraisons, paiements, consignes, mode hors connexion, tableau de bord | Réalisé |
+| Lot 2 — Industrialisation | Ordres de fabrication, lots, contrôle qualité, procédures de lavage des emballages | Réalisé |
+| Lot 3 — Entreprise | Fidélité, personnel et vacations, supervision, notifications par profil, matrice d'habilitation étendue | Réalisé |
+| Lot 4 — Smart & IA | IA prédictive, assistant conversationnel, détection d'anomalies, maintenance prédictive | À réaliser |
+| Lot 5 — Ouverture client | Portail et application client, marketplace B2B, API publique et webhooks | À réaliser |
+| Lot 6 — IoT & optimisation | Capteurs qualité, télémétrie véhicules, fontaines connectées, optimisation d'itinéraires | À réaliser |
+| Lot 7 — Durabilité & sécurité avancée | Indicateurs ESG, centre de sécurité, authentification biométrique et MFA | À cadrer |
+
+[Heading2] 10.1 Nouvelles évolutions identifiées
+[ListBullet] Extension multilingue de l'assistant conversationnel (lingala, swahili, anglais).
+[ListBullet] Interconnexion directe avec les plateformes bancaires pour le rapprochement automatique des créances.
+[ListBullet] Jumeau numérique de la ligne de production pour la simulation de scénarios d'optimisation.
+[ListBullet] Programme de fidélité gamifié avec défis et récompenses saisonnières.
+[ListBullet] Signature électronique des bordereaux de chargement et bons de livraison.
+[Heading1] 11. Risques additionnels et mesures de maîtrise
+
+=== TABLEAU 18 ===
+| Risque | Impact | Mesure de maîtrise |
+| Biais ou erreur des modèles prédictifs | Décisions opérationnelles erronées | Explicabilité des recommandations, supervision humaine et réentraînement périodique |
+| Dépendance à la connectivité IoT | Perte de télémétrie qualité ou véhicule | Mode de repli sur saisie manuelle et alerte de perte de signal |
+| Adoption insuffisante du portail client | Sous-utilisation du self-service | Accompagnement, incitations de fidélité et formation des clients pilotes |
+| Surface d'attaque élargie par l'ouverture API | Risque de sécurité accru | Zero-trust, MFA, centre de sécurité et audits de sécurité réguliers |

@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { NotificationCategory, NotificationType, UserRole } from '@prisma/client';
 import { createHash, randomBytes } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.module';
+import { NotificationsService } from '../notifications/notifications.service';
 import { WebhooksService } from './webhooks.service';
 
 @Injectable()
@@ -8,6 +10,7 @@ export class ApiKeysService {
   constructor(
     private prisma: PrismaService,
     private webhooks: WebhooksService,
+    private notifications: NotificationsService,
   ) {}
 
   listKeys() {
@@ -40,6 +43,16 @@ export class ApiKeysService {
         scopes: data.scopes,
       },
     });
+    await this.notifications.notifyRoles(
+      [UserRole.ADMIN, UserRole.IT_GED],
+      {
+        title: 'Cle API creee',
+        message: `${record.label} — ${record.partner}`,
+        type: NotificationType.WARNING,
+        category: NotificationCategory.SECURITE,
+        link: '/integrations',
+      },
+    );
     return {
       id: record.id,
       label: record.label,
@@ -79,6 +92,16 @@ export class ApiKeysService {
         secret: randomBytes(16).toString('hex'),
       },
     });
+    await this.notifications.notifyRoles(
+      [UserRole.ADMIN, UserRole.IT_GED],
+      {
+        title: 'Webhook cree',
+        message: `${created.label} — ${created.url}`,
+        type: NotificationType.INFO,
+        category: NotificationCategory.SYSTEME,
+        link: '/integrations',
+      },
+    );
     const { secret: _s, ...rest } = created;
     return rest;
   }

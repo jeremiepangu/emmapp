@@ -3,6 +3,9 @@ import { api, ApiKeyInfo, WebhookDelivery, WebhookSubscription } from '../api';
 import { usePermissions } from '../hooks/usePermissions';
 import { ErpPageHeader, ErpPanel } from '../components/ErpUi';
 import StatusPill from '../components/ErpUi';
+import DocButton from '../components/DocButton';
+import { printList } from '../documents/printDocument';
+import { exportSheet, sheetApiKeys, sheetWebhooks } from '../excel/specs';
 
 const EVENTS = [
   'commande.creee',
@@ -59,6 +62,44 @@ export default function IntegrationsPage() {
       <ErpPageHeader
         title="API publique & webhooks"
         subtitle="Clés partenaires, événements métier et intégration des opérateurs de monnaie électronique"
+        excel={{
+          filename: 'integrations',
+          sheets: [
+            sheetApiKeys(keys, can('integrations', 'create')),
+            sheetWebhooks(hooks, can('integrations', 'create')),
+            exportSheet('Livraisons webhook', [
+              ['evenement', 'Evenement'], ['statut', 'Code HTTP'], ['erreurs', 'Erreur'],
+              ['tentatives', 'Tentatives'], ['date', 'Date'],
+            ], deliveries.map((row) => ({
+              evenement: row.event,
+              statut: row.statusCode ?? '',
+              erreurs: row.error ?? '',
+              tentatives: row.attempts,
+              date: row.deliveredAt ? new Date(row.deliveredAt).toLocaleString('fr-FR') : new Date(row.createdAt).toLocaleString('fr-FR'),
+            }))),
+          ],
+          onImported: load,
+        }}
+        actions={
+          <>
+            <DocButton
+              label="Registre"
+              onClick={() => printList(
+                'Registre API et webhooks',
+                ['Type', 'Libellé', 'Détail', 'Statut'],
+                [
+                  ...keys.map((k) => ['Clé API', k.label, `${k.partner} · ${k.keyPrefix}`, k.isActive ? 'Actif' : 'Révoqué']),
+                  ...hooks.map((h) => ['Webhook', h.label, h.events.join(', '), h.isActive ? 'Actif' : 'Inactif']),
+                ],
+              )}
+            />
+            {can('integrations', 'create') && (
+              <button type="button" className="erp-btn" onClick={() => document.getElementById('integrations-form')?.scrollIntoView({ behavior: 'smooth' })}>
+                + Nouvelle clé
+              </button>
+            )}
+          </>
+        }
       />
       {error && <p className="error-msg">{error}</p>}
       {createdKey && (
@@ -70,7 +111,7 @@ export default function IntegrationsPage() {
       {can('integrations', 'create') && (
         <div className="erp-split">
           <ErpPanel title="Nouvelle clé API" padded>
-            <form onSubmit={createKey} className="form-row">
+            <form id="integrations-form" onSubmit={createKey} className="form-row">
               <div className="form-group"><label>Libellé</label><input value={keyForm.label} onChange={(e) => setKeyForm({ ...keyForm, label: e.target.value })} required /></div>
               <div className="form-group"><label>Partenaire</label><input value={keyForm.partner} onChange={(e) => setKeyForm({ ...keyForm, partner: e.target.value })} required /></div>
               <div className="form-group"><label>Périmètres</label><input value={keyForm.scopes} onChange={(e) => setKeyForm({ ...keyForm, scopes: e.target.value })} /></div>

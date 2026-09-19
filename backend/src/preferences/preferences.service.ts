@@ -9,6 +9,8 @@ export interface PanneauTableauBord {
 
 export interface PreferenceUtilisateur {
   theme: string;
+  emailNotifications: boolean;
+  whatsappNotifications: boolean;
   dashboardLayout?: PanneauTableauBord[];
 }
 
@@ -22,13 +24,20 @@ export class PreferencesService {
     const preference = await this.prisma.userPreference.findUnique({ where: { userId } });
     return {
       theme: preference?.theme ?? 'clair',
+      emailNotifications: this.lireEmail(preference),
+      whatsappNotifications: await this.lireWhatsappDb(userId),
       dashboardLayout: this.lireLayout(preference?.dashboardLayout),
     };
   }
 
   async updatePreferences(
     userId: string,
-    body: { theme?: string; dashboardLayout?: unknown },
+    body: {
+      theme?: string;
+      emailNotifications?: boolean;
+      whatsappNotifications?: boolean;
+      dashboardLayout?: unknown;
+    },
   ): Promise<PreferenceUtilisateur> {
     if (body.theme !== undefined && !THEMES.includes(body.theme)) {
       throw new BadRequestException(`Thème invalide : ${THEMES.join(' ou ')} attendu.`);
@@ -45,16 +54,23 @@ export class PreferencesService {
       create: {
         userId,
         theme: body.theme ?? 'clair',
+        emailNotifications: body.emailNotifications ?? true,
         ...(layoutJson === undefined ? {} : { dashboardLayout: layoutJson }),
-      },
+      } as Prisma.UserPreferenceUncheckedCreateInput,
       update: {
         ...(body.theme === undefined ? {} : { theme: body.theme }),
+        ...(body.emailNotifications === undefined ? {} : { emailNotifications: body.emailNotifications }),
         ...(layoutJson === undefined ? {} : { dashboardLayout: layoutJson }),
-      },
+      } as Prisma.UserPreferenceUncheckedUpdateInput,
     });
+    if (body.whatsappNotifications !== undefined) {
+      await this.ecrireWhatsapp(userId, body.whatsappNotifications);
+    }
 
     return {
       theme: preference.theme,
+      emailNotifications: this.lireEmail(preference),
+      whatsappNotifications: await this.lireWhatsappDb(userId),
       dashboardLayout: this.lireLayout(preference.dashboardLayout),
     };
   }
@@ -111,6 +127,23 @@ export class PreferencesService {
     if (count === 0) {
       throw new NotFoundException('Vue sauvegardée introuvable.');
     }
+  }
+
+  private lireEmail(preference: { emailNotifications?: boolean } | null | undefined) {
+    return preference?.emailNotifications !== false;
+  }
+
+  private async lireWhatsappDb(userId: string) {
+    const rows = await this.prisma.$queryRaw<Array<{ whatsapp_notifications: boolean }>>`
+      SELECT whatsapp_notifications FROM user_preferences WHERE user_id = ${userId}
+    `;
+    return rows[0]?.whatsapp_notifications !== false;
+  }
+
+  private async ecrireWhatsapp(userId: string, value: boolean) {
+    await this.prisma.$executeRaw`
+      UPDATE user_preferences SET whatsapp_notifications = ${value} WHERE user_id = ${userId}
+    `;
   }
 
   private validerLayout(valeur: unknown): PanneauTableauBord[] {

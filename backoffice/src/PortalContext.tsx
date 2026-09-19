@@ -1,11 +1,12 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { portalApi, PortalAccount, PortalMe } from './api';
+import { portalApi, PortalAccount, PortalMe, RegisterPortalInput } from './api';
 
 interface PortalContextType {
   account: PortalAccount | null;
   me: PortalMe | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  register: (data: RegisterPortalInput) => Promise<void>;
   logout: () => void;
   refresh: () => Promise<void>;
 }
@@ -39,12 +40,19 @@ export function PortalProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const login = async (email: string, password: string) => {
-    const result = await portalApi.login(email, password);
+  const applySession = async (result: { accessToken: string; account: PortalAccount }) => {
     localStorage.setItem('portalToken', result.accessToken);
     localStorage.setItem('portalAccount', JSON.stringify(result.account));
     setAccount(result.account);
     await refresh();
+  };
+
+  const login = async (email: string, password: string) => {
+    await applySession(await portalApi.login(email, password));
+  };
+
+  const register = async (data: RegisterPortalInput) => {
+    await applySession(await portalApi.register(data));
   };
 
   const logout = () => {
@@ -55,7 +63,7 @@ export function PortalProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <PortalContext.Provider value={{ account, me, isLoading, login, logout, refresh }}>
+    <PortalContext.Provider value={{ account, me, isLoading, login, register, logout, refresh }}>
       {children}
     </PortalContext.Provider>
   );

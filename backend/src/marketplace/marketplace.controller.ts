@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { QuoteRequestStatus, UserRole } from '@prisma/client';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -38,5 +38,11 @@ export class MarketplaceController {
   @Post('quote-requests/:id/convert')
   convert(@Param('id') id: string) {
     return this.marketplace.convert(id);
+  }
+
+  @Roles(UserRole.ADMIN, UserRole.COMMERCIAL)
+  @Delete('quote-requests/:id')
+  remove(@Param('id') id: string) {
+    return this.marketplace.remove(id);
   }
 }

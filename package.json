@@ -11,6 +11,7 @@
     "backend:setup": "cd backend && npx prisma migrate dev --name init && npm run prisma:seed",
     "backoffice:install": "cd backoffice && npm install",
     "backoffice:dev": "cd backoffice && npm run dev",
-    "mobile:get": "cd mobile && flutter pub get"
+    "mobile:get": "cd mobile && flutter pub get",
+    "docs:cahier": "node tools/generate-cahier-charges.mjs"
   }
 }

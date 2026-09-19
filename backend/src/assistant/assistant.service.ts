@@ -89,7 +89,7 @@ const ROLES_FIDELITE: UserRole[] = [
   UserRole.DATA_ANALYST,
 ];
 
-/** Paliers du programme de fidélité, alignés sur le module EMMAPURE. */
+/** Paliers du programme de fidélité, alignés sur le module EMMANUEL SERVICES SARLU. */
 const LOYALTY_TIERS: Array<{ tier: string; threshold: number }> = [
   { tier: 'ARGENT', threshold: 100 },
   { tier: 'OR', threshold: 300 },
@@ -248,7 +248,7 @@ export class AssistantService {
       sessionId: id,
       author: AssistantAuthor.ASSISTANT,
       content:
-        'Votre demande a été transférée à un conseiller EMMAPURE, qui reprend la conversation avec son historique complet.',
+        'Votre demande a été transférée à un conseiller EMMANUEL SERVICES SARLU, qui reprend la conversation avec son historique complet.',
       intent: 'escalade_manuelle',
       confidence: 1,
     });
@@ -297,7 +297,7 @@ export class AssistantService {
       reply = {
         text: `Je ne suis pas certain de comprendre votre demande (confiance ${Math.round(
           match.confidence * 100,
-        )} %). Je la transmets à un conseiller EMMAPURE avec l'historique de notre échange ; il vous répondra dans les meilleurs délais.`,
+        )} %). Je la transmets à un conseiller EMMANUEL SERVICES SARLU avec l'historique de notre échange ; il vous répondra dans les meilleurs délais.`,
         suggestions: this.suggestionsFor('aide', params.who),
       };
       await this.markEscalated(session.id, session.escalated);
@@ -370,7 +370,7 @@ export class AssistantService {
     if (who.kind === 'CLIENT') {
       if (!who.clientId) {
         return {
-          text: `Mbote ! Je suis l'assistant EMMAPURE. Je ne reconnais pas encore ce numéro : contactez votre commercial pour le rattacher à votre compte, puis je pourrai consulter vos commandes et vos consignes. En attendant, je peux vous communiquer nos tarifs.`,
+          text: `Mbote ! Je suis l'assistant EMMANUEL SERVICES SARLU. Je ne reconnais pas encore ce numéro : contactez votre commercial pour le rattacher à votre compte, puis je pourrai consulter vos commandes et vos consignes. En attendant, je peux vous communiquer nos tarifs.`,
           suggestions: this.suggestionsFor('salutation', who),
         };
       }
@@ -381,7 +381,7 @@ export class AssistantService {
         },
       });
       return {
-        text: `Mbote ${who.displayName} ! Je suis l'assistant EMMAPURE. Vous avez actuellement ${openOrders} commande(s) en cours. Que puis-je vérifier pour vous ?`,
+        text: `Mbote ${who.displayName} ! Je suis l'assistant EMMANUEL SERVICES SARLU. Vous avez actuellement ${openOrders} commande(s) en cours. Que puis-je vérifier pour vous ?`,
         suggestions: this.suggestionsFor('salutation', who),
       };
     }
@@ -403,7 +403,7 @@ export class AssistantService {
     ]);
     const perimeter = this.isTerrain(who) ? 'Sur votre périmètre' : "Sur l'ensemble de l'activité";
     return {
-      text: `Mbote ${who.displayName} ! Assistant EMMAPURE, profil ${who.role ?? 'interne'}. ${perimeter} : ${tours} tournée(s) datée(s) du jour et ${pendingDeliveries} livraison(s) en attente. Que souhaitez-vous consulter ?`,
+      text: `Mbote ${who.displayName} ! Assistant EMMANUEL SERVICES SARLU, profil ${who.role ?? 'interne'}. ${perimeter} : ${tours} tournée(s) datée(s) du jour et ${pendingDeliveries} livraison(s) en attente. Que souhaitez-vous consulter ?`,
       suggestions: this.suggestionsFor('salutation', who),
     };
   }
@@ -831,7 +831,7 @@ export class AssistantService {
   /** Un contact non rattaché à une fiche client ne reçoit aucune donnée nominative. */
   private unknownContact(who: Interlocutor, subject: string): IntentReply {
     return {
-      text: `Je ne peux pas consulter ${subject} car ce numéro n'est pas encore rattaché à un compte client EMMAPURE. Communiquez-le à votre commercial : je pourrai ensuite répondre directement.`,
+      text: `Je ne peux pas consulter ${subject} car ce numéro n'est pas encore rattaché à un compte client EMMANUEL SERVICES SARLU. Communiquez-le à votre commercial : je pourrai ensuite répondre directement.`,
       suggestions: this.suggestionsFor('aide', who),
     };
   }
@@ -839,7 +839,7 @@ export class AssistantService {
   /** Refus courtois d'un intent interne demandé par un client. */
   private internalOnly(subject: string, who: Interlocutor, intent: IntentName): IntentReply {
     return {
-      text: `Je ne peux pas communiquer ${subject} : ces informations sont réservées aux équipes EMMAPURE. En revanche, je reste à votre disposition pour vos commandes, vos livraisons, vos consignes et vos points de fidélité.`,
+      text: `Je ne peux pas communiquer ${subject} : ces informations sont réservées aux équipes EMMANUEL SERVICES SARLU. En revanche, je reste à votre disposition pour vos commandes, vos livraisons, vos consignes et vos points de fidélité.`,
       suggestions: this.suggestionsFor(intent, who),
     };
   }

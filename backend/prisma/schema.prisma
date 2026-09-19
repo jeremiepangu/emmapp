@@ -46,6 +46,43 @@ enum ProductFormat {
   BONBONNE_19L
 }
 
+enum PricingRuleType {
+  ARTICLE_OFFERT
+  FIXED
+}
+
+enum ConsigneMovementSource {
+  LIVRAISON
+  POS
+  COMMANDE
+  RETOUR
+  AJUSTEMENT
+}
+
+enum OrderPaymentStatus {
+  IMPAYEE
+  PARTIELLE
+  SOLDEE
+}
+
+enum DiscrepancyKind {
+  CAISSE
+  TOURNEE
+  VIDANGE
+}
+
+enum DiscrepancyStatus {
+  OUVERT
+  JUSTIFIE
+  REGULARISE
+}
+
+enum CashClosingStatus {
+  OUVERTE
+  CLOTUREE
+  VALIDEE
+}
+
 enum LoyaltyTier {
   BRONZE
   ARGENT
@@ -92,6 +129,11 @@ enum OrderStatus {
   CHARGEE
   EN_LIVRAISON
   LIVREE
+  ANNULEE
+}
+
+enum PosSaleStatus {
+  PAYEE
   ANNULEE
 }
 
@@ -149,8 +191,17 @@ model User {
   auditLogs        AuditLog[]
   syncEvents       SyncEvent[]
   shiftAssignments ShiftAssignment[]
+  attendancePunches AttendancePunch[]
+  attendanceDays    AttendanceDay[]
   dailyReports     DailyActivityReport[]
   notifications    Notification[]
+  employeeProfile  EmployeeProfile?
+  managedEmployees EmployeeProfile[] @relation("EmployeeManager")
+  leaveRequests    LeaveRequest[]    @relation("LeaveEmployee")
+  leaveValidations LeaveRequest[]    @relation("LeaveValidator")
+  leaveManagerDecisions LeaveRequest[] @relation("LeaveManager")
+  payslips         Payslip[]
+  payrollValidated PayrollPeriod[]   @relation("PayrollValidator")
 
   resolvedAnomalies Anomaly[]          @relation("AnomalyResolver")
   assistantSessions AssistantSession[] @relation("AssistantUser")
@@ -158,6 +209,29 @@ model User {
   mfaCredential     MfaCredential?
   preference        UserPreference?
   savedViews        SavedView[]
+  pricingRules      PricingRule[] @relation("PricingRuleDriver")
+  activityDeclarations ActivityDeclaration[] @relation("ActivityDeclarant")
+  activityValidations  ActivityDeclaration[] @relation("ActivityValidator")
+  objectives           PerformanceObjective[]
+  activityObjectives   AgentActivityObjective[]
+  reviews              PerformanceReview[] @relation("ReviewEmployee")
+  reviewValidations    PerformanceReview[] @relation("ReviewManager")
+  trainingEnrollments  TrainingEnrollment[]
+  packagingMovements   PackagingMovement[]
+  hrFieldChanges       EmployeeFieldHistory[] @relation("HistoryActor")
+  aclOverrides         UserPermission[]
+  contractsValidated   Contract[]            @relation("ContractValidator")
+  cashClosings         CashClosing[]         @relation("CashClosingCashier")
+  resolvedDiscrepancies Discrepancy[]        @relation("DiscrepancyResolver")
+  contractArchives     ContractDocument[]    @relation("ContractArchiver")
+  posSales             PosSale[]             @relation("PosCashier")
+  ordersAssigned       Order[]               @relation("OrderAssignedDriver")
+  tourUnsoldRecorded   TourUnsoldLine[]      @relation("TourUnsoldRecorder")
+  financeAccountsCreated     FinanceAccount[]    @relation("FinanceAccountCreator")
+  financeMovementsCreated    FinanceMovement[]   @relation("FinanceMovementCreator")
+  financeMovementsValidated  FinanceMovement[]   @relation("FinanceMovementValidator")
+  financeInventoriesCreated  FinanceInventory[]  @relation("FinanceInventoryCreator")
+  financeInventoriesValidated FinanceInventory[] @relation("FinanceInventoryValidator")
 
   @@map("users")
 }
@@ -168,14 +242,26 @@ model Client {
   name            String
   segment         ClientSegment
   address         String?
+  avenue          String?
+  avenueNumber    String?       @map("avenue_number")
+  quartier        String?
+  commune         String?
+  district        String?
+  province        String        @default("KINSHASA")
   city            String?
   zone            String?
   latitude        Float?
   longitude       Float?
   phone           String?
   email           String?
+  idDocumentType  String?       @map("id_document_type")
+  idDocumentNumber String?      @map("id_document_number")
+  logoUrl         String?       @map("logo_url") @db.Text
+  profession      String?
   creditLimit     Decimal       @default(0) @map("credit_limit") @db.Decimal(12, 2)
   creditBalance   Decimal       @default(0) @map("credit_balance") @db.Decimal(12, 2)
+  /// Trop-percu encaisse et pas encore impute sur une commande.
+  advanceBalance  Decimal       @default(0) @map("advance_balance") @db.Decimal(12, 2)
   consigneLimit   Int           @default(50) @map("consigne_limit")
   consigneBalance Int           @default(0) @map("consigne_balance")
   loyaltyPoints   Int           @default(0) @map("loyalty_points")
@@ -188,10 +274,15 @@ model Client {
   orders     Order[]
   deliveries Delivery[]
   consignes  ConsigneMovement[]
+  consigneBalances ClientConsigneBalance[]
   payments   Payment[]
+  posSales   PosSale[]
+  discrepancies Discrepancy[]
 
   portalAccounts PortalAccount[]
   quoteRequests  QuoteRequest[]
+  pricingRules   PricingRule[]
+  contracts      Contract[]
 
   @@map("clients")
 }
@@ -204,6 +295,7 @@ model Product {
   unitPrice   Decimal       @map("unit_price") @db.Decimal(12, 2)
   consigneAmount Decimal    @default(0) @map("consigne_amount") @db.Decimal(12, 2)
   isReusable  Boolean       @default(false) @map("is_reusable")
+  imageUrl    String?       @map("image_url") @db.Text
   maxRotations Int          @default(0) @map("max_rotations")
   loyaltyPointsPerUnit Int  @default(0) @map("loyalty_points_per_unit")
   isActive    Boolean       @default(true) @map("is_active")
@@ -214,8 +306,42 @@ model Product {
   orderLines  OrderLine[]
   deliveryLines DeliveryLine[]
   forecasts   DemandForecast[]
+  pricingRules PricingRule[]
+  posSaleLines PosSaleLine[]
+  financeInventoryLines FinanceInventoryLine[]
+  tourUnsoldLines TourUnsoldLine[]
 
   @@map("products")
+}
+
+model PricingRule {
+  id          String           @id @default(uuid())
+  name        String
+  segment     ClientSegment?
+  clientId    String?          @map("client_id")
+  zone        String?
+  driverId    String?          @map("driver_id")
+  productId   String?          @map("product_id")
+  minQuantity  Int              @default(1) @map("min_quantity")
+  maxQuantity  Int?             @map("max_quantity")
+  /// Taille du lot ouvrant droit au bonus (ex. 10 = 1 article offert tous les 10 achetes).
+  stepQuantity Int              @default(10) @map("step_quantity")
+  type         PricingRuleType  @default(ARTICLE_OFFERT)
+  /// ARTICLE_OFFERT : nombre d'articles offerts par lot. FIXED : prix unitaire impose.
+  value        Decimal          @db.Decimal(12, 2)
+  priority    Int              @default(0)
+  isActive    Boolean          @default(true) @map("is_active")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  product Product? @relation(fields: [productId], references: [id])
+  client  Client?  @relation(fields: [clientId], references: [id])
+  driver  User?    @relation("PricingRuleDriver", fields: [driverId], references: [id])
+
+  @@index([segment, isActive])
+  @@index([clientId, isActive])
+  @@index([driverId, isActive])
+  @@map("pricing_rules")
 }
 
 model StockLocation {
@@ -271,15 +397,26 @@ model Order {
   clientId    String      @map("client_id")
   status      OrderStatus @default(BROUILLON)
   totalAmount Decimal     @default(0) @map("total_amount") @db.Decimal(12, 2)
+  /// Part de consigne facturee comprise dans le total.
+  consigneAmount Decimal  @default(0) @map("consigne_amount") @db.Decimal(12, 2)
+  /// Cumul des versements recus sur cette commande.
+  paidAmount  Decimal     @default(0) @map("paid_amount") @db.Decimal(12, 2)
+  paymentStatus OrderPaymentStatus @default(IMPAYEE) @map("payment_status")
   notes       String?
   tourId      String?     @map("tour_id")
+  /// Livreur ou commercial ayant pris la commande (vente terrain).
+  assignedDriverId String? @map("assigned_driver_id")
   createdAt   DateTime    @default(now()) @map("created_at")
   updatedAt   DateTime    @updatedAt @map("updated_at")
 
   client     Client      @relation(fields: [clientId], references: [id])
   tour       Tour?       @relation(fields: [tourId], references: [id])
+  assignedDriver User?   @relation("OrderAssignedDriver", fields: [assignedDriverId], references: [id])
   lines      OrderLine[]
   deliveries Delivery[]
+  payments   Payment[]
+  allocations PaymentAllocation[]
+  posSale    PosSale?
 
   @@map("orders")
 }
@@ -290,7 +427,15 @@ model OrderLine {
   productId String  @map("product_id")
   quantity  Int
   unitPrice Decimal @map("unit_price") @db.Decimal(12, 2)
-  discount  Decimal @default(0) @db.Decimal(12, 2)
+  /// Articles offerts, livres en plus de la quantite facturee.
+  bonusQuantity Int  @default(0) @map("bonus_quantity")
+  /// Valeur des articles offerts, non deduite du total.
+  bonus     Decimal @default(0) @db.Decimal(12, 2)
+  /// Contenants vides rendus en echange par le client.
+  emptiesReturned Int @default(0) @map("empties_returned")
+  /// Contenants facturas en consigne faute de vide rendu.
+  consigneQuantity Int @default(0) @map("consigne_quantity")
+  consigneAmount Decimal @default(0) @map("consigne_amount") @db.Decimal(12, 2)
 
   order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id])
@@ -316,9 +461,11 @@ model Tour {
   orders     Order[]
   deliveries Delivery[]
   loadSheets LoadSheet[]
+  unsoldLines TourUnsoldLine[]
 
   optimizedRoutes OptimizedRoute[]
   esgIndicators   EsgIndicator[]
+  discrepancies   Discrepancy[]
 
   @@map("tours")
 }
@@ -334,6 +481,23 @@ model LoadSheet {
   tour Tour @relation(fields: [tourId], references: [id])
 
   @@map("load_sheets")
+}
+
+/// Produits non vendus ramenes au depot en fin de tournee.
+model TourUnsoldLine {
+  id           String   @id @default(uuid())
+  tourId       String   @map("tour_id")
+  productId    String   @map("product_id")
+  quantity     Int
+  notes        String?
+  recordedById String   @map("recorded_by_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  tour       Tour    @relation(fields: [tourId], references: [id], onDelete: Cascade)
+  product    Product @relation(fields: [productId], references: [id])
+  recordedBy User    @relation("TourUnsoldRecorder", fields: [recordedById], references: [id])
+
+  @@map("tour_unsold_lines")
 }
 
 model Delivery {
@@ -386,25 +550,53 @@ model ConsigneMovement {
   id          String   @id @default(uuid())
   clientId    String   @map("client_id")
   deliveryId  String?  @map("delivery_id")
+  orderId     String?  @map("order_id")
+  posSaleId   String?  @map("pos_sale_id")
   productFormat ProductFormat @map("product_format")
+  source      ConsigneMovementSource @default(LIVRAISON)
   qtyIn       Int      @default(0) @map("qty_in")
   qtyOut      Int      @default(0) @map("qty_out")
+  /// Solde du client pour ce format apres le mouvement.
   balanceAfter Int     @map("balance_after")
+  /// Valeur unitaire de consigne appliquee au mouvement.
+  unitValue   Decimal  @default(0) @map("unit_value") @db.Decimal(12, 2)
+  /// Valeur nette du mouvement (positive si le client s'endette).
+  amount      Decimal  @default(0) @db.Decimal(12, 2)
   notes       String?
   createdAt   DateTime @default(now()) @map("created_at")
 
   client Client @relation(fields: [clientId], references: [id])
 
+  @@index([clientId, productFormat])
   @@map("consigne_movements")
+}
+
+/// Solde de contenants vides dus par un client, par format, avec sa valorisation.
+model ClientConsigneBalance {
+  id            String        @id @default(uuid())
+  clientId      String        @map("client_id")
+  productFormat ProductFormat @map("product_format")
+  quantity      Int           @default(0)
+  amount        Decimal       @default(0) @db.Decimal(12, 2)
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, productFormat])
+  @@index([clientId])
+  @@map("client_consigne_balances")
 }
 
 model Payment {
   id          String        @id @default(uuid())
   paymentNumber String      @unique @map("payment_number")
   deliveryId  String?       @map("delivery_id")
+  orderId     String?       @map("order_id")
   clientId    String?       @map("client_id")
   amount      Decimal       @db.Decimal(12, 2)
   method      PaymentMethod
+  /// Encaissement anticipe : reste au credit du client au lieu d'etre impute.
+  isAdvance   Boolean       @default(false) @map("is_advance")
   reference   String?
   collectedBy String        @map("collected_by")
   localId     String?       @unique @map("local_id")
@@ -412,10 +604,95 @@ model Payment {
   createdAt   DateTime      @default(now()) @map("created_at")
 
   delivery  Delivery? @relation(fields: [deliveryId], references: [id])
+  order     Order?    @relation(fields: [orderId], references: [id])
   client    Client?   @relation(fields: [clientId], references: [id])
   collector User      @relation(fields: [collectedBy], references: [id])
+  posSale   PosSale?
+  financeMovement FinanceMovement?
+  allocations PaymentAllocation[]
 
   @@map("payments")
+}
+
+/// Origine d'une imputation : encaissement direct ou consommation d'une avance.
+enum PaymentAllocationSource {
+  PAIEMENT
+  AVANCE
+}
+
+/// Part d'un versement affectee a une commande precise. Un versement peut
+/// couvrir plusieurs commandes, et le residu devient une avance sur compte.
+model PaymentAllocation {
+  id        String                  @id @default(uuid())
+  paymentId String?                 @map("payment_id")
+  orderId   String                  @map("order_id")
+  amount    Decimal                 @db.Decimal(12, 2)
+  source    PaymentAllocationSource @default(PAIEMENT)
+  createdAt DateTime                @default(now()) @map("created_at")
+
+  payment Payment? @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([paymentId])
+  @@map("payment_allocations")
+}
+
+/// Vente comptoir au point de vente (caisse).
+model PosSale {
+  id            String        @id @default(uuid())
+  saleNumber    String        @unique @map("sale_number")
+  clientId      String        @map("client_id")
+  cashierId     String        @map("cashier_id")
+  orderId       String?       @unique @map("order_id")
+  paymentId     String?       @unique @map("payment_id")
+  method        PaymentMethod
+  status        PosSaleStatus @default(PAYEE)
+  subtotal      Decimal       @db.Decimal(12, 2)
+  bonus         Decimal       @default(0) @db.Decimal(12, 2)
+  /// Part de consigne facturee comprise dans le total.
+  consigneAmount Decimal      @default(0) @map("consigne_amount") @db.Decimal(12, 2)
+  /// Part du total reglee par l'avance du client, donc non encaissee en caisse.
+  advanceApplied Decimal      @default(0) @map("advance_applied") @db.Decimal(12, 2)
+  totalAmount   Decimal       @map("total_amount") @db.Decimal(12, 2)
+  cashReceived  Decimal?      @map("cash_received") @db.Decimal(12, 2)
+  changeGiven   Decimal?      @map("change_given") @db.Decimal(12, 2)
+  notes         String?
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  client  Client       @relation(fields: [clientId], references: [id])
+  cashier User         @relation("PosCashier", fields: [cashierId], references: [id])
+  order   Order?       @relation(fields: [orderId], references: [id])
+  payment Payment?     @relation(fields: [paymentId], references: [id])
+  lines   PosSaleLine[]
+
+  @@index([createdAt])
+  @@index([cashierId, createdAt])
+  @@map("pos_sales")
+}
+
+model PosSaleLine {
+  id           String  @id @default(uuid())
+  saleId       String  @map("sale_id")
+  productId    String  @map("product_id")
+  quantity     Int
+  catalogPrice Decimal @map("catalog_price") @db.Decimal(12, 2)
+  unitPrice    Decimal @map("unit_price") @db.Decimal(12, 2)
+  /// Articles offerts, remis en plus de la quantite facturee.
+  bonusQuantity Int    @default(0) @map("bonus_quantity")
+  /// Valeur des articles offerts, non deduite du total.
+  bonus        Decimal @default(0) @db.Decimal(12, 2)
+  /// Contenants vides rendus en echange par le client.
+  emptiesReturned Int  @default(0) @map("empties_returned")
+  /// Contenants facturas en consigne faute de vide rendu.
+  consigneQuantity Int @default(0) @map("consigne_quantity")
+  consigneAmount Decimal @default(0) @map("consigne_amount") @db.Decimal(12, 2)
+
+  sale    PosSale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("pos_sale_lines")
 }
 
 model AuditLog {
@@ -502,8 +779,82 @@ model ShiftAssignment {
   createdAt DateTime @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id])
+  punches AttendancePunch[]
+  attendanceDays AttendanceDay[]
 
   @@map("shift_assignments")
+}
+
+enum AttendancePunchType {
+  ENTREE
+  SORTIE
+  PAUSE_DEBUT
+  PAUSE_FIN
+}
+
+enum AttendanceSource {
+  MOBILE
+  WEB
+  KIOSK
+  MANUEL
+}
+
+enum PresenceStatus {
+  PRESENT
+  RETARD
+  ABSENT
+  CONGE
+  MISSION
+  INCOMPLET
+  REPOS
+}
+
+model AttendancePunch {
+  id          String              @id @default(uuid())
+  userId      String              @map("user_id")
+  punchedAt   DateTime            @map("punched_at")
+  type        AttendancePunchType
+  source      AttendanceSource    @default(MOBILE)
+  shiftId     String?             @map("shift_id")
+  latitude    Float?
+  longitude   Float?
+  notes       String?
+  cancelledAt DateTime?           @map("cancelled_at")
+  createdAt   DateTime            @default(now()) @map("created_at")
+
+  user  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shift ShiftAssignment? @relation(fields: [shiftId], references: [id])
+
+  @@index([userId, punchedAt])
+  @@map("attendance_punches")
+}
+
+model AttendanceDay {
+  id                String         @id @default(uuid())
+  userId            String         @map("user_id")
+  date              DateTime       @db.Date
+  status            PresenceStatus @default(INCOMPLET)
+  shiftId           String?        @map("shift_id")
+  plannedMinutes    Int            @default(0) @map("planned_minutes")
+  workedMinutes     Int            @default(0) @map("worked_minutes")
+  breakMinutes      Int            @default(0) @map("break_minutes")
+  overtimeMinutes   Int            @default(0) @map("overtime_minutes")
+  lateMinutes       Int            @default(0) @map("late_minutes")
+  earlyLeaveMinutes Int            @default(0) @map("early_leave_minutes")
+  firstInAt         DateTime?      @map("first_in_at")
+  lastOutAt         DateTime?      @map("last_out_at")
+  notes             String?
+  adjustedById      String?        @map("adjusted_by_id")
+  adjustmentReason  String?        @map("adjustment_reason")
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+
+  user  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shift ShiftAssignment? @relation(fields: [shiftId], references: [id])
+
+  @@unique([userId, date])
+  @@index([date, status])
+  @@map("attendance_days")
 }
 
 model DailyActivityReport {
@@ -563,6 +914,7 @@ enum NotificationCategory {
   ESG
   SECURITE
   PORTAIL
+  COMPTABILITE
 }
 
 model Notification {
@@ -582,6 +934,58 @@ model Notification {
   @@map("notifications")
 }
 
+/// Session de caisse : encaissements theoriques confrontes au comptage physique.
+model CashClosing {
+  id             String            @id @default(uuid())
+  reference      String            @unique
+  cashierId      String            @map("cashier_id")
+  openedAt       DateTime          @map("opened_at")
+  closedAt       DateTime?         @map("closed_at")
+  expectedAmount Decimal           @default(0) @map("expected_amount") @db.Decimal(12, 2)
+  countedAmount  Decimal           @default(0) @map("counted_amount") @db.Decimal(12, 2)
+  variance       Decimal           @default(0) @db.Decimal(12, 2)
+  status         CashClosingStatus @default(OUVERTE)
+  notes          String?
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+
+  cashier       User          @relation("CashClosingCashier", fields: [cashierId], references: [id])
+  discrepancies Discrepancy[]
+
+  @@index([cashierId, openedAt])
+  @@map("cash_closings")
+}
+
+/// Journal unifie des ecarts constates : caisse, tournee, vidange.
+model Discrepancy {
+  id            String            @id @default(uuid())
+  reference     String
+  kind          DiscrepancyKind
+  status        DiscrepancyStatus @default(OUVERT)
+  label         String
+  expected      Decimal           @default(0) @db.Decimal(12, 2)
+  actual        Decimal           @default(0) @db.Decimal(12, 2)
+  variance      Decimal           @default(0) @db.Decimal(12, 2)
+  clientId      String?           @map("client_id")
+  tourId        String?           @map("tour_id")
+  cashClosingId String?           @map("cash_closing_id")
+  productFormat ProductFormat?    @map("product_format")
+  resolvedById  String?           @map("resolved_by_id")
+  resolvedAt    DateTime?         @map("resolved_at")
+  notes         String?
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
+
+  client      Client?      @relation(fields: [clientId], references: [id])
+  tour        Tour?        @relation(fields: [tourId], references: [id])
+  cashClosing CashClosing? @relation(fields: [cashClosingId], references: [id], onDelete: Cascade)
+  resolvedBy  User?        @relation("DiscrepancyResolver", fields: [resolvedById], references: [id])
+
+  @@index([kind, status])
+  @@index([createdAt])
+  @@map("discrepancies")
+}
+
 model PackagingUnit {
   id              String        @id @default(uuid())
   barcode         String        @unique
@@ -593,6 +997,76 @@ model PackagingUnit {
   createdAt       DateTime      @default(now()) @map("created_at")
 
   @@map("packaging_units")
+}
+
+enum PackagingKind {
+  EMBALLAGE
+  ETIQUETTE
+  BOUCHON
+}
+
+enum PackagingPackFormat {
+  BIDON_5L
+  BIDON_10L
+  BIDON_25L
+  BONBONNE_5G
+}
+
+enum PackagingMovementType {
+  ACHAT
+  UTILISATION
+  VENTE
+  DECLASSEMENT
+}
+
+/// Article d'emballage (contenant vide, étiquette ou bouchon) par format.
+model PackagingSku {
+  id        String              @id @default(uuid())
+  code      String              @unique
+  name      String
+  kind      PackagingKind
+  format    PackagingPackFormat
+  minStock  Int                 @default(50) @map("min_stock")
+  isActive  Boolean             @default(true) @map("is_active")
+  createdAt DateTime            @default(now()) @map("created_at")
+
+  stock     PackagingStock?
+  movements PackagingMovement[]
+
+  @@index([kind, format])
+  @@map("packaging_skus")
+}
+
+model PackagingStock {
+  id        String   @id @default(uuid())
+  skuId     String   @unique @map("sku_id")
+  quantity  Int      @default(0)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  sku PackagingSku @relation(fields: [skuId], references: [id], onDelete: Cascade)
+
+  @@map("packaging_stocks")
+}
+
+/// Journal du cycle de vie : achat, utilisation (remplissage), vente, déclassement.
+model PackagingMovement {
+  id          String                 @id @default(uuid())
+  skuId       String                 @map("sku_id")
+  type        PackagingMovementType
+  quantity    Int
+  unitCost    Decimal?               @db.Decimal(12, 2) @map("unit_cost")
+  supplier    String?
+  reference   String?
+  notes       String?
+  createdById String?                @map("created_by_id")
+  createdAt   DateTime               @default(now()) @map("created_at")
+
+  sku       PackagingSku @relation(fields: [skuId], references: [id], onDelete: Cascade)
+  createdBy User?        @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([skuId, createdAt])
+  @@index([type, createdAt])
+  @@map("packaging_movements")
 }
 
 // ============================================================================
@@ -906,6 +1380,10 @@ model UserPreference {
   id              String   @id @default(uuid())
   userId          String   @unique @map("user_id")
   theme           String   @default("clair")
+  /// Copie email des notifications internes (defaut active).
+  emailNotifications Boolean @default(true) @map("email_notifications")
+  /// Copie WhatsApp des notifications internes (defaut active, numero User.phone).
+  whatsappNotifications Boolean @default(true) @map("whatsapp_notifications")
   /// Ordre et visibilité des panneaux : [{ key, visible }].
   dashboardLayout Json?    @map("dashboard_layout")
   updatedAt       DateTime @updatedAt @map("updated_at")
@@ -1008,4 +1486,750 @@ model SavedView {
 
   @@unique([userId, resource, name])
   @@map("saved_views")
+}
+
+enum ContractType {
+  CDI
+  CDD
+  STAGE
+  PRESTATION
+  JOURNALIER
+}
+
+enum ContractPartyKind {
+  AGENT
+  SUPPLIER
+  KEY_CLIENT
+}
+
+enum BusinessContractKind {
+  CDI
+  CDD
+  STAGE
+  PRESTATION
+  JOURNALIER
+  FOURNITURE
+  PRESTATION_SERVICE
+  CADRE
+  DISTRIBUTION
+  EXCLUSIVITE
+  CONSIGNATION
+}
+
+enum ContractLifecycle {
+  BROUILLON
+  ACTIF
+  SUSPENDU
+  EXPIRE
+  RESILIE
+  RENOUVELE
+}
+
+enum ContractDocumentKind {
+  WORD_SIGNATURE
+  SIGNED_ARCHIVE
+}
+
+enum EmployeeStatus {
+  ACTIF
+  SUSPENDU
+  SORTI
+}
+
+enum LeaveType {
+  CONGE_PAYE
+  MALADIE
+  SANS_SOLDE
+  AUTORISATION
+  MATERNITE
+  PATERNITE
+  PERMISSION
+  ABSENCE_INJUSTIFIEE
+}
+
+enum LeaveStatus {
+  BROUILLON
+  SOUMISE
+  VALIDEE_MANAGER
+  VALIDEE
+  REJETEE
+  ANNULEE
+}
+
+enum Gender {
+  HOMME
+  FEMME
+  AUTRE
+}
+
+enum MaritalStatus {
+  CELIBATAIRE
+  MARIE
+  DIVORCE
+  VEUF
+}
+
+enum HrDocumentType {
+  CONTRAT
+  PIECE_IDENTITE
+  DIPLOME
+  CV
+  ATTESTATION
+  AVENANT
+  CERTIFICAT_FORMATION
+  JUSTIFICATIF
+  AUTRE
+}
+
+enum TrainingKind {
+  INTERNE
+  EXTERNE
+}
+
+enum TrainingEnrollmentStatus {
+  INSCRITE
+  VALIDEE
+  REJETEE
+  SUIVIE
+}
+
+enum ReviewStatus {
+  BROUILLON
+  AUTO_EVALUEE
+  VALIDEE
+}
+
+enum PayrollPeriodStatus {
+  BROUILLON
+  CALCULEE
+  VALIDEE
+  CLOTUREE
+}
+
+enum PayslipStatus {
+  BROUILLON
+  VALIDEE
+  PAYEE
+}
+
+/// Dossier administratif d'un agent (contrat, salaire de base, affiliation CNSS).
+model EmployeeProfile {
+  id          String         @id @default(uuid())
+  userId      String         @unique @map("user_id")
+  matricule   String         @unique
+  jobTitle    String         @map("job_title")
+  department  String
+  contractType ContractType  @default(CDI) @map("contract_type")
+  hireDate    DateTime       @map("hire_date") @db.Date
+  endDate     DateTime?      @map("end_date") @db.Date
+  baseSalary  Decimal        @map("base_salary") @db.Decimal(12, 2)
+  currency    String         @default("CDF")
+  bankName    String?        @map("bank_name")
+  bankAccount String?        @map("bank_account")
+  cnssNumber  String?        @map("cnss_number")
+  nif         String?
+  status      EmployeeStatus @default(ACTIF)
+  notes       String?
+  gender      Gender?
+  birthDate   DateTime?      @map("birth_date") @db.Date
+  address     String?
+  avenue      String?
+  avenueNumber String?       @map("avenue_number")
+  quartier    String?
+  commune     String?
+  district    String?
+  province    String         @default("KINSHASA")
+  maritalStatus MaritalStatus? @map("marital_status")
+  emergencyName String?      @map("emergency_name")
+  emergencyPhone String?     @map("emergency_phone")
+  photoUrl    String?        @map("photo_url") @db.Text
+  managerId   String?        @map("manager_id")
+  jobFunctionId String?      @map("job_function_id")
+  annualLeaveDays Int        @default(24) @map("annual_leave_days")
+  /// Duree journaliere contractuelle en minutes (defaut 8 h).
+  dailyMinutes    Int        @default(480) @map("daily_minutes")
+  /// Minutes de tolerance avant retard.
+  graceLateMinutes Int       @default(15) @map("grace_late_minutes")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  manager     User?         @relation("EmployeeManager", fields: [managerId], references: [id])
+  jobFunction JobFunction?  @relation(fields: [jobFunctionId], references: [id])
+  payslips    Payslip[]
+  documents   EmployeeDocument[]
+  fieldHistory EmployeeFieldHistory[]
+  contracts    Contract[]
+
+  @@map("employee_profiles")
+}
+
+model LeaveRequest {
+  id            String      @id @default(uuid())
+  userId        String      @map("user_id")
+  type          LeaveType
+  startDate     DateTime    @map("start_date") @db.Date
+  endDate       DateTime    @map("end_date") @db.Date
+  days          Int
+  reason        String?
+  status        LeaveStatus @default(SOUMISE)
+  validatedById String?     @map("validated_by_id")
+  validatedAt   DateTime?   @map("validated_at")
+  managerId     String?     @map("manager_id")
+  managerAt     DateTime?   @map("manager_at")
+  rejectionReason String?   @map("rejection_reason")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  user        User  @relation("LeaveEmployee", fields: [userId], references: [id], onDelete: Cascade)
+  validatedBy User? @relation("LeaveValidator", fields: [validatedById], references: [id])
+  manager     User? @relation("LeaveManager", fields: [managerId], references: [id])
+
+  @@index([userId, startDate])
+  @@map("leave_requests")
+}
+
+model PayrollPeriod {
+  id            String               @id @default(uuid())
+  year          Int
+  month         Int
+  status        PayrollPeriodStatus  @default(BROUILLON)
+  expectedDays  Int                  @default(26) @map("expected_days")
+  generatedAt   DateTime?            @map("generated_at")
+  validatedAt   DateTime?            @map("validated_at")
+  validatedById String?              @map("validated_by_id")
+  closedAt      DateTime?            @map("closed_at")
+  notes         String?
+  createdAt     DateTime             @default(now()) @map("created_at")
+
+  validatedBy User?     @relation("PayrollValidator", fields: [validatedById], references: [id])
+  payslips    Payslip[]
+
+  @@unique([year, month])
+  @@map("payroll_periods")
+}
+
+model Payslip {
+  id                String        @id @default(uuid())
+  periodId          String        @map("period_id")
+  userId            String        @map("user_id")
+  employeeProfileId String?       @map("employee_profile_id")
+  baseSalary        Decimal       @map("base_salary") @db.Decimal(12, 2)
+  workedDays        Int           @map("worked_days")
+  overtimeHours     Decimal       @default(0) @map("overtime_hours") @db.Decimal(8, 2)
+  overtimeAmount    Decimal       @default(0) @map("overtime_amount") @db.Decimal(12, 2)
+  bonuses           Decimal       @default(0) @db.Decimal(12, 2)
+  deductions        Decimal       @default(0) @db.Decimal(12, 2)
+  cnssEmployee      Decimal       @default(0) @map("cnss_employee") @db.Decimal(12, 2)
+  iprf              Decimal       @default(0) @db.Decimal(12, 2)
+  grossPay          Decimal       @map("gross_pay") @db.Decimal(12, 2)
+  netPay            Decimal       @map("net_pay") @db.Decimal(12, 2)
+  status            PayslipStatus @default(BROUILLON)
+  paidAt            DateTime?     @map("paid_at")
+  paymentReference  String?       @map("payment_reference")
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @updatedAt @map("updated_at")
+
+  period   PayrollPeriod    @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  user     User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employee EmployeeProfile? @relation(fields: [employeeProfileId], references: [id])
+
+  @@unique([periodId, userId])
+  @@map("payslips")
+}
+
+model JobFunction {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  department  String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  activities JobFunctionActivity[]
+  employees  EmployeeProfile[]
+
+  @@map("job_functions")
+}
+
+model JobFunctionActivity {
+  id          String   @id @default(uuid())
+  functionId  String   @map("function_id")
+  name        String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  jobFunction   JobFunction            @relation(fields: [functionId], references: [id], onDelete: Cascade)
+  declarations  ActivityDeclaration[]
+  objectives    AgentActivityObjective[]
+
+  @@map("job_function_activities")
+}
+
+model ActivityDeclaration {
+  id                String      @id @default(uuid())
+  userId            String      @map("user_id")
+  activityId        String?     @map("activity_id")
+  date              DateTime    @db.Date
+  comment           String?
+  attachmentUrl     String?     @map("attachment_url") @db.Text
+  status            LeaveStatus @default(SOUMISE)
+  validatedById     String?     @map("validated_by_id")
+  validatedAt       DateTime?   @map("validated_at")
+  rejectionReason   String?     @map("rejection_reason")
+  createdAt         DateTime    @default(now()) @map("created_at")
+
+  user      User                  @relation("ActivityDeclarant", fields: [userId], references: [id], onDelete: Cascade)
+  activity  JobFunctionActivity?  @relation(fields: [activityId], references: [id])
+  validator User?                 @relation("ActivityValidator", fields: [validatedById], references: [id])
+
+  @@index([userId, date])
+  @@map("activity_declarations")
+}
+
+model PerformanceObjective {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  title       String
+  description String?
+  periodType  String   @default("ANNUEL") @map("period_type")
+  year        Int
+  quarter     Int?
+  weight      Decimal  @db.Decimal(5, 2)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, year])
+  @@map("performance_objectives")
+}
+
+/// Objectif chiffre lie a une activite de fonction (module Objectifs agents).
+model AgentActivityObjective {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  activityId  String   @map("activity_id")
+  title       String
+  periodType  String   @default("MENSUEL") @map("period_type")
+  year        Int
+  month       Int?
+  quarter     Int?
+  targetValue Decimal  @map("target_value") @db.Decimal(14, 2)
+  unit        String   @default("DECLARATION")
+  notes       String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  user     User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activity JobFunctionActivity  @relation(fields: [activityId], references: [id])
+
+  @@index([userId, year])
+  @@index([activityId, year])
+  @@map("agent_activity_objectives")
+}
+
+model PerformanceReview {
+  id                 String       @id @default(uuid())
+  userId             String       @map("user_id")
+  year               Int
+  period             String
+  selfScores         Json?        @map("self_scores")
+  managerScores      Json?        @map("manager_scores")
+  selfComment        String?      @map("self_comment")
+  managerComment     String?      @map("manager_comment")
+  selfSubmittedAt    DateTime?    @map("self_submitted_at")
+  managerValidatedAt DateTime?    @map("manager_validated_at")
+  managerId          String?      @map("manager_id")
+  finalScore         Decimal?     @map("final_score") @db.Decimal(5, 2)
+  status             ReviewStatus @default(BROUILLON)
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
+
+  user    User  @relation("ReviewEmployee", fields: [userId], references: [id], onDelete: Cascade)
+  manager User? @relation("ReviewManager", fields: [managerId], references: [id])
+
+  @@unique([userId, year, period])
+  @@map("performance_reviews")
+}
+
+model TrainingCourse {
+  id        String        @id @default(uuid())
+  title     String
+  kind      TrainingKind  @default(INTERNE)
+  provider  String?
+  location  String?
+  startDate DateTime?     @map("start_date") @db.Date
+  endDate   DateTime?     @map("end_date") @db.Date
+  isActive  Boolean       @default(true) @map("is_active")
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  enrollments TrainingEnrollment[]
+
+  @@map("training_courses")
+}
+
+model TrainingEnrollment {
+  id              String                    @id @default(uuid())
+  courseId        String                    @map("course_id")
+  userId          String                    @map("user_id")
+  status          TrainingEnrollmentStatus  @default(INSCRITE)
+  certificateUrl  String?                   @map("certificate_url") @db.Text
+  validatedById   String?                   @map("validated_by_id")
+  rejectionReason String?                   @map("rejection_reason")
+  createdAt       DateTime                  @default(now()) @map("created_at")
+
+  course TrainingCourse @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  user   User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, userId])
+  @@map("training_enrollments")
+}
+
+model EmployeeDocument {
+  id         String         @id @default(uuid())
+  employeeId String         @map("employee_id")
+  type       HrDocumentType
+  title      String
+  fileUrl    String?        @map("file_url") @db.Text
+  issuedAt   DateTime?      @map("issued_at") @db.Date
+  createdAt  DateTime       @default(now()) @map("created_at")
+
+  employee EmployeeProfile @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId, type])
+  @@map("employee_documents")
+}
+
+model EmployeeFieldHistory {
+  id         String   @id @default(uuid())
+  employeeId String   @map("employee_id")
+  field      String
+  oldValue   String?  @map("old_value")
+  newValue   String?  @map("new_value")
+  actorId    String   @map("actor_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  employee EmployeeProfile @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  actor    User            @relation("HistoryActor", fields: [actorId], references: [id])
+
+  @@index([employeeId, createdAt])
+  @@map("employee_field_history")
+}
+
+model Supplier {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  category    String?
+  contactName String?  @map("contact_name")
+  phone       String?
+  email       String?
+  address     String?
+  nif         String?
+  rccm        String?
+  notes       String?
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  contracts Contract[]
+
+  @@map("suppliers")
+}
+
+/// Contrats d'agents, de fournisseurs et de grands comptes.
+model Contract {
+  id                String               @id @default(uuid())
+  reference         String               @unique
+  partyKind         ContractPartyKind    @map("party_kind")
+  title             String
+  kind              BusinessContractKind
+  status            ContractLifecycle    @default(BROUILLON)
+  startDate         DateTime             @map("start_date") @db.Date
+  endDate           DateTime?            @map("end_date") @db.Date
+  noticeDays        Int                  @default(30) @map("notice_days")
+  autoRenew         Boolean              @default(false) @map("auto_renew")
+  currency          String               @default("CDF")
+  amount            Decimal?             @db.Decimal(14, 2)
+  paymentTerms      String?              @map("payment_terms")
+  billingCycle      String?              @map("billing_cycle")
+  volumeCommitment  String?              @map("volume_commitment")
+  territory         String?
+  exclusivity       Boolean              @default(false)
+  clauses           String?              @db.Text
+  notes             String?              @db.Text
+  documentUrl       String?              @map("document_url") @db.Text
+  signedAt          DateTime?            @map("signed_at")
+  signedByParty     String?              @map("signed_by_party")
+  signedByCompany   String?              @map("signed_by_company")
+  employeeId        String?              @map("employee_id")
+  supplierId        String?              @map("supplier_id")
+  clientId          String?              @map("client_id")
+  validatedById     String?              @map("validated_by_id")
+  validatedAt       DateTime?            @map("validated_at")
+  terminatedAt      DateTime?            @map("terminated_at")
+  terminateReason   String?              @map("terminate_reason")
+  renewalCount      Int                  @default(0) @map("renewal_count")
+  createdAt         DateTime             @default(now()) @map("created_at")
+  updatedAt         DateTime             @updatedAt @map("updated_at")
+
+  employee    EmployeeProfile?     @relation(fields: [employeeId], references: [id])
+  supplier    Supplier?            @relation(fields: [supplierId], references: [id])
+  client      Client?              @relation(fields: [clientId], references: [id])
+  validatedBy User?                @relation("ContractValidator", fields: [validatedById], references: [id])
+  amendments  ContractAmendment[]
+  documents   ContractDocument[]
+  template    ContractTemplate?    @relation(fields: [templateId], references: [id])
+  templateId  String?              @map("template_id")
+
+  @@index([partyKind, status])
+  @@index([endDate])
+  @@map("contracts")
+}
+
+model ContractAmendment {
+  id         String   @id @default(uuid())
+  contractId String   @map("contract_id")
+  reference  String
+  reason     String
+  amount     Decimal? @db.Decimal(14, 2)
+  startDate  DateTime @map("start_date") @db.Date
+  notes      String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@index([contractId])
+  @@map("contract_amendments")
+}
+
+model ContractTemplate {
+  id          String                 @id @default(uuid())
+  code        String                 @unique
+  name        String
+  partyKind   ContractPartyKind?     @map("party_kind")
+  kind        BusinessContractKind?
+  title       String
+  body        String                 @db.Text
+  clauses     String?                @db.Text
+  footer      String?                @db.Text
+  isActive    Boolean                @default(true) @map("is_active")
+  createdAt   DateTime               @default(now()) @map("created_at")
+  updatedAt   DateTime               @updatedAt @map("updated_at")
+
+  contracts Contract[]
+  documents ContractDocument[]
+
+  @@index([partyKind, kind])
+  @@map("contract_templates")
+}
+
+model ContractDocument {
+  id           String               @id @default(uuid())
+  contractId   String               @map("contract_id")
+  templateId   String?              @map("template_id")
+  kind         ContractDocumentKind
+  filename     String
+  mimeType     String               @map("mime_type")
+  byteSize     Int                  @map("byte_size")
+  content      Bytes
+  generatedAt  DateTime             @default(now()) @map("generated_at")
+  archivedAt   DateTime?            @map("archived_at")
+  archivedById String?              @map("archived_by_id")
+  notes        String?
+
+  contract   Contract          @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  template   ContractTemplate? @relation(fields: [templateId], references: [id])
+  archivedBy User?             @relation("ContractArchiver", fields: [archivedById], references: [id])
+
+  @@index([contractId, kind])
+  @@index([archivedAt])
+  @@map("contract_documents")
+}
+
+/// Matrice d'habilitations par profil (CRUDVN) sur chaque module / menu.
+model RolePermission {
+  id        String   @id @default(uuid())
+  role      UserRole
+  resource  String
+  actions   String[]
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([role, resource])
+  @@index([role])
+  @@map("role_permissions")
+}
+
+/// Exceptions individuelles : GRANT ajoute un droit, DENY le retire.
+model UserPermission {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  resource  String
+  action    String
+  effect    String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, resource, action])
+  @@index([userId])
+  @@map("user_permissions")
+}
+
+enum FinanceAccountKind {
+  CAISSE
+  BANQUE
+}
+
+enum FinanceCategoryKind {
+  RECETTE
+  CHARGE
+  TRANSFERT
+}
+
+enum FinanceMovementKind {
+  ENTREE
+  SORTIE
+  TRANSFERT
+  DEPENSE
+  ENCAISSEMENT
+}
+
+enum FinanceMovementStatus {
+  BROUILLON
+  VALIDE
+  ANNULE
+}
+
+enum FinanceInventoryStatus {
+  BROUILLON
+  VALIDE
+  ANNULE
+}
+
+/// Compte de tresorerie : caisse especes ou compte bancaire.
+model FinanceAccount {
+  id             String             @id @default(uuid())
+  code           String             @unique
+  name           String
+  kind           FinanceAccountKind
+  currency       String             @default("CDF")
+  openingBalance Decimal            @default(0) @map("opening_balance") @db.Decimal(14, 2)
+  bankName       String?            @map("bank_name")
+  iban           String?
+  isActive       Boolean            @default(true) @map("is_active")
+  createdById    String?            @map("created_by_id")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+
+  createdBy    User?             @relation("FinanceAccountCreator", fields: [createdById], references: [id])
+  movementsIn  FinanceMovement[] @relation("FinanceAccountSource")
+  movementsOut FinanceMovement[] @relation("FinanceAccountDest")
+
+  @@index([kind, isActive])
+  @@map("finance_accounts")
+}
+
+/// Rubrique budgetaire / analytique (recette ou charge).
+model FinanceCategory {
+  id        String              @id @default(uuid())
+  code      String              @unique
+  name      String
+  kind      FinanceCategoryKind
+  isActive  Boolean             @default(true) @map("is_active")
+  createdAt DateTime            @default(now()) @map("created_at")
+
+  movements FinanceMovement[]
+  budgets   FinanceBudget[]
+
+  @@index([kind, isActive])
+  @@map("finance_categories")
+}
+
+/// Entree, sortie, transfert, depense ou encaissement de fonds.
+model FinanceMovement {
+  id            String                 @id @default(uuid())
+  number        String                 @unique
+  kind          FinanceMovementKind
+  status        FinanceMovementStatus  @default(BROUILLON)
+  accountId     String                 @map("account_id")
+  destAccountId String?                @map("dest_account_id")
+  categoryId    String?                @map("category_id")
+  paymentId     String?                @unique @map("payment_id")
+  amount        Decimal                @db.Decimal(14, 2)
+  method        PaymentMethod          @default(ESPECES)
+  date          DateTime               @db.Date
+  label         String
+  reference     String?
+  notes         String?
+  createdById   String                 @map("created_by_id")
+  validatedById String?                @map("validated_by_id")
+  validatedAt   DateTime?              @map("validated_at")
+  createdAt     DateTime               @default(now()) @map("created_at")
+
+  account     FinanceAccount    @relation("FinanceAccountSource", fields: [accountId], references: [id])
+  destAccount FinanceAccount?   @relation("FinanceAccountDest", fields: [destAccountId], references: [id])
+  category    FinanceCategory?  @relation(fields: [categoryId], references: [id])
+  payment     Payment?          @relation(fields: [paymentId], references: [id])
+  createdBy   User              @relation("FinanceMovementCreator", fields: [createdById], references: [id])
+  validatedBy User?             @relation("FinanceMovementValidator", fields: [validatedById], references: [id])
+
+  @@index([date, status])
+  @@index([accountId, status])
+  @@index([kind, status])
+  @@map("finance_movements")
+}
+
+/// Enveloppe budgetaire annuelle ou mensuelle par rubrique.
+model FinanceBudget {
+  id            String   @id @default(uuid())
+  year          Int
+  month         Int?
+  categoryId    String   @map("category_id")
+  plannedAmount Decimal  @map("planned_amount") @db.Decimal(14, 2)
+  notes         String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  category FinanceCategory @relation(fields: [categoryId], references: [id])
+
+  @@unique([year, month, categoryId])
+  @@index([year, month])
+  @@map("finance_budgets")
+}
+
+/// Session d'inventaire physique valorisee.
+model FinanceInventory {
+  id            String                  @id @default(uuid())
+  number        String                  @unique
+  date          DateTime                @db.Date
+  status        FinanceInventoryStatus  @default(BROUILLON)
+  notes         String?
+  createdById   String                  @map("created_by_id")
+  validatedById String?                 @map("validated_by_id")
+  validatedAt   DateTime?               @map("validated_at")
+  createdAt     DateTime                @default(now()) @map("created_at")
+
+  createdBy   User                    @relation("FinanceInventoryCreator", fields: [createdById], references: [id])
+  validatedBy User?                   @relation("FinanceInventoryValidator", fields: [validatedById], references: [id])
+  lines       FinanceInventoryLine[]
+
+  @@index([date, status])
+  @@map("finance_inventories")
+}
+
+model FinanceInventoryLine {
+  id              String @id @default(uuid())
+  inventoryId     String @map("inventory_id")
+  productId       String @map("product_id")
+  locationId      String @map("location_id")
+  theoreticalQty  Int    @map("theoretical_qty")
+  countedQty      Int    @map("counted_qty")
+  unitValue       Decimal @map("unit_value") @db.Decimal(12, 2)
+
+  inventory FinanceInventory @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
+  product   Product          @relation(fields: [productId], references: [id])
+
+  @@index([inventoryId])
+  @@map("finance_inventory_lines")
 }

@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react';
 import { api, EsgDashboard, EsgIndicator, EsgReport } from '../api';
 import { usePermissions } from '../hooks/usePermissions';
 import { ErpPageHeader, ErpPanel, RingGauge } from '../components/ErpUi';
+import DocButton from '../components/DocButton';
+import { printEsgReport } from '../documents/templates';
+import { exportSheet } from '../excel/specs';
 
 export default function EsgPage() {
   const { can } = usePermissions();
@@ -53,8 +56,47 @@ export default function EsgPage() {
       <ErpPageHeader
         title="Durabilité / ESG"
         subtitle="Empreinte carbone des tournées, eau de production et réemploi des emballages"
+        excel={{
+          filename: 'esg',
+          sheets: [
+            exportSheet('Synthese', [['indicateur', 'Indicateur'], ['valeur', 'Valeur']], dash ? [
+              { indicateur: 'CO2 (kg)', valeur: dash.totalCo2Kg },
+              { indicateur: 'Distance (km)', valeur: dash.totalDistanceKm },
+              { indicateur: 'CO2 / livraison (kg)', valeur: dash.co2PerDeliveryKg },
+              { indicateur: 'Eau (m3)', valeur: dash.waterM3 },
+              { indicateur: 'Energie (kWh)', valeur: dash.energyKwh },
+              { indicateur: 'Reemploi (%)', valeur: dash.reusePct },
+            ] : []),
+            exportSheet('Indicateurs', [
+              ['periode', 'Periode'], ['scope', 'Perimetre'], ['tournee', 'Tournee'],
+              ['distanceKm', 'Distance km'], ['co2Kg', 'CO2 kg'], ['waterM3', 'Eau m3'],
+              ['energyKwh', 'Energie kWh'], ['reusePct', 'Reemploi %'],
+            ], rows.map((row) => ({
+              periode: `${row.periodStart.slice(0, 10)} / ${row.periodEnd.slice(0, 10)}`,
+              scope: row.scope,
+              tournee: row.tour?.tourNumber ?? '',
+              distanceKm: row.distanceKm,
+              co2Kg: row.co2Kg,
+              waterM3: row.waterM3,
+              energyKwh: row.energyKwh,
+              reusePct: row.reusePct,
+            }))),
+            exportSheet('Tendance', [['mois', 'Mois'], ['co2Kg', 'CO2 kg'], ['distanceKm', 'Distance km']], (dash?.monthlyTrend ?? []).map((row) => ({
+              mois: row.month,
+              co2Kg: row.co2Kg,
+              distanceKm: row.distanceKm,
+            }))),
+            exportSheet('Tournees', [['tournee', 'Tournee'], ['zone', 'Zone'], ['co2Kg', 'CO2 kg'], ['distanceKm', 'Distance km']], (dash?.topTours ?? []).map((row) => ({
+              tournee: row.tourNumber,
+              zone: row.zone,
+              co2Kg: row.co2Kg,
+              distanceKm: row.distanceKm,
+            }))),
+          ],
+        }}
         actions={(
           <>
+            <DocButton label="Rapport à en-tête" onClick={() => dash && printEsgReport(dash, rows)} />
             {can('esg', 'validate') && (
               <button type="button" className="erp-btn" disabled={busy} onClick={compute}>
                 {busy ? 'Calcul…' : 'Recalculer'}
@@ -103,7 +145,7 @@ export default function EsgPage() {
               </table>
             </ErpPanel>
             <ErpPanel title="Réemploi" padded>
-              <RingGauge value={Math.round(dash.reusePct)} label="Taux de réemploi" color="#449d44" />
+              <RingGauge value={Math.round(dash.reusePct)} label="Taux de réemploi" color="#1abc9c" />
             </ErpPanel>
           </div>
           <ErpPanel title="Tournées les plus émettrices">

@@ -1,6 +1,7 @@
 import { useState, FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
+import LoginShell from '../components/LoginShell';
 
 const DEMO_ACCOUNTS = [
   { email: 'admin@emmapure.cd', role: 'Administrateur' },
@@ -12,12 +13,14 @@ const DEMO_ACCOUNTS = [
   { email: 'securite@emmapure.cd', role: 'Sécurité' },
   { email: 'durabilite@emmapure.cd', role: 'Durabilité' },
   { email: 'caissier@emmapure.cd', role: 'Caissier' },
+  { email: 'comptable@emmapure.cd', role: 'Comptable' },
   { email: 'livreur@emmapure.cd', role: 'Chargé livraison' },
 ];
 
 export default function LoginPage() {
   const [email, setEmail] = useState('admin@emmapure.cd');
   const [password, setPassword] = useState('password123');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(
     new URLSearchParams(window.location.search).has('expired')
       ? 'Session expirée — veuillez vous reconnecter.'
@@ -35,7 +38,7 @@ export default function LoginPage() {
     setError('');
     try {
       await login(email, password, mfaCode || undefined);
-      navigate('/');
+      navigate('/app');
     } catch (err) {
       const msg = err instanceof Error ? err.message : '';
       const lower = msg.toLowerCase();
@@ -60,59 +63,83 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="erp-login-page">
-      <div className="erp-login-left">
-        <div className="erp-login-brand">EMMAS</div>
-        <p className="erp-login-tag">ERP / CRM — Distribution eau potable</p>
-        <ul className="erp-login-features">
-          <li>Tableau de bord &amp; KPI</li>
-          <li>Commandes · Livraisons · Factures</li>
-          <li>Production · Qualité · Stock</li>
-          <li>IA · IoT · ESG · Portail client</li>
-        </ul>
-      </div>
-      <div className="erp-login-right">
-        <div className="erp-login-box">
-          <h2>Connexion</h2>
-          <p className="erp-login-box-desc">Accédez à votre espace de gestion EMMAS ERP</p>
-          <form onSubmit={handleSubmit}>
-            <div className="form-group">
-              <label>Email</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-            </div>
-            <div className="form-group">
-              <label>Mot de passe</label>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-            </div>
-            {mfaNeeded && (
-              <div className="form-group">
-                <label>Code temporaire (MFA)</label>
-                <input
-                  inputMode="numeric"
-                  pattern="\d{6}"
-                  value={mfaCode}
-                  onChange={(e) => setMfaCode(e.target.value)}
-                  autoComplete="one-time-code"
-                  required
-                />
-              </div>
-            )}
-            {error && <p className="error-msg">{error}</p>}
-            <button type="submit" className="erp-btn erp-login-submit" disabled={loading}>
-              {loading ? 'Connexion...' : 'Se connecter'}
-            </button>
-          </form>
-          <Link to="/mobile" className="erp-login-mobile-link">Interface livreur →</Link>
-          <Link to="/portail/connexion" className="erp-login-mobile-link">Portail client →</Link>
-          <div className="login-demo-accounts">
+    <LoginShell
+      extras={(
+        <div className="es-login-extras">
+          <Link to="/">Site Emmanuel Services</Link>
+          {' · '}
+          <Link to="/mobile">Interface livreur</Link>
+          <div className="es-login-demos">
             {DEMO_ACCOUNTS.map((a) => (
-              <button key={a.email} type="button" className="demo-account-btn" onClick={() => setEmail(a.email)}>
+              <button key={a.email} type="button" onClick={() => setEmail(a.email)}>
                 {a.role}
               </button>
             ))}
           </div>
         </div>
-      </div>
-    </div>
+      )}
+    >
+      <form className="es-login-form" onSubmit={handleSubmit}>
+        <h1 className="es-login-title">Connexion</h1>
+        <p className="es-login-sub">EMMAPP · Emmanuel Services</p>
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Nom d'utilisateur"
+          required
+          autoComplete="username"
+        />
+        <div className="es-login-field">
+          <input
+            type={showPassword ? 'text' : 'password'}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Mot de passe"
+            required
+            autoComplete="current-password"
+          />
+          <button
+            type="button"
+            className="es-login-eye"
+            onClick={() => setShowPassword((v) => !v)}
+            aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+          >
+            {showPassword ? (
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M3 3l18 18" />
+                <path d="M10.6 10.6A2 2 0 0 0 12 14a2 2 0 0 0 1.4-.6" />
+                <path d="M9.9 5.1A10.6 10.6 0 0 1 12 5c7 0 10 7 10 7a18.4 18.4 0 0 1-3.2 3.8" />
+                <path d="M6.1 6.1C3.6 8 2 12 2 12s3 7 10 7a9.8 9.8 0 0 0 4.2-.9" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            )}
+          </button>
+        </div>
+        {mfaNeeded && (
+          <input
+            inputMode="numeric"
+            pattern="\d{6}"
+            value={mfaCode}
+            onChange={(e) => setMfaCode(e.target.value)}
+            placeholder="Code temporaire (MFA)"
+            autoComplete="one-time-code"
+            required
+          />
+        )}
+        {error && <p className="es-login-error">{error}</p>}
+        <button type="submit" className="es-login-submit" disabled={loading}>
+          {loading ? 'Connexion...' : 'Se connecter'}
+        </button>
+        <div className="es-login-foot">
+          <a href="mailto:contact@emmas.cd?subject=Mot%20de%20passe%20oubli%C3%A9">Mot de passe oublié ?</a>
+          <Link to="/portail/inscription">S&apos;inscrire</Link>
+        </div>
+      </form>
+    </LoginShell>
   );
 }

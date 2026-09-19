@@ -1,19 +1,19 @@
 :root {
-  --primary: #0066b3;
-  --primary-dark: #004a8f;
-  --secondary: #00b4e1;
-  --secondary-light: #5ecfff;
-  --accent: #003d66;
-  --label-bg: #e8f6fc;
-  --bg: #eef6fb;
+  --primary: #3b82f6;
+  --primary-dark: #2563eb;
+  --secondary: #38bdf8;
+  --secondary-light: #7dd3fc;
+  --accent: #f97316;
+  --label-bg: #f4f7f9;
+  --bg: #f4f7f9;
   --card: #ffffff;
-  --text: #0d2d4a;
-  --muted: #5a7189;
-  --border: #c5dff0;
-  --success: #2e9e5b;
-  --warning: #e8940a;
-  --gradient-water: linear-gradient(160deg, #004a8f 0%, #0066b3 40%, #00b4e1 100%);
-  --shadow-label: 0 8px 32px rgba(0, 74, 143, 0.15);
+  --text: #0f172a;
+  --muted: #64748b;
+  --border: #e8eef4;
+  --success: #22c55e;
+  --warning: #f97316;
+  --gradient-water: linear-gradient(135deg, #3b82f6 0%, #38bdf8 100%);
+  --shadow-label: 0 8px 24px rgba(15, 23, 42, 0.05);
   --radius-label: 16px;
 }
 
@@ -25,6 +25,7 @@
 
 body {
   line-height: 1.5;
+  font-family: 'Inter', 'Open Sans', 'Roboto', system-ui, sans-serif;
 }
 
 a {
@@ -71,7 +72,6 @@ input, select {
   padding: 20px;
   box-shadow: var(--shadow-label);
   border: 1px solid var(--border);
-  border-top: 4px solid var(--secondary);
   transition: transform 0.2s;
 }
 
@@ -120,22 +120,23 @@ th {
   font-weight: 600;
 }
 
-.badge-success { background: #e8f5e9; color: #2e7d32; }
-.badge-warning { background: #fff3e0; color: #e65100; }
-.badge-info { background: #e3f2fd; color: #1565c0; }
+.badge-success { background: #e8f8f0; color: #1aae74; }
+.badge-warning { background: #fff4e5; color: #d9922a; }
+.badge-info { background: #e6f6ff; color: #0086d1; }
 
 .btn {
   padding: 10px 20px;
   border: none;
-  border-radius: 8px;
+  border-radius: 4px;
   font-size: 14px;
   font-weight: 600;
 }
 
 .btn-primary {
-  background: var(--gradient-water);
+  background: var(--primary);
   color: white;
-  box-shadow: 0 4px 14px rgba(0, 102, 179, 0.35);
+  box-shadow: none;
+  border-radius: 4px;
 }
 
 .btn-primary:hover {
@@ -194,9 +195,9 @@ th {
 .emma-login-card {
   background: white;
   padding: 36px;
-  border-radius: 20px;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.25);
-  border: 2px solid rgba(255,255,255,0.5);
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(44, 62, 80, 0.08);
+  border: 1px solid var(--border);
 }
 
 .emma-login-title {
@@ -229,10 +230,10 @@ th {
 .login-card {
   background: white;
   padding: 40px;
-  border-radius: 16px;
+  border-radius: 4px;
   width: 100%;
   max-width: 400px;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  box-shadow: 0 2px 8px rgba(44, 62, 80, 0.08);
 }
 
 .login-card h1 {
@@ -260,14 +261,17 @@ th {
 
 .form-group input {
   width: 100%;
-  padding: 12px;
+  padding: 10px 12px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 4px;
+  background: #fff;
 }
 
 .form-group input:focus {
   outline: none;
   border-color: var(--primary);
+  background: #fff;
+  box-shadow: none;
 }
 
 .error-msg {
@@ -340,8 +344,9 @@ th {
   background: white;
   margin: 12px 16px;
   padding: 16px;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  border-radius: 4px;
+  box-shadow: none;
+  border: 1px solid var(--border);
 }
 
 .mobile-card label {
@@ -431,6 +436,14 @@ th {
   gap: 4px;
 }
 
+.erp-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  margin: 6px 0;
+}
+
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -439,9 +452,9 @@ th {
 
 .form-group select {
   width: 100%;
-  padding: 12px;
+  padding: 10px 12px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 4px;
   background: white;
 }
 
@@ -493,12 +506,16 @@ th {
 
 .modal-panel {
   background: white;
-  border-radius: 16px;
+  border-radius: 4px;
   width: 100%;
   max-width: 520px;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 24px 48px rgba(0,0,0,0.2);
+  box-shadow: 0 8px 24px rgba(44, 62, 80, 0.16);
+}
+
+.modal-panel--wide {
+  max-width: 760px;
 }
 
 .modal-header {
@@ -694,17 +711,17 @@ th {
 }
 
 .emma-footer {
-  margin-top: 32px;
-  padding: 20px 0;
+  margin-top: 8px;
+  padding: 16px 0 4px;
   border-top: 1px solid var(--border);
   font-size: 12px;
   color: var(--muted);
 }
 
 .emma-tagline {
-  font-style: italic;
-  color: var(--secondary);
-  margin-bottom: 12px;
+  font-style: normal;
+  color: var(--muted);
+  margin-bottom: 10px;
 }
 
 .emma-footer-grid {
@@ -817,7 +834,7 @@ th {
   opacity: 0.7;
 }
 
-/* ── Charte graphique EMMAS (étiquette 5L) ── */
+/* ── Charte graphique Emmanuel Services ── */
 .emma-logo {
   display: flex;
   align-items: center;
@@ -825,19 +842,26 @@ th {
 }
 
 .emma-logo-icon {
-  width: 40px;
-  height: 50px;
+  width: 48px;
+  height: 48px;
   flex-shrink: 0;
 }
 
-.emma-logo--sm .emma-logo-icon { width: 32px; height: 40px; }
-.emma-logo--lg .emma-logo-icon { width: 56px; height: 70px; }
+.emma-logo-img {
+  border-radius: 0;
+  object-fit: contain;
+  border: 0;
+  background: transparent;
+}
+
+.emma-logo--sm .emma-logo-icon { width: 40px; height: 40px; }
+.emma-logo--lg .emma-logo-icon { width: 72px; height: 72px; }
 
 .emma-logo-name {
   display: block;
-  font-weight: 800;
+  font-weight: 700;
   font-size: 20px;
-  letter-spacing: 0.14em;
+  letter-spacing: -0.02em;
   color: var(--primary-dark);
   line-height: 1.1;
 }
@@ -877,7 +901,7 @@ th {
   width: 80px;
   height: 28px;
   margin: 0 auto;
-  background: linear-gradient(180deg, #004a8f, #0066b3);
+  background: linear-gradient(180deg, #00a3ff, #2c3e50);
   border-radius: 6px 6px 2px 2px;
 }
 
@@ -920,13 +944,13 @@ th {
 
 .emma-format-badge {
   display: inline-block;
-  background: var(--gradient-water);
-  color: white;
+  background: var(--erp-brand-soft, #e6f6ff);
+  color: var(--erp-brand, #00a3ff);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   padding: 4px 12px;
-  border-radius: 20px;
-  letter-spacing: 0.04em;
+  border-radius: 100px;
+  letter-spacing: 0;
 }
 
 .emma-hero-banner {
@@ -956,7 +980,7 @@ th {
 .emma-hero-badge {
   background: rgba(255,255,255,0.2);
   padding: 10px 18px;
-  border-radius: 24px;
+  border-radius: 4px;
   font-size: 13px;
   font-weight: 600;
   border: 1px solid rgba(255,255,255,0.3);
@@ -973,19 +997,19 @@ th {
 }
 
 .emma-product-card {
-  background: linear-gradient(180deg, #fff 0%, var(--label-bg) 100%);
-  border: 2px solid var(--border);
-  border-radius: 16px;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 4px;
   padding: 20px;
   text-align: center;
   position: relative;
-  box-shadow: var(--shadow-label);
-  transition: transform 0.2s;
+  box-shadow: none;
+  transition: border-color 0.15s;
 }
 
 .emma-product-card:hover {
-  transform: translateY(-4px);
-  border-color: var(--secondary);
+  transform: none;
+  border-color: var(--primary);
 }
 
 .emma-product-cap {

@@ -34,7 +34,7 @@ export class MfaService {
     });
     return {
       secret,
-      otpauthUrl: buildOtpauthUrl({ issuer: 'EMMAPURE', email, secret }),
+      otpauthUrl: buildOtpauthUrl({ issuer: 'EMMANUEL SERVICES SARLU', email, secret }),
       currentCode: generateCode(secret),
     };
   }

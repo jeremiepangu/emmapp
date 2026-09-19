@@ -14,7 +14,7 @@ export default function RoleGate({ resource, action = 'read', children, fallback
   const { can } = usePermissions();
   if (!can(resource, action)) {
     if (fallback) return <>{fallback}</>;
-    return <Navigate to="/" replace />;
+    return <Navigate to="/app" replace />;
   }
   return <>{children}</>;
 }
