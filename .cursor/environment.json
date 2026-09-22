@@ -1,0 +1,25 @@
+{
+  "name": "EMMAPP",
+  "install": "test -f backend/.env || cp backend/.env.example backend/.env; cd backend && npm ci && cd ../backoffice && npm ci",
+  "terminals": [
+    {
+      "name": "db",
+      "command": "cd backend && node scripts/start-local-db.mjs",
+      "description": "PostgreSQL embarqué, schéma Prisma et données de démo"
+    },
+    {
+      "name": "api",
+      "command": "bash -c 'for i in $(seq 1 90); do bash -c \"echo >/dev/tcp/127.0.0.1/5432\" >/dev/null 2>&1 && break; sleep 1; done; cd backend && test -f .env || cp .env.example .env; npm run start:dev'",
+      "description": "API NestJS sur le port 3000 (UI proxifiée)"
+    },
+    {
+      "name": "web",
+      "command": "cd backoffice && npm run dev -- --host 0.0.0.0 --port 5173",
+      "description": "Back-office Vite sur le port 5173"
+    }
+  ],
+  "ports": [
+    { "name": "Back-office", "port": 5173 },
+    { "name": "API + interface", "port": 3000 }
+  ]
+}

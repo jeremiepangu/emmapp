@@ -11,6 +11,7 @@
     "backend:setup": "cd backend && npx prisma migrate dev --name init && npm run prisma:seed",
     "backoffice:install": "cd backoffice && npm install",
     "backoffice:dev": "cd backoffice && npm run dev",
+    "start": "bash scripts/start-all.sh",
     "mobile:get": "cd mobile && flutter pub get"
   }
 }
