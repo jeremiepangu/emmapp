@@ -24,13 +24,13 @@ if (-not $pgRunning) {
 }
 
 # API backend
-$apiRunning = netstat -ano 2>$null | Select-String ":3000.*LISTENING"
+$apiRunning = netstat -ano 2>$null | Select-String ":8443.*LISTENING"
 if (-not $apiRunning) {
-  Write-Host "[2/3] Démarrage API (port 3000)..."
-  Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$root\backend'; `$env:DATABASE_URL='$env:DATABASE_URL'; & '$npm' run start:dev" -WindowStyle Minimized
+  Write-Host "[2/3] Démarrage API (port 8443)..."
+  Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$root\backend'; `$env:DATABASE_URL='$env:DATABASE_URL'; `$env:PORT='8443'; & '$npm' run start:dev" -WindowStyle Minimized
   Start-Sleep -Seconds 20
 } else {
-  Write-Host "[2/3] API déjà active sur le port 3000"
+  Write-Host "[2/3] API déjà active sur le port 8443"
 }
 
 # Interface web

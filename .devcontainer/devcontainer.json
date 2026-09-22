@@ -3,9 +3,9 @@
   "dockerComposeFile": "../docker-compose.devcontainer.yml",
   "service": "dev",
   "workspaceFolder": "/workspace",
-  "forwardPorts": [3000, 5173, 5432],
+  "forwardPorts": [8443, 5173, 5432],
   "portsAttributes": {
-    "3000": { "label": "API", "onAutoForward": "notify" },
+    "8443": { "label": "API", "onAutoForward": "notify" },
     "5173": { "label": "Back-office", "onAutoForward": "openBrowser" }
   },
   "postCreateCommand": "bash .devcontainer/post-create.sh",

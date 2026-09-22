@@ -41,8 +41,8 @@ npm run prisma:seed
 npm run start:dev
 ```
 
-L'API démarre sur **http://localhost:3000**  
-Documentation Swagger : **http://localhost:3000/api/docs**
+L'API démarre sur **http://localhost:8443**  
+Documentation Swagger : **http://localhost:8443/api/docs**
 
 ### 3. Back-Office Web
 
@@ -62,9 +62,9 @@ flutter pub get
 flutter run
 ```
 
-> Pour l'émulateur Android, l'API est accessible via `http://10.0.2.2:3000`.  
+> Pour l'émulateur Android, l'API est accessible via `http://10.0.2.2:8443`.  
 > Pour un appareil physique, lancer avec :  
-> `flutter run --dart-define=API_URL=http://VOTRE_IP:3000/api/v1`
+> `flutter run --dart-define=API_URL=http://VOTRE_IP:8443/api/v1`
 
 ## Comptes de démonstration
 
