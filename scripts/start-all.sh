@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Démarre PostgreSQL embarqué, l'API NestJS (3000) et le back-office Vite (5173).
+# Démarre PostgreSQL embarqué, l'API NestJS (8443) et le back-office Vite (5173).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -38,10 +38,10 @@ else
   echo "[1/3] PostgreSQL déjà actif"
 fi
 
-if ! port_open 3000; then
-  echo "[2/3] API NestJS (port 3000)..."
+if ! port_open 8443; then
+  echo "[2/3] API NestJS (port 8443)..."
   (cd backend && npm run start:dev) &
-  wait_port 3000 90
+  wait_port 8443 90
 else
   echo "[2/3] API déjà active"
 fi
@@ -56,8 +56,8 @@ fi
 
 echo ""
 echo "=== EMMAPP prêt ==="
-echo "Interface : http://127.0.0.1:5173/  (aussi via http://127.0.0.1:3000/)"
-echo "Swagger   : http://127.0.0.1:3000/api/docs"
+echo "Interface : http://127.0.0.1:5173/  (aussi via http://127.0.0.1:8443/)"
+echo "Swagger   : http://127.0.0.1:8443/api/docs"
 echo "Comptes   : admin@emmapp.cd / livreur@emmapp.cd — password123"
 echo ""
 

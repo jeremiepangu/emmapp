@@ -30,7 +30,7 @@ function sendDistFile(req: Request, res: Response, dist: string): boolean {
   return true;
 }
 
-/** Proxy non-API GETs to Vite so the UI is reachable on the API port (3000). */
+/** Proxy non-API GETs to Vite so the UI is reachable on the API port (8443). */
 export function attachWebUi(app: NestExpressApplication) {
   const dist = webDistDir();
 

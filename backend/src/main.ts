@@ -46,7 +46,7 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document);
   attachWebUi(app);
 
-  const port = Number(process.env.PORT) || 3000;
+  const port = Number(process.env.PORT) || 8443;
   // IPv4 on all interfaces: Cursor/port-forwarders scan 0.0.0.0, not IPv6-only sockets.
   await app.listen(port, '0.0.0.0');
   attachViteHmr(app.getHttpServer());

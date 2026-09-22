@@ -10,7 +10,7 @@
     {
       "name": "api",
       "command": "bash -c 'for i in $(seq 1 90); do bash -c \"echo >/dev/tcp/127.0.0.1/5432\" >/dev/null 2>&1 && break; sleep 1; done; cd backend && test -f .env || cp .env.example .env; npm run start:dev'",
-      "description": "API NestJS sur le port 3000 (UI proxifiée)"
+      "description": "API NestJS sur le port 8443 (UI proxifiée)"
     },
     {
       "name": "web",
@@ -20,6 +20,6 @@
   ],
   "ports": [
     { "name": "Back-office", "port": 5173 },
-    { "name": "API + interface", "port": 3000 }
+    { "name": "API + interface", "port": 8443 }
   ]
 }
