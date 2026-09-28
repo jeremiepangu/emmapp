@@ -72,7 +72,7 @@ export class EmailService {
     type: string;
     link?: string | null;
   }) {
-    const base = (process.env.APP_PUBLIC_URL || 'http://localhost:5173').replace(/\/$/, '');
+    const base = (process.env.APP_PUBLIC_URL || 'http://localhost:5175').replace(/\/$/, '');
     const href = params.link ? `${base}${params.link.startsWith('/') ? '' : '/'}${params.link}` : `${base}/notifications`;
     return `<!DOCTYPE html>
 <html><body style="margin:0;padding:0;background:#f4f6f8;font-family:Arial,Helvetica,sans-serif;color:#1f2933;">

@@ -4,6 +4,7 @@
   "private": true,
   "description": "EMMAPP v3.1.0 - ERP/CRM eau potable",
   "scripts": {
+    "start": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start-all.ps1",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "backend:install": "cd backend && npm install",

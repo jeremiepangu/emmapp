@@ -78,7 +78,7 @@ cd backend && npm run start:dev
 cd backoffice && npm run dev -- --host
 ```
 
-5. Codespaces ouvre automatiquement le port **5173** (back-office)
+5. Codespaces ouvre automatiquement le port **5175** (back-office)
 
 Comptes démo identiques. Interface mobile : `/mobile`
 

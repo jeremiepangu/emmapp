@@ -1137,7 +1137,7 @@ table(
   [
     ['Interface de programmation', 'http://localhost:3000'],
     ['Documentation des services', 'http://localhost:3000/api/docs'],
-    ['Back-office web', 'http://localhost:5173'],
+    ['Back-office web', 'http://localhost:5175'],
     ['Base de données', '127.0.0.1:5432'],
   ],
   [3400, 5960],

@@ -28,7 +28,7 @@ export class WhatsappService {
     `;
     if (prefs[0]?.whatsapp_notifications === false) return;
 
-    const base = (process.env.APP_PUBLIC_URL || 'http://localhost:5173').replace(/\/$/, '');
+    const base = (process.env.APP_PUBLIC_URL || 'http://localhost:5175').replace(/\/$/, '');
     const href = row.link
       ? `${base}${row.link.startsWith('/') ? '' : '/'}${row.link}`
       : `${base}/notifications`;

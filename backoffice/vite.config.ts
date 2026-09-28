@@ -5,12 +5,19 @@ export default defineConfig({
   plugins: [react()],
   base: process.env.GITHUB_PAGES === 'true' ? '/emmapp/' : '/',
   server: {
-    port: 5173,
+    host: true,
+    port: 5175,
+    strictPort: true,
     proxy: {
       '/api': {
         target: 'http://localhost:3000',
         changeOrigin: true,
       },
     },
+  },
+  preview: {
+    host: true,
+    port: 5175,
+    strictPort: true,
   },
 });

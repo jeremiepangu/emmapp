@@ -40,7 +40,7 @@ EMMAPP/
 .\scripts\start-all.ps1
 ```
 
-Ouvre **http://localhost:5173/**
+Ouvre **http://localhost:5175/**
 
 Détails : **[DEMARRAGE.md](./DEMARRAGE.md)**
 

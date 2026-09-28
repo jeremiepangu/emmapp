@@ -6,7 +6,7 @@
 .\scripts\start-all.ps1
 ```
 
-Ouvre automatiquement http://localhost:5173/
+Ouvre automatiquement http://localhost:5175/
 
 | Compte | Mot de passe |
 |--------|--------------|
