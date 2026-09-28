@@ -1,70 +1,56 @@
-# EMMAPP Mobile
+# EMMAPP v3.1.0
 
-ERP/CRM pour la production et la distribution d'eau potable — Phase 1 MVP (Distribution).
+ERP/CRM pour la production et la distribution d'eau potable (portail client, POS, SIRH, tournées, finance).
+
+**Version GitHub actuelle :** tag `v3.1.0` — commit `9bdb589` — branche **`main`**
+
+```bash
+git clone https://github.com/jeremiepangu/emmapp.git
+cd emmapp
+git checkout main
+git pull origin main
+git log -1 --oneline
+```
+
+Le dernier commit doit afficher `9bdb589 feat(portal): panier, suivi et refus hors stock`.
+
+> Si Cursor ouvre une branche `cursor/...` ou `feat/...`, ce n’est **pas** la version à jour. Revenir sur `main`.
 
 ## Architecture
 
 ```
 EMMAPP/
 ├── backend/          # API REST NestJS + PostgreSQL + Prisma
-├── backoffice/       # Application Web React (admin + livreur PWA)
-├── mobile/           # Application Flutter native Android (optionnel)
-└── docker-compose.yml
+├── backoffice/       # Application Web React (site + admin ERP + portail + PWA)
+├── mobile/           # Application Flutter native Android
+└── scripts/          # Démarrage local sans Docker
 ```
 
 ## Prérequis
 
 - [Node.js](https://nodejs.org/) 20+
-- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
-- [Flutter SDK](https://flutter.dev/) 3.2+ (pour l'app mobile)
+- [Flutter SDK](https://flutter.dev/) 3.2+ (uniquement pour l'app mobile)
 
-> **Sans installation locale ?** Voir **[DEPLOIEMENT_CLOUD.md](./DEPLOIEMENT_CLOUD.md)** — Neon + Render + Vercel, ou GitHub Codespaces dans le navigateur.
+> **Sans installation locale ?** Voir **[DEPLOIEMENT_CLOUD.md](./DEPLOIEMENT_CLOUD.md)**.
+> **Google Play ?** Voir **[GOOGLE_PLAY.md](./GOOGLE_PLAY.md)**.
 
-> **Google Play ?** Voir **[GOOGLE_PLAY.md](./GOOGLE_PLAY.md)** — build AAB automatique via GitHub Actions, sans Flutter local.
+## Démarrage rapide (sans Docker)
 
-## Démarrage rapide
+```powershell
+.\scripts\start-all.ps1
+```
 
-### 1. Base de données
+Ouvre **http://localhost:5173/**
+
+Détails : **[DEMARRAGE.md](./DEMARRAGE.md)**
+
+### Alternative Docker
 
 ```bash
 docker compose up -d
+cd backend && cp .env.example .env && npm install && npx prisma migrate dev --name init && npm run prisma:seed && npm run start:dev
+cd ../backoffice && npm install && npm run dev
 ```
-
-### 2. API Backend
-
-```bash
-cd backend
-cp .env.example .env
-npm install
-npx prisma migrate dev --name init
-npm run prisma:seed
-npm run start:dev
-```
-
-L'API démarre sur **http://localhost:3000**  
-Documentation Swagger : **http://localhost:3000/api/docs**
-
-### 3. Back-Office Web
-
-```bash
-cd backoffice
-npm install
-npm run dev
-```
-
-Interface admin : **http://localhost:5173**
-
-### 4. Application Mobile
-
-```bash
-cd mobile
-flutter pub get
-flutter run
-```
-
-> Pour l'émulateur Android, l'API est accessible via `http://10.0.2.2:3000`.  
-> Pour un appareil physique, lancer avec :  
-> `flutter run --dart-define=API_URL=http://VOTRE_IP:3000/api/v1`
 
 ## Comptes de démonstration
 
@@ -74,25 +60,16 @@ flutter run
 | livreur@emmapp.cd | Livreur | password123 |
 | magasinier@emmapp.cd | Magasinier | password123 |
 
-## Fonctionnalités Phase 1 (MVP)
+## Fonctionnalités
 
-- **Clients** : fiches, zones, segments, gestion des consignes
-- **Produits** : sachets, bouteilles, bidons 5L, bonbonnes 19L
-- **Stocks** : produits finis, stock embarqué véhicule
-- **Commandes** : prise de commande et validation
-- **Tournées** : planification, bordereau de chargement
-- **Livraisons** : saisie terrain, retours consignes, géolocalisation
-- **Paiements** : espèces, Mobile Money, chèque, crédit
-- **Consignes** : calcul automatique du solde bidons/bonbonnes
-- **Mode offline** : file locale SQLite + synchronisation différée
-- **Dashboard** : KPI du jour (commandes, livraisons, encaissements)
-
-## Phases futures
-
-| Phase | Contenu |
-|-------|---------|
-| Phase 2 | Production, lots, SOP nettoyage 5L/19L, contrôle qualité |
-| Phase 3 | Caisse, RH, commissions, fidélité, flotte, reporting avancé |
+- **Portail client** : catalogue, panier, suivi de livraison, paiement
+- **POS / caisse** : ventes, avances, acomptes
+- **Clients** : fiches, zones, consignes, recouvrement
+- **Stocks** : produits finis, refus de commande hors stock
+- **Commandes et livraisons** : validation, tournées, bordereau de chargement
+- **SIRH** : pointage, heures de prestation, contrats
+- **Finance** : paiements, écarts, fidélité
+- **Mobile** : mode offline SQLite + synchronisation
 
 ## API principale
 
